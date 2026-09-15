@@ -1,0 +1,2222 @@
+{
+  "generatedAt": "2026-09-12T10:04:38.636Z",
+  "count": 277,
+  "skills": [
+    {
+      "id": "om:core/color-grading",
+      "name": "Color Grading for Video Production",
+      "category": "core",
+      "description": "Sources: BBC Academy color standards, Filmmaker IQ color science series, DaVinci Resolve",
+      "path": "core/color-grading.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:core/ffmpeg",
+      "name": "FFmpeg Skill",
+      "category": "core",
+      "description": "Use FFmpeg-backed tools for any video/audio processing that does not require AI inference:",
+      "path": "core/ffmpeg.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:core/hyperframes",
+      "name": "HyperFrames Skill (Layer 2)",
+      "category": "core",
+      "description": "This is the **OpenMontage-specific** guide to HyperFrames. It explains when",
+      "path": "core/hyperframes.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:core/remotion",
+      "name": "Remotion Skill",
+      "category": "core",
+      "description": "Use Remotion for advanced video composition from Phase 3 onward — anywhere that requires",
+      "path": "core/remotion.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:core/subtitle-sync",
+      "name": "Subtitle Sync Skill",
+      "category": "core",
+      "description": "Use the `subtitle_gen` tool to convert transcript data (from `transcriber`)",
+      "path": "core/subtitle-sync.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:core/whisperx",
+      "name": "WhisperX / Transcription Skill",
+      "category": "core",
+      "description": "Use the `transcriber` tool whenever you need to convert speech to text from",
+      "path": "core/whisperx.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/3d-world-generation",
+      "name": "3D World Generation",
+      "category": "creative",
+      "description": "Use this Layer 2 skill when an animation or cinematic project needs a real, continuous Three.js environment rather than a stack of stills or generated video clips.",
+      "path": "creative/3d-world-generation.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/animated-drawing",
+      "name": "Animated Drawing — animate a supplied drawing/photo with real mocap",
+      "category": "creative",
+      "description": "Command: `/animated-drawing` · **Path A (raster).** Sibling: `/ink-art` (vector, from scratch).",
+      "path": "creative/animated-drawing.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/animation-pipeline",
+      "name": "Animation & Motion Graphics Pipeline",
+      "category": "creative",
+      "description": "Sources: School of Motion curriculum, After Effects documentation, Remotion documentation,",
+      "path": "creative/animation-pipeline.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/bg-remove-usage",
+      "name": "Background Removal Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: rembg library documentation, U2Net paper (Qin et al. 2020), IS-Net paper",
+      "path": "creative/bg-remove-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/broll-planning",
+      "name": "B-Roll Planning for OpenMontage",
+      "category": "creative",
+      "description": "How to plan B-roll needs from a script, decide between stock and generated footage,",
+      "path": "creative/broll-planning.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/cinematic",
+      "name": "Cinematic Video Pipeline",
+      "category": "creative",
+      "description": "Sources: No Film School editorial guides, StudioBinder filmmaking resources, Film Riot",
+      "path": "creative/cinematic.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/data-visualization",
+      "name": "Data Visualization Strategy Skill",
+      "category": "creative",
+      "description": "Apply this skill when a scene requires presenting data visually: statistics, comparisons,",
+      "path": "creative/data-visualization.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/diagram-gen-usage",
+      "name": "Diagram Generation Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: Mermaid.js documentation, existing Layer 3 skill at `.agents/skills/beautiful-mermaid/`,",
+      "path": "creative/diagram-gen-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/enhancement-strategy",
+      "name": "Enhancement Strategy Skill",
+      "category": "creative",
+      "description": "Apply this skill when deciding how to enhance talking-head footage: which",
+      "path": "creative/enhancement-strategy.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/face-restore-usage",
+      "name": "Face Restoration Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: CodeFormer paper (Zhou et al. 2022), GFPGAN documentation, Real-ESRGAN upsampling docs,",
+      "path": "creative/face-restore-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/image-gen-usage",
+      "name": "Image Generation Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: OpenAI GPT Image documentation, FLUX/BFL API documentation, existing Layer 3 skills",
+      "path": "creative/image-gen-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/image-provider-usage",
+      "name": "Image Provider Usage for OpenMontage",
+      "category": "creative",
+      "description": "How to choose between image generation and stock providers, and how to use each effectively.",
+      "path": "creative/image-provider-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/ink-theater",
+      "name": "Ink Theater — hand-drawn \"moving art\" (creative skill)",
+      "category": "creative",
+      "description": "Style id: `ink-sketch` · Engine: `ink-theater/ink-theater.js` · Runtime: HyperFrames (atelier)",
+      "path": "creative/ink-theater.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/lip-sync-usage",
+      "name": "Lip Sync Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: Wav2Lip paper (Prajwal et al. 2020), Wav2Lip-GAN documentation, OpenMontage",
+      "path": "creative/lip-sync-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/long-form",
+      "name": "Long-Form Video Pipeline (10+ Minutes)",
+      "category": "creative",
+      "description": "Sources: YouTube Creator Academy, VidIQ analytics research, Think Media production guides,",
+      "path": "creative/long-form.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/manim-usage",
+      "name": "ManimCE Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: ManimCE documentation, 3Blue1Brown FAQ/conventions, Theorem of Beethoven tutorials,",
+      "path": "creative/manim-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/music-gen-usage",
+      "name": "Music Generation Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: ElevenLabs Music API documentation, ElevenLabs best practices guide, Artlist BPM",
+      "path": "creative/music-gen-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/grok-prompting",
+      "name": "Grok Prompting",
+      "category": "creative",
+      "description": "Use this when the chosen provider is `grok_image` or `grok_video`.",
+      "path": "creative/prompting/grok-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/hunyuan-prompting",
+      "name": "HunyuanVideo 1.5 — Prompting Guide",
+      "category": "creative",
+      "description": "Source: [Tencent Prompt Handbook](https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/assets/HunyuanVideo_1_5_Prompt_Handbook_EN.md)",
+      "path": "creative/prompting/hunyuan-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/ltx-prompting",
+      "name": "LTX-2 — Prompting Guide",
+      "category": "creative",
+      "description": "Source: [LTX Official Prompting Guide](https://docs.ltx.video/api-documentation/prompting-guide)",
+      "path": "creative/prompting/ltx-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/seedance-prompting",
+      "name": "Seedance 2.0 — Prompting Guide",
+      "category": "creative",
+      "description": "Layer 3 authority: `.agents/skills/seedance-2-0/SKILL.md`",
+      "path": "creative/prompting/seedance-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/sora-prompting",
+      "name": "Sora 2 — Prompting Guide",
+      "category": "creative",
+      "description": "Source: [OpenAI Sora 2 Cookbook](https://developers.openai.com/cookbook/examples/sora/sora2_prompting_guide)",
+      "path": "creative/prompting/sora-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/prompting/veo-prompting",
+      "name": "VEO 3.1 / VEO 3 — Prompting Guide",
+      "category": "creative",
+      "description": "Source: [Vertex AI Video Gen Prompt Guide](https://cloud.google.com/vertex-ai/generative-ai/docs/video/video-gen-prompt-guide)",
+      "path": "creative/prompting/veo-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/scene-detect-usage",
+      "name": "Scene Detection Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: PySceneDetect documentation, FFmpeg scenedetect filter docs, PySceneDetect",
+      "path": "creative/scene-detect-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/screen-recording",
+      "name": "Screen Recording Pipeline",
+      "category": "creative",
+      "description": "Sources: OBS Studio documentation, Loom production guidelines, Fireship production",
+      "path": "creative/screen-recording.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/short-form",
+      "name": "Short-Form Video Pipeline (TikTok / Reels / Shorts)",
+      "category": "creative",
+      "description": "Sources: TikTok Creator Portal, Instagram for Business blog, YouTube Shorts documentation,",
+      "path": "creative/short-form.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/sound-design",
+      "name": "Sound Design for Video Production",
+      "category": "creative",
+      "description": "Sources: W3C accessibility standards, BBC audio guidelines, YouTube/TikTok platform specs,",
+      "path": "creative/sound-design.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/stock-sourcing-usage",
+      "name": "Stock Sourcing Usage for OpenMontage",
+      "category": "creative",
+      "description": "How to use the stock image and video tools effectively — query construction,",
+      "path": "creative/stock-sourcing-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/storytelling",
+      "name": "Storytelling & Narrative Structure for Explainer Videos",
+      "category": "creative",
+      "description": "Sources: YouTube Creator Academy, Derek Muller PhD thesis (U. Sydney 2008), Kurzgesagt production",
+      "path": "creative/storytelling.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/talking-head-gen-usage",
+      "name": "Talking Head Generation Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: SadTalker paper (Zhang et al. 2023), MuseTalk documentation, existing Layer 2 skills",
+      "path": "creative/talking-head-gen-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/typography",
+      "name": "Typography for Video Production",
+      "category": "creative",
+      "description": "Sources: School of Motion typography guides, legibility.info video text rules, Wave.video font",
+      "path": "creative/typography.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/upscale-usage",
+      "name": "Upscaling Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: Real-ESRGAN documentation, GFPGAN face enhancement docs, Real-ESRGAN paper",
+      "path": "creative/upscale-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/video-editing",
+      "name": "Video Editing Skill",
+      "category": "creative",
+      "description": "Apply this skill when making editorial decisions for talking-head content:",
+      "path": "creative/video-editing.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/video-gen-prompting",
+      "name": "Video Generation Prompting — Universal Guide",
+      "category": "creative",
+      "description": "Write the prompt so that someone who has never seen the intended video could picture the subjects, scene, motion, and camera work from your text alone. If a reader could not picture it, a generation model will not render it.",
+      "path": "creative/video-gen-prompting.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/video-stitching",
+      "name": "Video Stitching Strategy Skill",
+      "category": "creative",
+      "description": "Apply this skill when assembling multiple video clips into a unified output:",
+      "path": "creative/video-stitching.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:creative/video-understand-usage",
+      "name": "Video Understanding Usage for OpenMontage",
+      "category": "creative",
+      "description": "Sources: OpenMontage video_understand tool implementation, CLIP/BLIP2/LLaVA model",
+      "path": "creative/video-understand-usage.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/animation-runtime-selector",
+      "name": "Animation Runtime Selector",
+      "category": "meta",
+      "description": "**Authoring mode comes first.** Before runtime or library, decide *how* the composition is",
+      "path": "meta/animation-runtime-selector.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/bespoke-composition",
+      "name": "Bespoke Composition (Atelier Mode)",
+      "category": "meta",
+      "description": "The single rule that governs everything below: **reuse engine knowledge, never creative",
+      "path": "meta/bespoke-composition.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/capability-extension",
+      "name": "Capability Extension Protocol",
+      "category": "meta",
+      "description": "When you encounter a production need that no existing tool covers. The agent can extend the system — but with guardrails. This replaces the blanket \"do NOT write ad-hoc Python scri",
+      "path": "meta/capability-extension.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/checkpoint-protocol",
+      "name": "Checkpoint Protocol — Meta Skill",
+      "category": "meta",
+      "description": "After completing a stage's work AND passing review. This skill teaches you when and how to checkpoint, and when to ask the human for approval. It replaces the Python `checkpoint_po",
+      "path": "meta/checkpoint-protocol.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/creative-intake",
+      "name": "Creative Intake",
+      "category": "meta",
+      "description": "Before the research stage, gather user intent through targeted questions.",
+      "path": "meta/creative-intake.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/onboarding",
+      "name": "Onboarding — Meta Skill",
+      "category": "meta",
+      "description": "**Try this now:** \"Make a 45-second animated explainer about why the sky is blue\"",
+      "path": "meta/onboarding.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/reviewer",
+      "name": "Reviewer — Meta Skill",
+      "category": "meta",
+      "description": "Findings ≠ critiques. A finding identifies a problem; a critique tells the next stage how to fix it. The CMU/Harvard CHAI study (\"Building a Precise Video Language with Human-AI Oversight\", arXiv 2604.21718v2) showed that critique quality, ",
+      "path": "meta/reviewer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/skill-creator",
+      "name": "Skill Creator — Meta Skill",
+      "category": "meta",
+      "description": "When you encounter a situation where no existing skill covers what you need to do, and the gap is reusable — not a one-off task. This skill teaches you to create new skills dynamic",
+      "path": "meta/skill-creator.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/taste-direction",
+      "name": "Taste Direction - Meta Skill",
+      "category": "meta",
+      "description": "Use this before committing to visual identity, mood boards, proposal packets, custom playbooks, atelier composition, image reference batches, or brand-heavy videos.",
+      "path": "meta/taste-direction.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/video-reference-analyst",
+      "name": "Video Reference Analyst — Meta Skill",
+      "category": "meta",
+      "description": "- **Subject:** type, attributes (count, age, role, costume, distinguishing features), multiple-subject disambiguation, transitions across shots (revealing / disappearing / switching / complex-alternating).",
+      "path": "meta/video-reference-analyst.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:meta/voice-performance-director",
+      "name": "Voice Performance Director",
+      "category": "meta",
+      "description": "Use this meta skill whenever a pipeline will generate narration with TTS.",
+      "path": "meta/voice-performance-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/ecom-details-image/SKILL",
+      "name": "电商图片提示词",
+      "category": "model-prompts",
+      "description": "把用户当前项目中已确认的商品素材转换为适合所选图片模型的电商视觉提示词。这个技能负责视觉策划和提示词编译；实际生图必须走客户端现有的图片生成任务接口。",
+      "path": "model-prompts/ecom-details-image/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/ecom-details-image/THIRD_PARTY_NOTICE",
+      "name": "Third-party notice",
+      "category": "model-prompts",
+      "description": "The scene-template JSON files in `references/templates/` were adapted from:",
+      "path": "model-prompts/ecom-details-image/THIRD_PARTY_NOTICE.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/ecom-video/SKILL",
+      "name": "电商商品视频",
+      "category": "model-prompts",
+      "description": "把用户确认的 1 至 4 张商品图片转化为可执行的电商短视频方案。这个技能负责识别商品、规划镜头和编译提示词；实际图片与视频生成必须走客户端已有的 provider、费用确认、任务中心和恢复流程。",
+      "path": "model-prompts/ecom-video/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/ecom-video/THIRD_PARTY_NOTICE",
+      "name": "Source note",
+      "category": "model-prompts",
+      "description": "This skill was independently adapted from production concepts in the user-provided `ecom-video-main.zip` archive (SHA-256 `F68F3A34E190AE9A9C9EC3EC81FF2714802B7EACC35A63491144FDA8E",
+      "path": "model-prompts/ecom-video/THIRD_PARTY_NOTICE.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/gemini-omni-prompt/SKILL",
+      "name": "Gemini Omni Flash Prompt Optimization",
+      "category": "model-prompts",
+      "description": "Optimize prompts without invoking Gemini, uploading media, reading API keys, or generating video.",
+      "path": "model-prompts/gemini-omni-prompt/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/minimax-h3-action-transfer/references/control-spec",
+      "name": "动作迁移控制规范",
+      "category": "model-prompts",
+      "description": "- 参考视频：唯一负责动作、表情、视线、口型动作、头部转动、姿态、位置与大小、发丝运动规律、衣料动力学、道具交互、镜头和剪辑。",
+      "path": "model-prompts/minimax-h3-action-transfer/references/control-spec.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/minimax-h3-action-transfer/references/intake-and-switches",
+      "name": "问询与模块开关",
+      "category": "model-prompts",
+      "description": "逐个打开图片并抽取视频关键帧，不得依赖文件名。至少确认：",
+      "path": "model-prompts/minimax-h3-action-transfer/references/intake-and-switches.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/minimax-h3-action-transfer/references/material-index-and-routing",
+      "name": "素材索引与能力路由",
+      "category": "model-prompts",
+      "description": "根据实际存在并已检查的素材生成紧凑、连续、无空位的编号。先告诉用户每个编号应上传哪类素材，再在提示词中使用同一编号。索引使用简短用途标签，不写完整文件名、扩展名或本地路径；不要假设聊天附件顺序等于 H3 上传顺序。",
+      "path": "model-prompts/minimax-h3-action-transfer/references/material-index-and-routing.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/minimax-h3-action-transfer/references/segmentation-and-duration",
+      "name": "分段与最终时长",
+      "category": "model-prompts",
+      "description": "参考视频副本每段不得低于 2 秒、不得高于 7 秒；脚本建议生成时长下限为 2 秒。即使当前 H3 官方标注生成下限为 4 秒，也不自动提升，仍按脚本的 2 秒下限生成提示词与任务参数。优先位于自然切点并符合原节奏。可以分成两段或更多段。最终合成视频的总帧数和音频长度必须与原视频一致。",
+      "path": "model-prompts/minimax-h3-action-transfer/references/segmentation-and-duration.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/minimax-h3-action-transfer/SKILL",
+      "name": "MiniMax H3 动作迁移",
+      "category": "model-prompts",
+      "description": "把参考视频的时间结构与运动规律迁移到目标人物、场景和道具，同时防止身份漂移、背景残留、光源冲突和前景贴图感。",
+      "path": "model-prompts/minimax-h3-action-transfer/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/2d-anime-grammar",
+      "name": "2D / Anime Grammar — direct the medium, not a camera rig",
+      "category": "model-prompts",
+      "description": "*Seedance 2.0 renders stylized 2D and anime motion well, but live-action grammar degrades it: lens, depth-of-field, and sensor vocabulary pulls outputs toward photorealism or a fak",
+      "path": "model-prompts/seedance-20/references/2d-anime-grammar.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/agent-compatibility",
+      "name": "Agent Compatibility",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-06-12",
+      "path": "model-prompts/seedance-20/references/agent-compatibility.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/allocation-model",
+      "name": "Allocation Model — decide where the prompt spends its budget",
+      "category": "model-prompts",
+      "description": "*The operational companion to `intent-vs-precision.md`: every generation has a finite fidelity budget, and a prompt that demands everything gets mediocrity everywhere. Decide where",
+      "path": "model-prompts/seedance-20/references/allocation-model.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/anti-slop-lexicon",
+      "name": "Anti-Slop Lexicon",
+      "category": "model-prompts",
+      "description": "Replace empty evaluation language with observable production language. Field-confirmed across prompting communities in every supported language: abstract quality words destabilize",
+      "path": "model-prompts/seedance-20/references/anti-slop-lexicon.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/api-status",
+      "name": "Seedance 2.0 API and Platform Status",
+      "category": "model-prompts",
+      "description": "As of 2026-06-20, public ByteDance sources describe Seedance 2.0 as a unified multimodal audio-video generation model with text, image, audio, and video inputs. Official launch and model-card material says references can include up to 9 ima",
+      "path": "model-prompts/seedance-20/references/api-status.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/api-workflow",
+      "name": "API Workflow",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-06-20",
+      "path": "model-prompts/seedance-20/references/api-workflow.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/aspect-ratio-delivery",
+      "name": "Aspect Ratio And Delivery Surfaces",
+      "category": "model-prompts",
+      "description": "Use this reference when planning professional framing, social cutdowns, broadcast/web deliverables, DCP/theatrical framing, or campaign versions.",
+      "path": "model-prompts/seedance-20/references/aspect-ratio-delivery.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/audio-guide",
+      "name": "Audio Guide",
+      "category": "model-prompts",
+      "description": "Use this reference for detailed audio, dialogue, beat-sync, ambience, and lip-sync workflows. Keep audio roles explicit and avoid promising exact platform behavior unless the activ",
+      "path": "model-prompts/seedance-20/references/audio-guide.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/audio-post-delivery",
+      "name": "Audio Post And Delivery",
+      "category": "model-prompts",
+      "description": "Use this reference when Seedance work involves dialogue, sound design, music, stems, M&E, dubbing, sync, or final delivery checks.",
+      "path": "model-prompts/seedance-20/references/audio-post-delivery.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/capability-map",
+      "name": "Capability Map — design into strengths, around limits",
+      "category": "model-prompts",
+      "description": "*What Seedance 2.0 is best at, how to extract each strength, and what to design around. Load before prompt planning. Labels: [official] = ByteDance/fal/Ark docs · [field] = practit",
+      "path": "model-prompts/seedance-20/references/capability-map.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/cinematography-shot-language",
+      "name": "Cinematography Shot Language",
+      "category": "model-prompts",
+      "description": "Use this reference when a user needs director/DP-grade shot design instead of generic cinematic adjectives.",
+      "path": "model-prompts/seedance-20/references/cinematography-shot-language.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/color-pipeline-aces",
+      "name": "Color Pipeline And ACES Notes",
+      "category": "model-prompts",
+      "description": "Use this reference when Seedance output must enter a professional edit, grade, HDR/SDR pass, agency review, or delivery workflow.",
+      "path": "model-prompts/seedance-20/references/color-pipeline-aces.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/community-source-methodology",
+      "name": "Community Source Methodology",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/community-source-methodology.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/continuation-handoff",
+      "name": "Continuation Handoff",
+      "category": "model-prompts",
+      "description": "Use this reference for every continue, extend, next-shot, bridge, repair-tail, or re-anchor request. A successor prompt must be based on accepted source footage or an accepted fina",
+      "path": "model-prompts/seedance-20/references/continuation-handoff.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/continuity-qc",
+      "name": "Continuity QC",
+      "category": "model-prompts",
+      "description": "Use this reference before finalizing a sequence prompt and after reviewing a generated take.",
+      "path": "model-prompts/seedance-20/references/continuity-qc.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/delivery-qc",
+      "name": "Delivery And QC",
+      "category": "model-prompts",
+      "description": "Use this reference when output must be reviewed, handed to a client, prepared for platform upload, localized, archived, or delivered as part of a professional campaign.",
+      "path": "model-prompts/seedance-20/references/delivery-qc.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/dense-storyboard-mode",
+      "name": "Dense Storyboard Mode",
+      "category": "model-prompts",
+      "description": "Use this reference when a request contains many panels, storyboard beats, animation boards, or multi-shot descriptions.",
+      "path": "model-prompts/seedance-20/references/dense-storyboard-mode.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/directing-engine-genre-library",
+      "name": "Directing Engine — Genre Worked-Example Library",
+      "category": "model-prompts",
+      "description": "On-demand companion to [`directing-engine.md`](directing-engine.md). Load this only when you want a fully worked example in a specific genre. The directing *method* - the Director'",
+      "path": "model-prompts/seedance-20/references/directing-engine-genre-library.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/directing-engine",
+      "name": "Directing Engine",
+      "category": "model-prompts",
+      "description": "The difference between a prompt that asks for \"a cinematic look\" and a prompt a director would sign is motivation. A director does not pick a camera move, a light, or a performance",
+      "path": "model-prompts/seedance-20/references/directing-engine.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/eval-rubric",
+      "name": "Eval Rubric",
+      "category": "model-prompts",
+      "description": "Each eval case should verify activation, output structure, safety behavior, and prompt usefulness.",
+      "path": "model-prompts/seedance-20/references/eval-rubric.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/event-density",
+      "name": "Event Density",
+      "category": "model-prompts",
+      "description": "Use this reference to decide how much story belongs in one generation.",
+      "path": "model-prompts/seedance-20/references/event-density.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/examples-by-mode",
+      "name": "Examples By Mode",
+      "category": "model-prompts",
+      "description": "Use these as safe structures, not fixed scripts. They are original examples and avoid protected characters, celebrities, logos, and copied community prompts.",
+      "path": "model-prompts/seedance-20/references/examples-by-mode.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/failure-atlas",
+      "name": "Failure Atlas",
+      "category": "model-prompts",
+      "description": "Use this reference when sequence or continuation output fails.",
+      "path": "model-prompts/seedance-20/references/failure-atlas.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/field-observed-tips",
+      "name": "Field-Observed Tips",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/field-observed-tips.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/filter-vocab",
+      "name": "Filter-Safe Vocabulary",
+      "category": "model-prompts",
+      "description": "Use professional, non-graphic, production-context language. Do not use this reference to bypass safety systems.",
+      "path": "model-prompts/seedance-20/references/filter-vocab.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/first-last-frame-guide",
+      "name": "First/Last Frame Guide",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/first-last-frame-guide.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/frontend-design-system",
+      "name": "Frontend Design System",
+      "category": "model-prompts",
+      "description": "This repository has no application frontend. The user-facing frontend is the GitHub README, generated bitmap assets, and SVG support assets.",
+      "path": "model-prompts/seedance-20/references/frontend-design-system.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/genre-guides",
+      "name": "Genre Guides",
+      "category": "model-prompts",
+      "description": "Use genre guidance to choose priorities, not to add empty style words. Every genre still needs a subject, one visible beat, camera logic, physical light, audio intent, and constrai",
+      "path": "model-prompts/seedance-20/references/genre-guides.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/i2v-guide",
+      "name": "Image-to-Video Guide",
+      "category": "model-prompts",
+      "description": "Prompt only what the image cannot show. A still image already contains subject identity, product form, wardrobe, palette, composition, and background. Re-describing those static de",
+      "path": "model-prompts/seedance-20/references/i2v-guide.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/intent-vs-precision",
+      "name": "Intent vs Precision",
+      "category": "model-prompts",
+      "description": "Seedance prompting is not pixel scripting. The text should direct intent; references should carry dense visual information.",
+      "path": "model-prompts/seedance-20/references/intent-vs-precision.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/json-schema",
+      "name": "Seedance Prompt JSON Schema",
+      "category": "model-prompts",
+      "description": "Use this schema when the user wants structured output or when an automation pipeline needs stable fields.",
+      "path": "model-prompts/seedance-20/references/json-schema.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/README",
+      "name": "Migrated Legacy Bodies",
+      "category": "model-prompts",
+      "description": "These files preserve earlier local skill bodies for historical comparison only. They are not active guidance and can contain stale platform status, old block-rate claims, outdated",
+      "path": "model-prompts/seedance-20/references/migrated/README.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-antislop-original",
+      "name": "Legacy body for `seedance-antislop`",
+      "category": "model-prompts",
+      "description": "**\"Can a camera, light meter, or stopwatch measure this?\"**",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-antislop-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-audio-original",
+      "name": "Legacy body for `seedance-audio`",
+      "category": "model-prompts",
+      "description": "**Source intelligence**: ByteDance official Seedance 2.0 release blog (seed.bytedance.com), Douyin/抖音 creator community, CSDN practitioner tutorials, Q1 2026. Western sources have minimal real-world data.",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-audio-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-copyright-original",
+      "name": "Legacy body for `seedance-copyright`",
+      "category": "model-prompts",
+      "description": "**What happened (Feb 12–25, 2026):**",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-copyright-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-examples-zh-original",
+      "name": "Legacy body for `seedance-examples-zh`",
+      "category": "model-prompts",
+      "description": "【风格】热门中国豪门爽剧风格（霸总风格）、竖屏构图、高饱和度滤镜、极致面部特写、戏剧化的情绪范围。",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-examples-zh-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-filter-original",
+      "name": "Legacy body for `seedance-filter`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-filter-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-pipeline-original",
+      "name": "Legacy body for `seedance-pipeline`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-pipeline-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-recipes-original",
+      "name": "Legacy body for `seedance-recipes`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-recipes-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-vocab-es-original",
+      "name": "Legacy body for `seedance-vocab-es`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-vocab-es-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-vocab-ja-original",
+      "name": "Legacy body for `seedance-vocab-ja`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-vocab-ja-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-vocab-ko-original",
+      "name": "Legacy body for `seedance-vocab-ko`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-vocab-ko-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-vocab-ru-original",
+      "name": "Legacy body for `seedance-vocab-ru`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-vocab-ru-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/seedance-vocab-zh-original",
+      "name": "Legacy body for `seedance-vocab-zh`",
+      "category": "model-prompts",
+      "description": "Migrated on 2026-04-27 during v5.1.0. Treat platform, policy, API, and safety claims here as legacy unless confirmed in `references/api-status.md` or `references/source-registry.md",
+      "path": "model-prompts/seedance-20/references/migrated/seedance-vocab-zh-original.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-antislop",
+      "name": "seedance-antislop",
+      "category": "model-prompts",
+      "description": "Use this skill to remove generic AI-video filler and convert vague language into observable production instructions.",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-antislop.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-audio",
+      "name": "seedance-audio",
+      "category": "model-prompts",
+      "description": "Use this skill for dialogue, lip-sync, music timing, sound effects, ambient sound, and audio-reference planning.",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-audio.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-copyright",
+      "name": "seedance-copyright",
+      "category": "model-prompts",
+      "description": "Use this skill to rewrite risky prompts involving protected characters, franchises, celebrities, public figures, brand logos, copyrighted scenes, music titles, studio styles, or re",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-copyright.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-examples-zh",
+      "name": "seedance-examples-zh",
+      "category": "model-prompts",
+      "description": "Use this skill for Chinese examples and safe adaptations. Examples are templates, not permission to copy protected characters, branded ads, copyrighted scenes, or unlicensed videos",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-examples-zh.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-filter",
+      "name": "seedance-filter",
+      "category": "model-prompts",
+      "description": "Use this skill when a prompt is blocked, degraded, or likely to trigger content filters. The job is not to bypass safety systems; it is to preserve legitimate creative intent with",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-filter.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-es",
+      "name": "seedance-vocab-es",
+      "category": "model-prompts",
+      "description": "Use this skill for Spanish Seedance 2.0 prompt wording and cinematic vocabulary. Keep active skill guidance lean; extended legacy term lists were moved to `references/migrated/seed",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-es.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ja",
+      "name": "seedance-vocab-ja",
+      "category": "model-prompts",
+      "description": "Use this skill for Japanese Seedance 2.0 prompt wording and cinematic vocabulary. Keep active skill guidance lean; extended legacy term lists were moved to `references/migrated/see",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ja.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ko",
+      "name": "seedance-vocab-ko",
+      "category": "model-prompts",
+      "description": "Use this skill for Korean Seedance 2.0 prompt wording and cinematic vocabulary. Keep active skill guidance lean; extended legacy term lists were moved to `references/migrated/seeda",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ko.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ru",
+      "name": "seedance-vocab-ru",
+      "category": "model-prompts",
+      "description": "Use this skill for Russian Seedance 2.0 prompt wording and cinematic vocabulary. Keep active skill guidance lean; extended legacy term lists were moved to `references/migrated/seed",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-ru.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-zh",
+      "name": "seedance-vocab-zh",
+      "category": "model-prompts",
+      "description": "Use this skill for Chinese Seedance 2.0 prompt wording and cinematic vocabulary. Keep active skill guidance lean; extended legacy term lists were moved to `references/migrated/seed",
+      "path": "model-prompts/seedance-20/references/migrated/v5.2-legacy-skill-bodies/seedance-vocab-zh.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/model-mechanics",
+      "name": "Model Mechanics — how the generator thinks",
+      "category": "model-prompts",
+      "description": "*A working mental model of why this repo's rules work, so an agent can derive correct guidance for cases no rule covers. Built from public machine-learning knowledge and the public",
+      "path": "model-prompts/seedance-20/references/model-mechanics.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/model-name-map",
+      "name": "Model Name Map",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-06-20",
+      "path": "model-prompts/seedance-20/references/model-name-map.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/multilingual-community-examples",
+      "name": "Multilingual Community Examples",
+      "category": "model-prompts",
+      "description": "These are original, safety-screened examples distilled from public multilingual Seedance 2.0 practice. Use them as structures and vocabulary patterns, not copied community prompts.",
+      "path": "model-prompts/seedance-20/references/multilingual-community-examples.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/multishot-grammar",
+      "name": "Multi-Shot Grammar — real cuts inside one generation",
+      "category": "model-prompts",
+      "description": "*Seedance 2.0's defining capability over 1.x: a single 10–15s call can contain 2–3 shots with genuine editorial cuts. Labels: [official] = ByteDance/fal docs · [field] = practition",
+      "path": "model-prompts/seedance-20/references/multishot-grammar.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/platform-constraints",
+      "name": "Platform Constraints",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/platform-constraints.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/platform-surface-matrix",
+      "name": "Platform Surface Matrix",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-06-20",
+      "path": "model-prompts/seedance-20/references/platform-surface-matrix.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/pro-filmmaking-standards",
+      "name": "Professional Filmmaking Standards",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/pro-filmmaking-standards.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/progressive-disclosure",
+      "name": "Progressive Disclosure Plan",
+      "category": "model-prompts",
+      "description": "The root skill should route. Sub-skills should decide. References should carry dense tables and volatile facts. The active context stays small because weight is loaded only when a",
+      "path": "model-prompts/seedance-20/references/progressive-disclosure.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/prompt-compiler",
+      "name": "Prompt Compiler",
+      "category": "model-prompts",
+      "description": "The compiler turns internal project state into one natural-language Seedance prompt for the current clip only. JSON or YAML can organize planning, but the final prompt sent to Seed",
+      "path": "model-prompts/seedance-20/references/prompt-compiler.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/prompt-examples",
+      "name": "Prompt Examples",
+      "category": "model-prompts",
+      "description": "Use these examples as patterns, not fixed scripts. Preserve reference tags exactly and keep final prompts under the verified active-surface prompt budget. Each example includes the",
+      "path": "model-prompts/seedance-20/references/prompt-examples.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/quick-ref",
+      "name": "Quick Reference",
+      "category": "model-prompts",
+      "description": "- Vague idea: `seedance-interview`.",
+      "path": "model-prompts/seedance-20/references/quick-ref.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/reference-transfer-contract",
+      "name": "Reference Transfer Contract",
+      "category": "model-prompts",
+      "description": "Use this reference when images, videos, audio, previous clips, final frames, or interface tags appear in a sequence.",
+      "path": "model-prompts/seedance-20/references/reference-transfer-contract.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/reference-workflow",
+      "name": "Reference Workflow",
+      "category": "model-prompts",
+      "description": "Before writing prompt prose, assign every uploaded asset a role. Role mapping prevents accidental transfer of identity, logos, scene ownership, or incompatible camera and motion in",
+      "path": "model-prompts/seedance-20/references/reference-workflow.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/research-2026-05-30",
+      "name": "Seedance Research Snapshot",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-05-30",
+      "path": "model-prompts/seedance-20/references/research-2026-05-30.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/retake-protocol",
+      "name": "Retake Protocol — the iteration economy",
+      "category": "model-prompts",
+      "description": "*What happens after a generation comes back. The rest of this skill plans the shot and repairs outright failure; this governs everything in between — the partially good take, which",
+      "path": "model-prompts/seedance-20/references/retake-protocol.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/sequence-project-state",
+      "name": "Sequence Project State",
+      "category": "model-prompts",
+      "description": "Use this reference when a Seedance request becomes a multi-clip project. The project state is the source of truth; prompts are temporary compiled instructions for one generation.",
+      "path": "model-prompts/seedance-20/references/sequence-project-state.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/shot-list-continuity",
+      "name": "Shot List And Continuity",
+      "category": "model-prompts",
+      "description": "Use this reference when a user asks for a film scene, ad sequence, multi-shot plan, storyboard, treatment-to-shot-list conversion, or continuity repair.",
+      "path": "model-prompts/seedance-20/references/shot-list-continuity.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/source-registry",
+      "name": "Source Registry",
+      "category": "model-prompts",
+      "description": "last_verified: 2026-06-20",
+      "path": "model-prompts/seedance-20/references/source-registry.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/storytelling-framework",
+      "name": "Storytelling Framework",
+      "category": "model-prompts",
+      "description": "A short Seedance clip works best when it has one visible decision or one visible transformation. The model does not need a full plot; it needs a clear before state, action, and cha",
+      "path": "model-prompts/seedance-20/references/storytelling-framework.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/subtitles-localization",
+      "name": "Subtitles And Localization",
+      "category": "model-prompts",
+      "description": "Use this reference when a Seedance project needs global release, subtitles, captions, forced narratives, dubbing, multilingual prompts, or market-specific copy.",
+      "path": "model-prompts/seedance-20/references/subtitles-localization.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/surface-prompt-profiles",
+      "name": "Surface Prompt Profiles",
+      "category": "model-prompts",
+      "description": "Use this reference to keep platform behavior surface-specific. Do not hardcode duration, prompt length, reference counts, tag syntax, edit support, extension support, audio behavio",
+      "path": "model-prompts/seedance-20/references/surface-prompt-profiles.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/vocab/en",
+      "name": "English Vocabulary",
+      "category": "model-prompts",
+      "description": "Use this reference for precise English Seedance prompt wording. English is the default prompting language and the most heavily moderated surface, and it fails in two ways at once:",
+      "path": "model-prompts/seedance-20/references/vocab/en.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/vocab/es",
+      "name": "Spanish Vocabulary",
+      "category": "model-prompts",
+      "description": "Use this reference for Spanish Seedance prompt wording, role binding, and compact prompt compression. Keep reference tags unchanged: `[Image1]`, `[Video1]`, and `[Audio1]` stay lit",
+      "path": "model-prompts/seedance-20/references/vocab/es.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/vocab/ja",
+      "name": "Japanese Vocabulary",
+      "category": "model-prompts",
+      "description": "Use this reference for Japanese Seedance prompt wording, role binding, and compact prompt compression. Keep reference tags unchanged: `[Image1]`, `[Video1]`, and `[Audio1]` stay li",
+      "path": "model-prompts/seedance-20/references/vocab/ja.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/vocab/ko",
+      "name": "Korean Vocabulary",
+      "category": "model-prompts",
+      "description": "Use this reference for Korean Seedance prompt wording, role binding, and compact prompt compression. Keep reference tags unchanged: `[Image1]`, `[Video1]`, and `[Audio1]` stay lite",
+      "path": "model-prompts/seedance-20/references/vocab/ko.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/references/vocab/ru",
+      "name": "Russian Vocabulary",
+      "category": "model-prompts",
+      "description": "Use this reference for Russian Seedance prompt wording, role binding, and compact translation. Keep reference tags unchanged: `[Image1]`, `[Video1]`, and `[Audio1]` stay literal.",
+      "path": "model-prompts/seedance-20/references/vocab/ru.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/SKILL",
+      "name": "seedance-20",
+      "category": "model-prompts",
+      "description": "Seedance 2.0 operating loop for agent-directed video work. Use this root skill to route, check facts, protect references, and keep prompts compact before loading specialized sub-sk",
+      "path": "model-prompts/seedance-20/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-antislop/SKILL",
+      "name": "seedance-antislop",
+      "category": "model-prompts",
+      "description": "Remove filler that hides missing visual decisions. A strong Seedance prompt uses observable nouns, verbs, camera moves, light sources, sound cues, and constraints. A weak prompt as",
+      "path": "model-prompts/seedance-20/skills/seedance-antislop/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-audio/SKILL",
+      "name": "seedance-audio",
+      "category": "model-prompts",
+      "description": "Use this for dialogue, lip-sync, sound layers, music, ambience, beat-sync, audio-reference mapping, desync troubleshooting, or sound-driven visual timing. Audio should support the",
+      "path": "model-prompts/seedance-20/skills/seedance-audio/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-camera/SKILL",
+      "name": "seedance-camera",
+      "category": "model-prompts",
+      "description": "Use one clear camera idea per short clip unless the user asks for a multi-shot sequence. The best camera direction has a start frame, movement, speed, subject relationship, and end",
+      "path": "model-prompts/seedance-20/skills/seedance-camera/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-characters/SKILL",
+      "name": "seedance-characters",
+      "category": "model-prompts",
+      "description": "Use this for identity, consistency, multi-character blocking, wardrobe continuity, hand safety, expression control, and likeness-sensitive character guidance. Character prompting m",
+      "path": "model-prompts/seedance-20/skills/seedance-characters/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-continuation/SKILL",
+      "name": "seedance-continuation",
+      "category": "model-prompts",
+      "description": "Use this for seamless continuation, intentional next shots, bridge clips, tail repair, and re-anchoring after drift. A continuation prompt must be grounded in accepted footage, not",
+      "path": "model-prompts/seedance-20/skills/seedance-continuation/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-copyright/SKILL",
+      "name": "seedance-copyright",
+      "category": "model-prompts",
+      "description": "Use this before finalizing prompts involving protected IP, named brands, public figures, private people, voices, logos, songs, studios, exact scenes, or lookalike character request",
+      "path": "model-prompts/seedance-20/skills/seedance-copyright/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-examples-ja/SKILL",
+      "name": "seedance-examples-ja",
+      "category": "model-prompts",
+      "description": "Use Japanese examples as native prompt patterns, not translated English templates. Preserve reference tags exactly: `[Image1]`, `[Image2]`, `[Video1]`, and `[Audio1]` remain unchan",
+      "path": "model-prompts/seedance-20/skills/seedance-examples-ja/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-examples-ko/SKILL",
+      "name": "seedance-examples-ko",
+      "category": "model-prompts",
+      "description": "Use Korean examples as native prompt patterns, not translated English templates. Preserve reference tags exactly: `[Image1]`, `[Image2]`, `[Video1]`, and `[Audio1]` remain unchange",
+      "path": "model-prompts/seedance-20/skills/seedance-examples-ko/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-examples-zh/SKILL",
+      "name": "seedance-examples-zh",
+      "category": "model-prompts",
+      "description": "Use examples as patterns, not as content to copy blindly. Chinese prompts should stay compact, concrete, and production-oriented. Keep reference tags such as `[Image1]`, `[Video1]`",
+      "path": "model-prompts/seedance-20/skills/seedance-examples-zh/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-filter/SKILL",
+      "name": "seedance-filter",
+      "category": "model-prompts",
+      "description": "A wrongly blocked prompt makes a user feel accused by a machine with no court of appeal. This skill is the advocate: clear the innocent by stating their honest intent plainly, and",
+      "path": "model-prompts/seedance-20/skills/seedance-filter/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-interview/SKILL",
+      "name": "seedance-interview",
+      "category": "model-prompts",
+      "description": "Use this as the full director interview when the user has a rough idea rather than a ready scene. Default assumption: the user has no cinematography, videography, or storytelling b",
+      "path": "model-prompts/seedance-20/skills/seedance-interview/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-interview-short/SKILL",
+      "name": "seedance-interview-short",
+      "category": "model-prompts",
+      "description": "Use this when speed matters more than exhaustive creative discovery. The goal is to turn a vague idea into a compact director brief with no more than three questions, then route to",
+      "path": "model-prompts/seedance-20/skills/seedance-interview-short/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-lighting/SKILL",
+      "name": "seedance-lighting",
+      "category": "model-prompts",
+      "description": "Lighting should describe physical sources and transitions, not abstract beauty. A useful lighting prompt tells the model where the light comes from, its color temperature, how shad",
+      "path": "model-prompts/seedance-20/skills/seedance-lighting/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-motion/SKILL",
+      "name": "seedance-motion",
+      "category": "model-prompts",
+      "description": "Use physical verbs and consequences. Motion should be observable on screen, timed within the clip, and assigned to a subject or object. Prefer one strong action with a visible endp",
+      "path": "model-prompts/seedance-20/skills/seedance-motion/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-pipeline/SKILL",
+      "name": "seedance-pipeline",
+      "category": "model-prompts",
+      "description": "Use this for operational workflows, APIs, web surfaces, post-production, and integration planning.",
+      "path": "model-prompts/seedance-20/skills/seedance-pipeline/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-prompt/SKILL",
+      "name": "seedance-prompt",
+      "category": "model-prompts",
+      "description": "Build production-ready Seedance prompts from clear concepts or supplied reference assets. Treat the prompt as a short shooting brief: it must say what changes on screen, what the c",
+      "path": "model-prompts/seedance-20/skills/seedance-prompt/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-prompt-short/SKILL",
+      "name": "seedance-prompt-short",
+      "category": "model-prompts",
+      "description": "Compress Seedance prompts without losing the production signal. A short prompt still needs mode, subject, action, camera, light, sound when useful, and constraints. Remove filler b",
+      "path": "model-prompts/seedance-20/skills/seedance-prompt-short/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-recipes/SKILL",
+      "name": "seedance-recipes",
+      "category": "model-prompts",
+      "description": "Use recipes as starting patterns, not rigid prompt templates. Pick the recipe that matches the user's outcome, then customize subject, action, camera, lighting, audio, and constrai",
+      "path": "model-prompts/seedance-20/skills/seedance-recipes/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-sequence/SKILL",
+      "name": "seedance-sequence",
+      "category": "model-prompts",
+      "description": "Use this when the user's idea is larger than one reliable generation, when connected clips are requested, or when the user says continue, extend, next part, part two, next scene, o",
+      "path": "model-prompts/seedance-20/skills/seedance-sequence/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-style/SKILL",
+      "name": "seedance-style",
+      "category": "model-prompts",
+      "description": "Translate style requests into production descriptors. Style should describe medium, texture, palette, lens or render behavior, period cues, and composition. Do not rely on studio,",
+      "path": "model-prompts/seedance-20/skills/seedance-style/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-troubleshoot/SKILL",
+      "name": "seedance-troubleshoot",
+      "category": "model-prompts",
+      "description": "If the take is partially good rather than failed, route to `[ref:retake-protocol]` triage first - most takes deserve a verdict, not a rewrite. Diagnose failure before rewriting. Do",
+      "path": "model-prompts/seedance-20/skills/seedance-troubleshoot/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vfx/SKILL",
+      "name": "seedance-vfx",
+      "category": "model-prompts",
+      "description": "VFX prompts need material behavior, source, timing, and consequence. Treat every effect as physical: it starts somewhere, interacts with light and objects, changes over time, and e",
+      "path": "model-prompts/seedance-20/skills/seedance-vfx/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-en/SKILL",
+      "name": "seedance-vocab-en",
+      "category": "model-prompts",
+      "description": "English is the default prompting language and fails in two ways at once: slop (empty evaluation words that add tokens and no signal) and false positives (vague threat-adjacent word",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-en/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-es/SKILL",
+      "name": "seedance-vocab-es",
+      "category": "model-prompts",
+      "description": "Use Spanish cinematic vocabulary when the user asks for Spanish prompts, bilingual delivery, or compact translation of camera, lighting, action, VFX, audio, and production constrai",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-es/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-ja/SKILL",
+      "name": "seedance-vocab-ja",
+      "category": "model-prompts",
+      "description": "Use Japanese cinematic vocabulary when the user asks for Japanese prompt wording, bilingual delivery, compact translation, or production vocabulary for camera, lighting, motion, VF",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-ja/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-ko/SKILL",
+      "name": "seedance-vocab-ko",
+      "category": "model-prompts",
+      "description": "Use Korean cinematic vocabulary when the user asks for Korean prompt wording, bilingual delivery, compact translation, or production vocabulary for camera, lighting, action, VFX, a",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-ko/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-ru/SKILL",
+      "name": "seedance-vocab-ru",
+      "category": "model-prompts",
+      "description": "Use Russian cinematic vocabulary when the user asks for Russian prompt wording, bilingual delivery, compact translation, role binding, first/last-frame workflow, or production voca",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-ru/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/seedance-20/skills/seedance-vocab-zh/SKILL",
+      "name": "seedance-vocab-zh",
+      "category": "model-prompts",
+      "description": "Use Chinese vocabulary when the user asks for Chinese prompts, Mandarin cinematic wording, role binding, first/last-frame workflow, or maximum compactness. Chinese prompt wording i",
+      "path": "model-prompts/seedance-20/skills/seedance-vocab-zh/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/visual-asset-prompting/references/asset-templates",
+      "name": "资产模板与约束",
+      "category": "model-prompts",
+      "description": "以下模板由《场景模板.docx》整理而来。它们是组合规则，不是需要逐字复制的固定提示词。只保留与用户当前任务有关的模块。",
+      "path": "model-prompts/visual-asset-prompting/references/asset-templates.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:model-prompts/visual-asset-prompting/SKILL",
+      "name": "视频前期视觉资产提示词",
+      "category": "model-prompts",
+      "description": "把随包模板作为内部方法，不向用户复述模板，不修改技能文件本身。每次依据当前会话、已上传图片和当前项目素材生成一份新的、可直接提交给所选图片模型的提示词。",
+      "path": "model-prompts/visual-asset-prompting/SKILL.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/asset-director",
+      "name": "Asset Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "This stage prepares the actual animated ingredients: narration, diagrams, math renders, motion backgrounds, code visuals, and reusable type or layout systems.",
+      "path": "pipelines/animation/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/compose-director",
+      "name": "Compose Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "Render the animation with an emphasis on text sharpness, timing integrity, and consistent output cadence. For `image_animation` approach, this stage also includes building the comp",
+      "path": "pipelines/animation/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/edit-director",
+      "name": "Edit Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "This stage turns the scene plan into an animatic-grade edit plan. Timing is the product.",
+      "path": "pipelines/animation/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/executive-producer",
+      "name": "Executive Producer — Animation Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a generated animation video. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and eit",
+      "path": "pipelines/animation/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/idea-director",
+      "name": "Idea Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the video should be built primarily through designed motion: motion graphics, kinetic typography, diagram-led explainers, math visuals, or illustrative anima",
+      "path": "pipelines/animation/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/proposal-director",
+      "name": "Proposal Director — Animation Pipeline",
+      "category": "pipelines",
+      "description": "\"You can also mix elements — for example, Concept A's hook with Concept C's animation approach, or Concept B's narrative with Concept A's visual style. What speaks to you?\"",
+      "path": "pipelines/animation/proposal-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/publish-director",
+      "name": "Publish Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "Package the animation so the metadata, thumbnail concept, and platform framing reflect the actual visual system of the project.",
+      "path": "pipelines/animation/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/research-director",
+      "name": "Research Director — Animation Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Research Director** for a generated animation video. You are the first stage in the pipeline — before any creative decisions, before any script, before any money is s",
+      "path": "pipelines/animation/research-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/scene-director",
+      "name": "Scene Director - Animation Pipeline",
+      "category": "pipelines",
+      "description": "Every scene must specify all five aspects, BUT the load shifts with the scene's `animation_mode`. Manim and other diagrammatic/programmatic scenes care most about **Subject** and **Spatial Framing** — Camera and Subject Motion in the cinema",
+      "path": "pipelines/animation/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/animation/script-director",
+      "name": "Script Director — Animation Pipeline",
+      "category": "pipelines",
+      "description": "This stage turns the approved proposal into animation-ready beats. The script must leave room for motion, staging, and hold time — and must integrate the research findings and resp",
+      "path": "pipelines/animation/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/asset-director",
+      "name": "Asset Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "This stage prepares the actual spokesperson ingredients: narration, avatar or lip-sync footage, subtitle assets, branded backgrounds, and the minimal support graphics needed to com",
+      "path": "pipelines/avatar-spokesperson/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/compose-director",
+      "name": "Compose Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Render the final spokesperson outputs. The bar is simple: the presenter must look stable, speech must be clear, and subtitles or support cards must not crowd the frame.",
+      "path": "pipelines/avatar-spokesperson/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/edit-director",
+      "name": "Edit Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Turn the planned presenter scenes and produced assets into a coherent spokesperson timeline. The quality bar is steady delivery, readable support layers, and a clear CTA landing.",
+      "path": "pipelines/avatar-spokesperson/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/executive-producer",
+      "name": "Executive Producer — Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for an avatar spokesperson video. You orchestrate the pipeline serially with quality gates focused on **lip-sync quality, presenter framing,",
+      "path": "pipelines/avatar-spokesperson/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/idea-director",
+      "name": "Idea Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the deliverable is a presenter-led avatar video: a spokesperson spot, product intro, onboarding message, internal comms update, or short scripted explainer w",
+      "path": "pipelines/avatar-spokesperson/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/publish-director",
+      "name": "Publish Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Package the finished spokesperson outputs for delivery. This stage should make it obvious which file is the hero cut, which are derivatives, and what message or audience each versi",
+      "path": "pipelines/avatar-spokesperson/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/scene-director",
+      "name": "Scene Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Plan the visual system for the presenter-led cut. This stage decides how the speaker sits in frame, what support layers appear, and which aspect ratios are actually worth building.",
+      "path": "pipelines/avatar-spokesperson/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/avatar-spokesperson/script-director",
+      "name": "Script Director - Avatar Spokesperson Pipeline",
+      "category": "pipelines",
+      "description": "Turn the approved brief into scene-safe spoken copy for an avatar presenter. The quality bar is not literary flourish. It is spoken clarity, believable pacing, and one clean point",
+      "path": "pipelines/avatar-spokesperson/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/asset-director",
+      "name": "Asset Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Produce `asset_manifest` with character parts, backgrounds, props, audio, music,",
+      "path": "pipelines/character-animation/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/character-design-director",
+      "name": "Character Design Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "**Hand-drawn ink \"doodle\" character?** (a stick/pencil figure that draws itself, then walks / dances / waves / jumps) → use the **Ink Puppet** system: `skills/creative/ink-theater.md` + `ink-theater/README.md`. The rig is proportion-agnosti",
+      "path": "pipelines/character-animation/character-design-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/compose-director",
+      "name": "Compose Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Render the approved character animation and prove it was reviewed.",
+      "path": "pipelines/character-animation/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/edit-director",
+      "name": "Edit Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Produce `edit_decisions` and `action_timeline`.",
+      "path": "pipelines/character-animation/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/executive-producer",
+      "name": "Executive Producer - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the requested deliverable depends on reusable animated",
+      "path": "pipelines/character-animation/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/proposal-director",
+      "name": "Proposal Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Present character-animation concepts that are honest about local rigged motion,",
+      "path": "pipelines/character-animation/proposal-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/publish-director",
+      "name": "Publish Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Package the final character-animation deliverable with honest metadata and a",
+      "path": "pipelines/character-animation/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/research-director",
+      "name": "Research Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Ground the character-animation plan in real references and current technique.",
+      "path": "pipelines/character-animation/research-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/rig-plan-director",
+      "name": "Rig Plan Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Produce `rig_plan` and `pose_library` from `character_design`.",
+      "path": "pipelines/character-animation/rig-plan-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/scene-director",
+      "name": "Scene Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Produce a `scene_plan` where each scene is feasible for rigged character",
+      "path": "pipelines/character-animation/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/character-animation/script-director",
+      "name": "Script Director - Character Animation Pipeline",
+      "category": "pipelines",
+      "description": "Write scripts as performable animation beats, not just narration.",
+      "path": "pipelines/character-animation/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/asset-director",
+      "name": "Asset Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "Before sending a prompt to any image or video generation tool, run a three-step self-review modeled on the CHAI oversight loop (\"Building a Precise Video Language with Human-AI Oversight\", arXiv 2604.21718v2). Cost is small (no extra tool c",
+      "path": "pipelines/cinematic/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/compose-director",
+      "name": "Compose Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "Render the cinematic piece with careful attention to grade, audio dynamics, and frame treatment. This is not a generic export step.",
+      "path": "pipelines/cinematic/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/edit-director",
+      "name": "Edit Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "This stage turns the beat map into a paced cinematic timeline. Rhythm and restraint matter more than effect count.",
+      "path": "pipelines/cinematic/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/executive-producer",
+      "name": "Executive Producer — Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a cinematic video (trailers, brand films, montages, short dramatic edits). You orchestrate the pipeline serially with quality gates focu",
+      "path": "pipelines/cinematic/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/idea-director",
+      "name": "Idea Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline for trailers, brand films, dramatic montages, or mood-led short videos where rhythm, atmosphere, and emotional escalation matter more than direct explanation.",
+      "path": "pipelines/cinematic/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/proposal-director",
+      "name": "Proposal Director — Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "\"You can also mix elements — for example, Concept A's emotional arc with Concept C's visual treatment and Concept B's music direction. What speaks to you?\"",
+      "path": "pipelines/cinematic/proposal-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/publish-director",
+      "name": "Publish Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "Package the cinematic piece and any cutdowns so the hero version stays clear and the distribution intent is obvious.",
+      "path": "pipelines/cinematic/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/research-director",
+      "name": "Research Director — Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Research Director** for a cinematic video (trailers, brand films, dramatic montages, mood-led edits). Your job is to deeply research the subject to ground the cinemat",
+      "path": "pipelines/cinematic/research-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/scene-director",
+      "name": "Scene Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "Every scene beat — and especially every hero frame — must specify all five aspects. Cinematic relies on a small number of memorable frames; vague hero-frame specs are the single most common failure mode and produce unpredictable model outpu",
+      "path": "pipelines/cinematic/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/cinematic/script-director",
+      "name": "Script Director - Cinematic Pipeline",
+      "category": "pipelines",
+      "description": "This stage builds the beat map, selected lines, title-card copy, and reveal structure for the cinematic piece. You are shaping rhythm, not writing a dense explainer.",
+      "path": "pipelines/cinematic/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/asset-director",
+      "name": "Asset Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "This stage builds the shared visual and audio kit for the entire clip batch. The key is reuse, not bespoke design per clip.",
+      "path": "pipelines/clip-factory/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/compose-director",
+      "name": "Compose Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "Render each clip and platform variant independently. The important behaviors here are consistency, batch resilience, and clear reporting of partial failures.",
+      "path": "pipelines/clip-factory/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/edit-director",
+      "name": "Edit Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "This stage turns the approved clips into independent mini-edits. Each clip must work alone, but the collection should still feel like a coherent series.",
+      "path": "pipelines/clip-factory/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/executive-producer",
+      "name": "Executive Producer — Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a clip factory project. You orchestrate the pipeline serially with quality gates focused on **clip selection quality, batch consistency,",
+      "path": "pipelines/clip-factory/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/idea-director",
+      "name": "Idea Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the source is long-form footage and the goal is multiple short-form deliverables: webinar clips, interview cuts, livestream highlights, keynote excerpts, or",
+      "path": "pipelines/clip-factory/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/publish-director",
+      "name": "Publish Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "This stage packages the clip batch into a distribution plan. The goal is not just exported files. The goal is a usable content engine.",
+      "path": "pipelines/clip-factory/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/scene-director",
+      "name": "Scene Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "You are planning how each selected clip will be framed and packaged for its destination platform. This is where clip viability gets proven or disproven.",
+      "path": "pipelines/clip-factory/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/clip-factory/script-director",
+      "name": "Script Director - Clip Factory Pipeline",
+      "category": "pipelines",
+      "description": "This stage converts the long-form source into a ranked candidate list and then into the final clip selections. You are mining for standout moments, not summarizing the entire sourc",
+      "path": "pipelines/clip-factory/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/asset-director",
+      "name": "Asset Director - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "The shot list exists. You now have to actually go out and find the",
+      "path": "pipelines/documentary-montage/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/compose-director",
+      "name": "Compose Director - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "The timeline exists. Every cut has an in/out, transitions are",
+      "path": "pipelines/documentary-montage/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/edit-director",
+      "name": "Edit Director - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "Every slot has a clip. You now have to turn a pile of clips into a",
+      "path": "pipelines/documentary-montage/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/executive-producer",
+      "name": "Executive Producer - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "The user wants a short (30-180s) non-narrative piece built from existing",
+      "path": "pipelines/documentary-montage/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/idea-director",
+      "name": "Idea Director - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "You are turning a user prompt into the brief artifact that every",
+      "path": "pipelines/documentary-montage/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/documentary-montage/scene-director",
+      "name": "Scene Director - Documentary Montage Pipeline",
+      "category": "pipelines",
+      "description": "The brief exists. You now have to turn a thematic question into a",
+      "path": "pipelines/documentary-montage/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/asset-director",
+      "name": "Asset Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "Before sending a prompt to any generation tool — `image_selector`, `diagram_gen`, `video_selector`, even `code_snippet` styling prompts — run a three-step self-review modeled on the CHAI oversight loop (\"Building a Precise Video Language wi",
+      "path": "pipelines/explainer/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/compose-director",
+      "name": "Compose Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "**Audio setup for this video:**",
+      "path": "pipelines/explainer/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/edit-director",
+      "name": "Edit Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the Editor for a generated explainer video. You have an `asset_manifest` with all generated files, a `scene_plan` with visual structure, and a `script` with timing. Your jo",
+      "path": "pipelines/explainer/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/executive-producer",
+      "name": "Executive Producer — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a generated explainer video. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and eit",
+      "path": "pipelines/explainer/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/idea-director",
+      "name": "Idea Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the Idea Explorer for a generated explainer video. The user has provided a **topic or idea** (not raw footage). Your job is to research the topic, generate multiple compell",
+      "path": "pipelines/explainer/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/proposal-director",
+      "name": "Proposal Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "\"You can also mix elements — for example, Concept A's hook with Concept C's visual approach. What speaks to you?\"",
+      "path": "pipelines/explainer/proposal-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/publish-director",
+      "name": "Publish Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the Publisher for a generated explainer video. You have a `render_report` with the final video file. Your job is to prepare the video for distribution: generate SEO metadat",
+      "path": "pipelines/explainer/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/research-director",
+      "name": "Research Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Research Director** for a generated explainer video. You are the first stage in the pipeline — before any creative decisions, before any script, before any money is s",
+      "path": "pipelines/explainer/research-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/scene-director",
+      "name": "Scene Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "Every scene must specify all five aspects. For diagram, chart, and Remotion-native scenes, \"Subject\" can map to a foregrounded data element and \"Camera\" can be marked N/A — but only EXPLICITLY (e.g., `\"camera\": \"N/A — Remotion native scene,",
+      "path": "pipelines/explainer/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/explainer/script-director",
+      "name": "Script Director — Explainer Pipeline",
+      "category": "pipelines",
+      "description": "You are the Script Writer for a generated explainer video. You have a `brief` artifact from the Idea Explorer. Your job is to write a narration script from scratch — there is no ex",
+      "path": "pipelines/explainer/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/asset-director",
+      "name": "Asset Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "This stage prepares the support kit around the anchor edit: subtitles, diagrams, generated inserts, narration, music, and reusable overlay systems.",
+      "path": "pipelines/hybrid/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/compose-director",
+      "name": "Compose Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "Render the hybrid project so source media, support graphics, and audio all remain coherent across outputs.",
+      "path": "pipelines/hybrid/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/edit-director",
+      "name": "Edit Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "This stage creates the layered edit logic for a source-led video with support elements. The order matters: anchor cut first, support layers second.",
+      "path": "pipelines/hybrid/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/executive-producer",
+      "name": "Executive Producer — Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a hybrid video that combines source footage with designed or generated support assets. You orchestrate the pipeline serially with qualit",
+      "path": "pipelines/hybrid/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/idea-director",
+      "name": "Idea Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the project combines real source media with support visuals: interviews plus diagrams, footage plus overlays, screen recording plus branded graphics, or sour",
+      "path": "pipelines/hybrid/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/publish-director",
+      "name": "Publish Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "Package the hybrid outputs so the hero cut and its derivatives stay organized and the source/support mix remains clear.",
+      "path": "pipelines/hybrid/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/scene-director",
+      "name": "Scene Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "You are translating the hybrid structure into a visual system that keeps the source visible and the support layers under control.",
+      "path": "pipelines/hybrid/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/hybrid/script-director",
+      "name": "Script Director - Hybrid Pipeline",
+      "category": "pipelines",
+      "description": "This stage maps the story across source-led beats and support-led beats. You are deciding where the source carries the message and where support assets clarify it.",
+      "path": "pipelines/hybrid/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/asset-director",
+      "name": "Asset Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "This stage produces the localized asset kit: translated subtitle files, dubbed audio, optional lip-sync renders, and any language-specific replacements needed for the final outputs",
+      "path": "pipelines/localization-dub/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/compose-director",
+      "name": "Compose Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Render the localized outputs. The quality bar is intelligibility, timing coherence, and clear version labeling across every language package.",
+      "path": "pipelines/localization-dub/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/edit-director",
+      "name": "Edit Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Translate the scene plan and localized asset kit into concrete timeline decisions for each language output. The goal is to preserve the source structure where possible without pret",
+      "path": "pipelines/localization-dub/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/executive-producer",
+      "name": "Executive Producer — Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a localization/dubbing project. You orchestrate the pipeline serially with quality gates focused on **translation accuracy, timing prese",
+      "path": "pipelines/localization-dub/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/idea-director",
+      "name": "Idea Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the user has a source video and wants translated deliverables: subtitles, dubbed audio, or localized videos in one or more target languages.",
+      "path": "pipelines/localization-dub/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/publish-director",
+      "name": "Publish Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Package the completed localization outputs so downstream teams can find the right video, subtitle, and metadata bundle for each language without manual cleanup.",
+      "path": "pipelines/localization-dub/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/scene-director",
+      "name": "Scene Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Plan how each localized deliverable will handle timing, visible speech, subtitles, and on-screen text. This is where the pipeline decides whether to preserve the original cut, cove",
+      "path": "pipelines/localization-dub/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/localization-dub/script-director",
+      "name": "Script Director - Localization Dub Pipeline",
+      "category": "pipelines",
+      "description": "Turn the approved localization brief into a transcript-backed, reviewable script package for every target language. This stage should create text truth before any dubbing audio is",
+      "path": "pipelines/localization-dub/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/asset-director",
+      "name": "Asset Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "This stage builds the reusable kit for podcast-derived video assets: subtitles, speaker cards, quote cards, optional topic art, and optional music support.",
+      "path": "pipelines/podcast-repurpose/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/compose-director",
+      "name": "Compose Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "Render the podcast-derived outputs with audio fidelity as the top priority. The visuals need to support the speech, not compete with it.",
+      "path": "pipelines/podcast-repurpose/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/edit-director",
+      "name": "Edit Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "This stage creates the actual timeline logic for short clips and any optional full-episode companion asset. The audio remains the primary content.",
+      "path": "pipelines/podcast-repurpose/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/executive-producer",
+      "name": "Executive Producer — Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a podcast repurpose project. You orchestrate the pipeline serially with quality gates focused on **audio preservation, clip selection qu",
+      "path": "pipelines/podcast-repurpose/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/idea-director",
+      "name": "Idea Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "Use this pipeline when the source is a podcast episode, either audio-only or video podcast, and the user wants clips, social assets, or a companion long-form video treatment.",
+      "path": "pipelines/podcast-repurpose/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/publish-director",
+      "name": "Publish Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "Package podcast-derived clips and companion assets so that every short-form piece points back to the episode instead of drifting as an isolated fragment.",
+      "path": "pipelines/podcast-repurpose/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/scene-director",
+      "name": "Scene Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "You are deciding how each podcast deliverable should look based on the actual source mode. This is where you prevent \"fake richness\" and choose honest, effective treatments.",
+      "path": "pipelines/podcast-repurpose/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/podcast-repurpose/script-director",
+      "name": "Script Director - Podcast Repurpose Pipeline",
+      "category": "pipelines",
+      "description": "This stage creates the transcript truth, speaker attribution, highlight set, and chapter structure that every later stage depends on.",
+      "path": "pipelines/podcast-repurpose/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/asset-director",
+      "name": "Asset Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "This stage produces the minimal but high-leverage assets that make a screen demo easier to follow: subtitles, audio cleanup, reusable overlays, masks, and optional light-weight sup",
+      "path": "pipelines/screen-demo/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/compose-director",
+      "name": "Compose Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "Render the final screen-demo outputs. The quality bar is simple: the UI must be readable, the pacing must feel intentional, and the result must match the planned platform shapes.",
+      "path": "pipelines/screen-demo/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/edit-director",
+      "name": "Edit Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "This stage turns the plan into a concrete, schema-valid edit: trims, speeds, overlays, subtitles, and transitions. Keep the edit simple enough to execute with the current tooling a",
+      "path": "pipelines/screen-demo/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/executive-producer",
+      "name": "Executive Producer — Screen-Demo Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a screen-demo video. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and either pass",
+      "path": "pipelines/screen-demo/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/idea-director",
+      "name": "Idea Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "Lock `render_runtime` at the idea stage alongside the production mode. Which runtimes are viable depends on the mode:",
+      "path": "pipelines/screen-demo/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/publish-director",
+      "name": "Publish Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "Package the finished demo so the user can publish it quickly and so the metadata reflects the actual task, result, and tools involved.",
+      "path": "pipelines/screen-demo/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/scene-director",
+      "name": "Scene Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "You are planning how the viewer's attention moves through an existing screen capture. The source video already exists; your job is to decide when to stay wide, when to crop in, and",
+      "path": "pipelines/screen-demo/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/screen-demo/script-director",
+      "name": "Script Director - Screen Demo Pipeline",
+      "category": "pipelines",
+      "description": "You are turning the inspected recording into a timestamped procedural script. Unlike explainer work, you are not inventing the flow. You are synchronizing language to actions the v",
+      "path": "pipelines/screen-demo/script-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/asset-director",
+      "name": "Asset Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have a scene plan and script. Your job is to generate the supporting assets for a talking-head video: subtitles, extracted audio, overlay graphics (charts, text cards, stat rev",
+      "path": "pipelines/talking-head/asset-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/compose-director",
+      "name": "Compose Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have edit decisions and an asset manifest. Your job is to render the final talking-head video: apply the enhancement chain, burn subtitles, mix audio, and encode to the target",
+      "path": "pipelines/talking-head/compose-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/edit-director",
+      "name": "Edit Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have a scene plan and asset manifest. Your job is to assemble the edit decision list for a talking-head video: primarily keeping the full footage with subtitle overlay and opti",
+      "path": "pipelines/talking-head/edit-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/executive-producer",
+      "name": "Executive Producer — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You are the **Executive Producer (EP)** for a talking-head video project. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and ei",
+      "path": "pipelines/talking-head/executive-producer.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/idea-director",
+      "name": "Idea Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You are starting a talking-head video project. You have raw footage of a person speaking. Your job is to analyze the footage, understand what it contains, and build a brief that ca",
+      "path": "pipelines/talking-head/idea-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/publish-director",
+      "name": "Publish Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have a render report with the final video. Your job is to prepare metadata, thumbnails, and an export package for publishing.",
+      "path": "pipelines/talking-head/publish-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/scene-director",
+      "name": "Scene Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have a script (from transcription) and raw footage. Your job is to **watch the footage, understand the content, and propose a creative enhancement plan** — then build a scene p",
+      "path": "pipelines/talking-head/scene-director.md",
+      "source": "openmontage"
+    },
+    {
+      "id": "om:pipelines/talking-head/script-director",
+      "name": "Script Director — Talking Head Pipeline",
+      "category": "pipelines",
+      "description": "You have a brief and raw talking-head footage. Your job is to transcribe the footage and structure it into a script artifact with timestamped sections.",
+      "path": "pipelines/talking-head/script-director.md",
+      "source": "openmontage"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Omni Prompt"
+  short_description: "Optimize Gemini Omni Flash video prompts"
+  default_prompt: "Use $gemini-omni-prompt to optimize this Gemini Omni Flash video prompt."

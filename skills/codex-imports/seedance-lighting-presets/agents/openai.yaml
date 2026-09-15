@@ -1,0 +1,7 @@
+interface:
+  display_name: "Seedance Lighting Presets"
+  short_description: "Compact Chinese lighting modules for Seedance."
+  default_prompt: "Use $seedance-lighting-presets to choose and compress a lighting setup for my Seedance video prompt."
+
+policy:
+  allow_implicit_invocation: true

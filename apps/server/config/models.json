@@ -1,0 +1,118 @@
+{
+  "models": [
+    {
+      "id": "grok-video-3",
+      "name": "Grok Video 3",
+      "kind": "video",
+      "family": "grok-video",
+      "enabled": true
+    },
+    {
+      "id": "grok-video-3-pro",
+      "name": "Grok Video 3 Pro",
+      "kind": "video",
+      "family": "grok-video",
+      "enabled": true
+    },
+    {
+      "id": "grok-video-3-max",
+      "name": "Grok Video 3 Max",
+      "kind": "video",
+      "family": "grok-video",
+      "enabled": true
+    },
+    {
+      "id": "MiniMax-H3",
+      "name": "MiniMax Hailuo 02 / H3",
+      "kind": "video",
+      "family": "minimax",
+      "enabled": true
+    },
+    {
+      "id": "omni-fast",
+      "name": "Omni Fast",
+      "kind": "video",
+      "family": "omni",
+      "enabled": true
+    },
+    {
+      "id": "omni-fast-v2v",
+      "name": "Omni Fast 参考视频",
+      "kind": "video",
+      "family": "omni",
+      "enabled": true
+    },
+    {
+      "id": "veo_3_1",
+      "name": "Veo 3.1",
+      "kind": "video",
+      "family": "veo",
+      "enabled": true
+    },
+    {
+      "id": "veo_3_1-fast",
+      "name": "Veo 3.1 Fast",
+      "kind": "video",
+      "family": "veo",
+      "enabled": true
+    },
+    {
+      "id": "doubao-seedance-2-0-260128",
+      "name": "Seedance 2.0",
+      "kind": "video",
+      "family": "seedance",
+      "enabled": true
+    },
+    {
+      "id": "doubao-seedance-2-0-fast-260128",
+      "name": "Seedance 2.0 Fast",
+      "kind": "video",
+      "family": "seedance",
+      "enabled": true
+    },
+    {
+      "id": "gpt-image-2",
+      "name": "GPT Image 2",
+      "kind": "image",
+      "family": "gpt-image",
+      "enabled": true
+    },
+    {
+      "id": "grok-4-2-image",
+      "name": "Grok 4.2 Image",
+      "kind": "image",
+      "family": "grok-image",
+      "enabled": true
+    },
+    {
+      "id": "doubao-seedream-5-0-260128",
+      "name": "Seedream 5.0",
+      "kind": "image",
+      "family": "seedream",
+      "enabled": true
+    },
+    {
+      "id": "gemini-3-pro-image-preview",
+      "name": "Gemini 3 Pro Image",
+      "kind": "image",
+      "family": "gemini-image",
+      "enabled": true
+    },
+    {
+      "id": "qwen-image-3.0",
+      "name": "Qwen Image 3.0",
+      "kind": "image",
+      "family": "qwen-image",
+      "enabled": true
+    },
+    {
+      "id": "qwen-image-3.0-pro",
+      "name": "Qwen Image 3.0 Pro",
+      "kind": "image",
+      "family": "qwen-image",
+      "enabled": true
+    }
+  ],
+  "source": "duoyuanx",
+  "note": "Full capabilities live in packages/duoyuanx/catalog.mjs"
+}

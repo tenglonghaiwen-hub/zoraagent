@@ -1,0 +1,7 @@
+interface:
+  display_name: "MiniMax H3 动作迁移"
+  short_description: "先确认效果与开关，再迁移动作、人物、场景、光源和发丝"
+  default_prompt: "检查我的参考素材；先向我确认目标效果、硬约束和模块开关，再制作 MiniMax H3 动作迁移方案。"
+
+policy:
+  allow_implicit_invocation: true

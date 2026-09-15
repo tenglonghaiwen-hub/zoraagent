@@ -1,0 +1,4 @@
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
+const file=fileURLToPath(new URL('../../data/tool-preferences.json',import.meta.url));
+export function disabledTools(target=file){try{return new Set(JSON.parse(fs.readFileSync(target,'utf8')).disabled||[])}catch(e){if(e.code==='ENOENT')return new Set();throw Error('工具设置文件损坏，停止工具调用，请检查 data/tool-preferences.json');}}
+export function setToolEnabled(name,enabled,known,target=file){if(!known.includes(name)||typeof enabled!=='boolean')throw Error('工具或开关无效');const disabled=disabledTools(target);enabled?disabled.delete(name):disabled.add(name);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target+'.tmp',JSON.stringify({disabled:[...disabled]}));fs.renameSync(target+'.tmp',target);}

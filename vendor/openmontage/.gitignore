@@ -1,0 +1,11 @@
+runtime/node/**
+runtime/python/**
+runtime/ffmpeg/**
+runtime/hyperframes/**
+runtime/codex/**
+!runtime/**/.gitkeep.txt
+engine/**
+!engine/.gitkeep.txt
+projects/**
+!projects/.gitkeep.txt
+config/config.local.yaml

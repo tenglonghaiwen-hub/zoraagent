@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="day"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>造境 Zora · 创作从这里开始</title><link rel="stylesheet" href="/style.css?v=studio177"></head>
+<body>
+<section id="welcome" class="page welcome">
+<video autoplay muted loop playsinline preload="auto" class="backdrop" data-backdrop="1" aria-hidden="true"><source src="/media/welcome-backdrop.mp4" type="video/mp4"><source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260808_113714_92f54685-af06-4020-8f35-dbb8871b9d32.mp4" type="video/mp4"></video>
+<header><a class="brand" href="#welcome">◐ <span>造境 <small>ZORA</small></span></a><span class="prototype">界面骨架 · 非正式服务</span><a class="button light" href="#login">登录 ↗</a></header>
+<div class="welcome-copy"><p class="eyebrow">ZORA AGENT / CREATIVE STUDIO</p><h1>让想象成形。<br>让创作发生。</h1><p>从一个想法，到一组画面。<br>Zora 与你一起规划、生成、完成。</p><a class="button light" href="#login">开始创作 ↗</a><p class="fine">造境 · 你的 AI 素材创作工作台</p></div><footer>想法 / 影像 / 创作 <span>由你定义下一帧。</span></footer></section>
+<section id="login" class="page login" hidden><div class="login-art"><video autoplay muted loop playsinline preload="auto" class="backdrop" data-backdrop="1" aria-hidden="true"><source src="/media/login-backdrop.mp4" type="video/mp4"><source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260813_052122_e77a27e6-17f1-4794-889b-3ceaa0e9e8cb.mp4" type="video/mp4"></video><a class="brand" href="#welcome">◐ 造境 Zora</a><div class="art-copy"><p>ZORA AGENT</p><h2>捕捉灵感，<br>即刻造境。</h2></div></div><div class="login-pane"><div class="login-card"><a class="back" href="#welcome">← 返回欢迎页</a><h1>欢迎回来。</h1><p>登录造境，继续你的创作。</p><label>账户<input type="email" placeholder="电子邮箱" autocomplete="email" disabled></label><label>密码<input type="password" placeholder="密码" autocomplete="current-password" disabled></label><button disabled>登录（待接入）</button><div class="separator">开发预览</div><button id="enter-demo" class="secondary">进入工作台演示 →</button><p class="fine">登录方式尚待确定。演示不收集账户或密码。</p></div></div></section>
+<section id="studio" class="page studio studio-centered" hidden>
+<video autoplay muted loop playsinline preload="auto" class="backdrop studio-backdrop" data-backdrop="1" aria-hidden="true"><source src="/media/welcome-backdrop.mp4" type="video/mp4"><source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260808_113714_92f54685-af06-4020-8f35-dbb8871b9d32.mp4" type="video/mp4"></video><div class="studio-shade" aria-hidden="true"></div>
+<aside class="studio-rail"><div class="rail-brand"><a href="#welcome" class="brand">◐ <span class="rail-text">造境 <small>ZORA</small></span></a><button id="rail-toggle" aria-label="收起侧栏" aria-expanded="true">☰</button></div><nav id="studio-menu" aria-label="工作台导航"><button data-tab="create" class="active" title="创作"><span>✧</span><span class="rail-text">创作</span></button>
+<button data-tab="canvases" id="rail-canvases" title="画布"><span aria-hidden="true">▦</span><span class="rail-text">画布</span></button><button data-tab="tasks" title="任务"><span>☷</span><span class="rail-text">任务 <span id="task-count">0</span></span></button><button data-tab="assets" title="素材库"><span>▧</span><span class="rail-text">素材库</span></button><button data-tab="skills" title="技能中心"><span>◇</span><span class="rail-text">技能中心</span></button></nav><div class="rail-bottom"><button data-tab="settings" title="设置"><span>⚙</span><span class="rail-text">设置</span></button><button data-tab="credits" title="积分"><span>◇</span><span class="rail-text">积分</span></button><button data-tab="membership" title="会员"><span>✦</span><span class="rail-text">会员</span></button><button id="wallet-open" title="账户"><span>◉</span><span class="rail-text">账户</span></button></div><button id="studio-menu-toggle" hidden aria-expanded="false" aria-controls="studio-menu">导航</button></aside>
+<div class="workspace"><div class="directory-capsule" id="directory-capsule"><button type="button" id="directory-open" aria-label="快速目录" aria-expanded="false" aria-haspopup="true" aria-controls="directory-menu"><svg class="dir-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span id="directory-label">当前对话梗概</span><svg class="dir-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button type="button" id="directory-more" aria-label="查看所有项目" title="全部项目">⋯</button></div><div id="directory-menu" class="directory-menu" hidden role="menu" aria-label="最近对话"><header class="directory-menu-head"><strong>最近对话</strong><button type="button" id="directory-new" class="directory-new">新建</button></header><div id="directory-recent" class="directory-recent"></div><p id="directory-empty" class="directory-empty">还没有对话。发送一条创作需求后会出现在这里。</p></div><aside id="projects-panel" class="projects-panel" hidden aria-labelledby="projects-title"><header><h2 id="projects-title">全部项目</h2><button type="button" id="projects-close" aria-label="关闭全部项目">×</button></header><div class="projects-toolbar"><button type="button" id="project-create">新建项目</button><p class="projects-note">本地会话目录 · 刷新后不保留</p></div><div id="projects-list" class="projects-list"></div></aside><div class="account-toolbar"><button type="button" id="theme-toggle" class="theme-toggle" aria-label="切换日间夜间模式" title="切换到夜间模式" aria-pressed="true"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button><button id="messages-open" aria-label="消息中心" aria-expanded="false"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8h10M7 12h7"/><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L4 21l1.9-4.2A8.5 8.5 0 1 1 21 11.5z"/></svg><span>消息</span></button><button data-tab="credits" class="credits-link" title="查看积分">✦ <span>— 积分</span></button><button data-tab="membership" class="membership-link">开会员</button><button id="account-menu-open" class="account-avatar" aria-expanded="false" aria-label="账户中心">Z</button></div>
+<div id="create" class="tab create-layout"><main class="creation">
+<div class="center-badge work-mode-switch" id="work-mode-switch" data-mode="agent" role="tablist" aria-label="工作模式">
+<span class="work-mode-thumb" aria-hidden="true"></span>
+<button type="button" class="work-mode-btn" data-work-mode="agent" role="tab" aria-selected="true"><span class="work-mode-label">Zora Agent</span><span class="work-mode-mark" aria-hidden="true"></span></button>
+<button type="button" class="work-mode-btn" data-work-mode="canvas" role="tab" aria-selected="false"><span class="work-mode-label">画布</span></button>
+</div>
+<div id="agent-workspace" class="agent-workspace">
+<h1>把想象交给造境，<br><span>让每一帧都有可能。</span></h1>
+<p class="muted">描述你的想法，添加参考素材。<br>从图片到视频，在一处规划你的批量创作。</p>
+<div class="prompt-card compact-composer composer-collapsed" id="prompt-card" data-composer-state="collapsed">
+<div class="composer-input-row"><button id="add-attachment" class="reference-tile" aria-label="添加参考素材"><span>＋</span><small>参考内容</small></button><div class="composer-text"><div id="selected-skills" class="selected-skills"></div><div class="prompt-line"><div id="file-list" class="file-list prompt-ref-list" aria-label="指令中的素材引用"></div><label for="prompt" class="sr-only">创作需求</label><textarea id="prompt" rows="1" maxlength="8000" placeholder="接着写要对素材做什么…"></textarea></div></div><input id="files" type="file" accept="image/*,video/*" multiple hidden></div>
+<div class="composer-controls parameters">
+<label class="control-pill type-control"><span class="sr-only">创作类型</span><select id="creation-kind"><option value="video">视频生成</option><option value="image">图片生成</option><option value="agent">Agent 模式</option></select></label>
+<label class="control-pill"><span class="sr-only">模型</span><select id="model"></select></label>
+<label class="control-pill" id="video-mode-label"><span class="sr-only">视频模式</span><select id="video-mode"></select></label><label class="control-pill"><span class="control-caption">比例</span><select id="ratio"></select></label>
+<select id="resolution" hidden aria-label="分辨率"></select><label class="control-pill"><span class="control-caption">数量</span><input id="count" type="number" min="1" max="20" value="1" aria-label="生成数量"></label>
+<label id="duration-label" class="control-pill"><span class="control-caption">时长</span><select id="duration"></select><span class="unit">秒</span></label>
+<label class="control-pill"><span class="control-caption">并发</span><input id="concurrency" type="number" min="1" max="2" value="1" aria-label="并发上限"></label>
+<div class="composer-send"><span class="quote-status" title="生成服务未接入，暂无真实报价">积分待报价</span><div class="composer-actions"><button type="button" id="voice-prompt" class="voice-prompt" aria-label="语音听写" aria-describedby="voice-tip" title="点击或按 Ctrl+D 进行听写"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><span id="voice-tip" class="voice-tip" role="tooltip" hidden>点击或按住 <kbd>Ctrl</kbd> <kbd>D</kbd> 进行听写</span><button id="send-prompt" class="send-prompt" aria-label="发送创作需求" title="发送创作需求（主 Agent 待接入）" hidden><span>发送</span></button></div></div>
+</div><div id="preview-result" aria-live="polite"></div></div><div id="skill-shortcuts" class="skill-shortcuts"></div></div><!-- /agent-workspace -->
+
+<section id="canvas-workspace" class="canvas-workspace" hidden aria-label="画布">
+
+
+  <header class="canvas-topbar">
+    <div class="canvas-project-meta" title="当前画布项目">
+      <strong id="canvas-project-name">新建项目</strong>
+      <time id="canvas-project-time"></time>
+      <button type="button" class="canvas-icon-btn" id="canvas-rename" title="修改画布名称" aria-label="修改画布名称">✎</button>
+    </div>
+    <div class="canvas-top-actions" role="group" aria-label="项目操作">
+      <button type="button" id="canvas-project-new" title="新建项目">新建</button>
+      <button type="button" id="canvas-project-del" title="删除当前项目">删除</button>
+    </div>
+    </header>
+  <div class="canvas-body">
+    <div class="canvas-board" id="canvas-board" tabindex="0">
+      <p class="canvas-hint">双击画布或拖拽框选节点 · 滚轮缩放 · 右键也可添加</p>
+      <div class="canvas-quick-actions" id="canvas-quick-actions">
+        <button type="button" data-canvas-gen="text"><span class="ccm-icon" aria-hidden="true"></span><span>文本</span></button><button type="button" data-canvas-gen="res-image"><span class="ccm-icon" aria-hidden="true"></span><span>图片</span></button><button type="button" data-canvas-gen="res-video"><span class="ccm-icon" aria-hidden="true"></span><span>视频</span></button>
+      </div>
+      <div id="canvas-nodes" class="canvas-nodes" aria-live="polite"></div>
+    </div>
+    <aside class="canvas-agent-rail" aria-label="画布 Agent（独立会话）">
+      <header>
+        <div class="canvas-agent-title">
+          <strong>画布 Agent</strong>
+          <small>独立会话 · 与主 Agent 分开</small>
+        </div>
+        <div class="canvas-agent-header-actions">
+          <button type="button" id="canvas-agent-new-chat" class="canvas-agent-ghost" title="新建画布会话">新会话</button>
+          <button type="button" id="canvas-agent-hide" class="canvas-agent-ghost" title="隐藏侧栏" aria-label="隐藏画布 Agent 侧栏">收起</button>
+        </div>
+      </header>
+      <div id="canvas-agent-log" class="canvas-agent-log" aria-live="polite"></div>
+      <div class="canvas-agent-composer" id="canvas-agent-composer">
+        <div id="canvas-agent-selected-skills" class="canvas-agent-selected-skills" aria-label="已选技能"></div>
+        <div id="canvas-agent-refs" class="canvas-agent-refs" aria-label="已传素材"></div>
+        <div class="canvas-agent-composer-row">
+          <div class="canvas-agent-model-pill om-tool-picker">
+            <span class="sr-only">模型</span>
+            <select id="canvas-agent-model" hidden aria-hidden="true"></select>
+            <button type="button" class="canvas-agent-model-trigger" id="canvas-agent-model-trigger" aria-haspopup="listbox" aria-expanded="false">选择模型</button>
+            <div id="canvas-agent-model-menu" class="canvas-agent-model-menu" hidden role="listbox" aria-label="选择模型"></div>
+          </div>
+          <button type="button" id="canvas-agent-skill-btn" class="canvas-agent-icon-btn" aria-haspopup="listbox" aria-expanded="false" title="选择技能"><span>技能</span></button>
+          <button type="button" id="canvas-agent-upload-btn" class="canvas-agent-icon-btn" title="上传素材"><span>素材</span></button>
+          <input id="canvas-agent-files" type="file" accept="image/*,video/*" multiple hidden>
+        </div>
+        <div id="canvas-agent-skill-menu" class="canvas-agent-skill-menu" hidden role="listbox" aria-label="选择技能"></div>
+        <div class="canvas-agent-quick" aria-label="快捷提示">
+          <button type="button" data-canvas-agent-quick="帮我拆解小说，并在画布上规划节点">拆解小说</button>
+          <button type="button" data-canvas-agent-quick="帮我生成一张图片，并放到画布">生成图片</button>
+          <button type="button" data-canvas-agent-quick="帮我做智能分镜">智能分镜</button>
+          <button type="button" data-canvas-agent-quick="写一个短视频脚本">短视频脚本</button>
+        </div>
+        <div class="canvas-agent-input-row">
+          <textarea id="canvas-agent-input" rows="2" placeholder="对画布 Agent 说点什么…"></textarea>
+          <button type="button" id="canvas-agent-send" class="primary" title="发送">发送</button>
+        </div>
+      </div>
+    </aside>
+    <button type="button" id="canvas-agent-show" class="canvas-agent-show" hidden title="打开画布 Agent" aria-label="打开画布 Agent 侧栏">Agent</button>
+  </div>
+  
+  <div class="canvas-bottom">
+    <div class="canvas-zoom" aria-label="缩放">
+      <button type="button" id="canvas-zoom-out" aria-label="缩小">−</button>
+      <span id="canvas-zoom-label">100%</span>
+      <button type="button" id="canvas-zoom-in" aria-label="放大">+</button>
+    </div>
+    <button type="button" id="canvas-tool-toggle" class="canvas-tool-toggle" data-tool="select" title="鼠标：框选（点击切换为抓手）" aria-label="切换鼠标与抓手" aria-pressed="false"><span class="tool-ico tool-ico-select" aria-hidden="true"><svg class="fab-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 3l6 16 2-6 6-2L5 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span class="tool-ico tool-ico-pan" hidden aria-hidden="true"><svg class="fab-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 11V6.5a1.5 1.5 0 0 1 3 0V11M11 10V5.5a1.5 1.5 0 0 1 3 0V11M14 10V6.5a1.5 1.5 0 0 1 3 0V14a5 5 0 0 1-5 5h-1a6 6 0 0 1-6-6v-3.5a1.5 1.5 0 0 1 3 0V11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="tool-label">鼠标</span></button>
+    <div class="canvas-fab" aria-label="画布操作">
+      <button type="button" id="canvas-add-node" class="fab-round" title="添加" aria-haspopup="menu" aria-expanded="false"><svg class="fab-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <span class="fab-sep" aria-hidden="true"></span>
+      <button type="button" id="canvas-undo" class="fab-round" title="撤销"><svg class="fab-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 7H5v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11a7 7 0 1 0 2-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button type="button" id="canvas-redo" class="fab-round" title="重做"><svg class="fab-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 7h4v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 11a7 7 0 1 1-2-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <span class="fab-sep" aria-hidden="true"></span>
+      <button type="button" id="canvas-save" class="fab-round" title="保存进度" aria-describedby="canvas-save-tip">
+        <svg class="fab-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 18h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span id="canvas-save-tip" class="fab-tip" role="tooltip" hidden>保存进度</span>
+      </button>
+      <button type="button" id="canvas-clear" class="fab-round fab-danger" title="删除" aria-haspopup="menu" aria-expanded="false"><svg class="fab-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5h6v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="canvas-save-status" class="canvas-save-status" hidden>
+      <span class="css-check" aria-hidden="true">✓</span>
+      <span class="css-text">正在保存中…</span>
+    </div>
+  </div>
+
+</section>
+<div id="canvas-context-menu" class="canvas-context-menu" hidden role="menu" aria-label="添加节点"><div class="ccm-title">添加节点</div><button type="button" role="menuitem" data-canvas-node="text"><span class="ccm-icon" aria-hidden="true"></span>文本</button><button type="button" role="menuitem" data-canvas-node="res-image"><span class="ccm-icon" aria-hidden="true"></span>图片</button><button type="button" role="menuitem" data-canvas-node="res-video"><span class="ccm-icon" aria-hidden="true"></span>视频</button></div><div id="canvas-add-menu" class="canvas-pop-menu" hidden role="menu" aria-label="添加"><div class="cpm-title">添加节点</div><button type="button" role="menuitem" data-canvas-node="text"><span class="ccm-icon" aria-hidden="true"></span>文本</button><button type="button" role="menuitem" data-canvas-node="res-image"><span class="ccm-icon" aria-hidden="true"></span>图片</button><button type="button" role="menuitem" data-canvas-node="res-video"><span class="ccm-icon" aria-hidden="true"></span>视频</button></div><div id="canvas-delete-menu" class="canvas-pop-menu canvas-delete-menu" hidden role="menu" aria-label="清空画布">
+  <div class="cpm-title">清空画布</div>
+  <button type="button" role="menuitem" data-canvas-delete="region"><span class="cpm-ico" aria-hidden="true">⬚</span>区域删除</button>
+  <button type="button" role="menuitem" data-canvas-delete="all" class="danger"><span class="cpm-ico" aria-hidden="true">🗑</span>全部删除</button>
+</div>
+<input id="canvas-upload-input" type="file" accept="image/*,video/*,audio/*" multiple hidden>
+
+<p class="center-demo">界面演示 · Codex、生成与支付待接入 · 不会扣费</p></main></div><main id="tasks" class="tab content" hidden><p class="eyebrow">任务</p><h1>任务清单</h1><p class="muted">在这里查看任务草稿与执行记录。向 Agent 描述需求，它会调用相关能力。</p>
+<section id="local-runtime-panel" aria-label="本地运行与审批"></section>
+<button id="preview" title="校验创作栏参数并加入任务"><span>预览当前创作参数</span></button>
+<section id="om-run-panel" hidden class="om-run-panel" aria-label="执行 OpenMontage 工具">
+  <div class="om-run-head">
+    <p class="eyebrow">OPENMONTAGE</p>
+    <h2 class="om-run-title">执行工具</h2>
+    <p class="muted om-run-hint">选工具、选项目，点开始即可。不必靠提示词猜。</p>
+  </div>
+  <div class="om-run-grid">
+    <label class="om-field om-tool-picker">工具
+<button type="button" class="om-tool-trigger" id="om-tool-trigger" aria-haspopup="listbox" aria-expanded="false">选择工具</button>
+<select id="om-tool" hidden aria-hidden="true"></select>
+</label>
+<div id="om-tool-menu" class="canvas-pop-menu" hidden role="listbox" aria-label="选择工具">
+  <div class="cpm-title">选择工具</div>
+  <div id="om-tool-menu-list"></div>
+</div>
+    <label class="om-field om-tool-picker">项目
+<button type="button" class="om-tool-trigger" id="om-project-trigger" aria-haspopup="listbox" aria-expanded="false">选择项目</button>
+<select id="om-project" hidden aria-hidden="true"></select>
+</label>
+<div id="om-project-menu" class="canvas-pop-menu" hidden role="listbox" aria-label="选择项目">
+  <div class="cpm-title">选择项目</div>
+  <div id="om-project-menu-list"></div>
+</div>
+    <label class="om-field om-run-full">说明<textarea id="om-instruction" rows="2" placeholder="用中文写想让它做什么，例如：找出有对话的镜头"></textarea></label>
+  </div>
+  <details class="om-advanced">
+    <summary>高级参数（一般不用）</summary>
+    <label class="om-field om-run-full">参数 JSON<textarea id="om-args" rows="3" placeholder='{"key":"value"}'></textarea></label>
+  </details>
+  <div class="om-run-actions">
+    <button type="button" id="om-refresh" class="om-btn ghost">刷新</button>
+    <button type="button" id="om-run" class="om-btn primary">开始执行</button>
+    <span id="om-run-status" class="om-run-status" aria-live="polite"></span>
+  </div>
+</section>
+<div id="task-list" class="empty">还没有任务。向 Agent 描述需求，或预览当前创作参数以加入草稿。</div></main>
+<main id="canvases" class="tab content canvases-page" hidden>
+<p class="eyebrow">CANVAS</p>
+<h1>画布</h1>
+<p class="muted">管理已保存的画布。打开后进入全屏画布编辑；支持新建、改名、复制与删除。</p>
+<div class="canvases-toolbar">
+  <button type="button" id="canvas-lib-new" class="om-btn primary">新建画布</button>
+  <input id="canvas-lib-filter" type="search" placeholder="搜索画布名称" aria-label="搜索画布" />
+</div>
+<div id="canvas-lib-list" class="canvas-lib-list canvases-grid" role="list"></div>
+</main>
+<main id="assets" class="tab content" hidden><p class="eyebrow">素材库</p><h1>素材库</h1><p class="muted">素材分为本地上传与生成结果两类。本地素材仅保存在当前会话，刷新后需重新选择；生成素材接入后会出现在「生成」里。</p><div class="asset-filters" role="tablist" aria-label="素材来源"><button type="button" class="active" data-asset-filter="upload">本地上传</button><button type="button" data-asset-filter="generated">生成素材</button></div><div id="asset-grid" class="asset-grid" role="list"></div><section id="workspace-file-library" aria-label="工作区文件"></section></main>
+<main id="skills" class="tab content" hidden><p class="eyebrow">ZORA SKILLS</p><h1>为你的创作，选择一种能力。</h1><p class="muted">选择技能后返回创作，继续补充素材与需求。当前为提示模板，执行引擎待接入。可在此添加、上传或删除技能。</p><div class="skill-manage"><button type="button" id="skill-add">添加技能</button><button type="button" id="skill-upload" class="secondary">上传技能</button><input id="skill-file" type="file" accept="application/json,.json,.txt,.md" hidden><p class="skill-manage-note">上传 JSON（name/category/description/prompt）或文本提示词。</p></div><div class="skill-filters"><button class="active" data-skill-filter="全部">全部</button><button data-skill-filter="视频">视频</button><button data-skill-filter="图片">图片</button><button data-skill-filter="策划">策划</button><input id="skill-search" placeholder="搜索技能" aria-label="搜索技能"></div><div id="skills-grid" class="skills-grid"></div></main>
+<main id="credits" class="tab content" hidden><p class="eyebrow">ZORA CREDITS</p><h1>我的积分</h1><p class="muted">查看余额、消耗与购买记录。</p><div class="account-overview"><div><span>可用积分</span><strong>—</strong></div><div><span>处理中</span><strong>—</strong></div><div><span>已消耗</span><strong>—</strong></div></div><h2>购买积分</h2><p class="muted">1 元 = 10 积分 · 对话和生成均按上游实际费用加价 20% 计费。</p><fieldset><legend>支付方式</legend><label><input type="radio" name="credit-payment" checked> 支付宝</label><label><input type="radio" name="credit-payment"> 微信支付</label></fieldset><button disabled>登录及支付服务待接入</button><h2>积分明细</h2><p class="muted">暂无记录。积分账目由后台提供，客户端不可修改。</p></main>
+<main id="membership" class="tab content membership-page" hidden><p class="eyebrow">ZORA MEMBERSHIP</p><h1>让每一次灵感，拥有更多可能。</h1><p class="muted">造境会员中心</p><div class="membership-notice">会员方案正在配置，当前不开放购买。积分换算与已确认计费规则保持不变。</div><div class="membership-plan"><div><span class="member-mark">ZORA / MEMBER</span><h2>会员计划</h2><p>套餐、赠送积分与专属权益由后台统一发布。</p></div><div class="member-price">待配置<small>价格及周期尚未确定</small><button disabled>暂未开放</button></div></div><h2>会员权益</h2><div class="member-benefits"><section><h3>模型使用范围</h3><p>以后台对账户开放的模型为准。</p></section><section><h3>积分权益</h3><p>是否赠送积分及有效期，待会员规则确定。</p></section><section><h3>并发权益</h3><p>是否提高并发上限，待后台方案确定。</p></section></div><h2>购买与续费</h2><p class="muted">计划提供支付宝、微信支付。尚未接入商户、订单或自动续费，不会产生扣款。</p></main>
+<main id="account" class="tab content" hidden><p class="eyebrow">ZORA ACCOUNT</p><h1>账户中心</h1><div class="profile-row"><span class="profile-avatar">Z</span><div><h2>演示账户</h2><p class="muted">尚未登录真实账户</p></div></div><div class="setting-row"><div><h3>登录与安全</h3><p>真实账户服务待接入</p></div><button disabled>管理账户</button></div><div class="setting-row"><div><h3>会员状态</h3><p>尚无会员信息</p></div><button data-tab="membership">查看会员</button></div><div class="setting-row"><div><h3>积分记录</h3><p>余额、消耗与购买记录单独管理</p></div><button data-tab="credits">查看积分</button></div><a class="button secondary" href="#login">返回登录页</a></main><main id="settings" class="tab content" hidden><p class="eyebrow">PREFERENCES</p><h1>设置</h1><div class="setting-row"><div><h3>完成后自动下载</h3><p>生成结果就绪后保存到下载文件夹的 Zora 目录</p></div><input id="auto-download" type="checkbox" role="switch" aria-label="完成后自动下载"></div><div class="setting-row"><div><h3>减少界面动画</h3><p>同时尊重系统的减少动态效果设置</p></div><input id="reduce-motion" type="checkbox" role="switch"></div></main>
+</div></section>
+
+<dialog id="skill-editor" class="skill-editor-dialog" aria-labelledby="skill-editor-title">
+  <form method="dialog" id="skill-editor-form" class="skill-editor" autocomplete="off" lang="zh-CN">
+    <header class="skill-editor-head">
+      <div>
+        <p class="eyebrow">技能编辑</p>
+        <h2 id="skill-editor-title">新建技能</h2>
+        <p class="muted skill-editor-lead">写清何时用、具体怎么做。保存后可在创作里用 @ 或 / 调用。</p>
+      </div>
+      <button type="submit" value="cancel" class="skill-editor-close" aria-label="关闭" formnovalidate>×</button>
+    </header>
+    <div class="skill-editor-body">
+      <label class="skill-field">
+        <span>技能名称 <em>必填</em></span>
+        <input id="skill-name" name="zora-skill-name" maxlength="40" placeholder="例如：微表情指导" required autocomplete="off" spellcheck="false">
+      </label>
+      <div class="skill-field">
+        <span>分类</span>
+        <div class="skill-category-pills" role="radiogroup" aria-label="技能分类">
+          <button type="button" class="skill-cat-pill active" data-cat="策划">策划</button>
+          <button type="button" class="skill-cat-pill" data-cat="视频">视频</button>
+          <button type="button" class="skill-cat-pill" data-cat="图片">图片</button>
+        </div>
+        <input type="hidden" id="skill-category" name="zora-skill-category" value="策划">
+      </div>
+      <label class="skill-field">
+        <span>何时使用 <em>简述</em></span>
+        <input id="skill-description" name="zora-skill-when" maxlength="120" placeholder="一句话说明什么时候该用这个技能" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="skill-field skill-field-grow">
+        <span>技能指令 <em>必填</em></span>
+        <textarea id="skill-prompt" name="zora-skill-body" rows="10" maxlength="8000" placeholder="写给 Agent 的完整指令：目标、步骤、约束、输出格式……&#10;&#10;例如：&#10;1. 先分析参考素材中的表情与眼神&#10;2. 给出可执行的微表情调整建议&#10;3. 用简短条目输出" required autocomplete="off" spellcheck="false"></textarea>
+      </label>
+      <p class="skill-editor-hint">提示词会在创作时拼入需求；名称会出现在技能胶囊与 @ 列表里。</p>
+    </div>
+    <footer class="skill-editor-foot">
+      <button type="submit" value="cancel" class="secondary" formnovalidate>取消</button>
+      <button type="submit" value="save" class="skill-editor-save" id="skill-editor-save">保存技能</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="wallet"><button class="close secondary" id="wallet-close" aria-label="关闭积分窗口">关闭 ×</button><p class="eyebrow">ZORA CREDITS</p><h2>积分与用量</h2><p>当前未登录，暂无余额和消费记录。</p><div class="cost"><strong>1 元 = 10 积分</strong><p>对话与生成均计费：上游实际人民币费用 × 12 = 消耗积分。</p></div><fieldset><legend>支付方式（待接入）</legend><label><input type="radio" name="payment" checked> 支付宝</label><label><input type="radio" name="payment"> 微信支付</label></fieldset><button disabled>购买积分待接入</button><p class="fine">未创建订单，不会发起支付。</p></dialog><aside id="message-panel" class="message-panel" hidden aria-labelledby="message-title"><header><h2 id="message-title">消息中心</h2><button id="messages-close" aria-label="关闭消息栏">×</button></header><div class="message-tabs"><button data-message-kind="activity" class="active">任务消息</button><button data-message-kind="official">官方消息</button></div><div id="message-feed" class="message-feed" tabindex="0" aria-label="消息列表"></div></aside>
+<aside id="account-menu" class="account-menu" hidden aria-label="账户菜单"><div class="menu-profile"><span class="profile-avatar">Z</span><div><strong>演示账户</strong><small>未登录</small></div><button data-account-route="account">个人账户 ›</button></div><div class="account-menu-links"><button data-account-route="credits">积分与用量 <span>›</span></button><button data-account-route="membership">会员中心 <span>›</span></button><button data-account-route="tasks">生成任务 <span>›</span></button><button data-account-route="assets">我的素材 <span>›</span></button><button data-account-route="skills">技能中心 <span>›</span></button><button data-account-route="settings">系统设置 <span>›</span></button></div><button id="account-signout">退出演示</button></aside><div id="toast" role="status" hidden></div><script type="module" src="/app.js?v=studio177"></script><script type="module" src="/runtime-panel.js?v=studio177"></script><script type="module" src="/appearance.js?v=studio177"></script></body></html>

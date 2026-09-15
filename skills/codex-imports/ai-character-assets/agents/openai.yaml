@@ -1,0 +1,7 @@
+interface:
+  display_name: "AI Character Assets"
+  short_description: "Build stable AI character asset boards."
+  default_prompt: "Use $ai-character-assets to turn my character into stable AI video-ready asset prompts."
+
+policy:
+  allow_implicit_invocation: true

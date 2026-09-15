@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "target": "win32-x64",
+  "source": "https://github.com/calesthio/OpenMontage",
+  "note": "Binaries are not committed. Fill runtime/* via sync script or installers. Engine code via junction/submodule to OpenMontage checkout.",
+  "toolchain_node_version": "22.23.2",
+  "node": {
+    "version": "22.23.2",
+    "executable": "runtime/node/node.exe"
+  },
+  "hyperframes": {
+    "version": "0.8.12",
+    "cli": "runtime/hyperframes/node_modules/hyperframes/bin/hyperframes.mjs",
+    "browser": "runtime/hyperframes/browser/chrome-headless-shell-win64/chrome-headless-shell.exe",
+    "note": "Bundled under vendor/openmontage/runtime/hyperframes"
+  },
+  "python": {
+    "version": "3.12.10",
+    "executable": "runtime/python/python.exe"
+  },
+  "ffmpeg": {
+    "version": "bundled",
+    "executable": "runtime/ffmpeg/bin/ffmpeg.exe",
+    "ffprobe": "runtime/ffmpeg/bin/ffprobe.exe"
+  },
+  "codex": {
+    "version": "reuse-zora",
+    "executable": "runtime/codex/codex.exe",
+    "reuseNote": "Prefer D:\\\\zora\\\\runtime\\\\codex\\\\node_modules\\\\@openai\\\\codex-win32-x64\\\\...\\\\codex.exe \u2014 do not duplicate under vendor/openmontage unless packaging requires it.",
+    "zoraFallback": "runtime/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe"
+  },
+  "engine": {
+    "root": "engine",
+    "studio_api": "engine/services/studio_api",
+    "hint": "Junction or clone calesthio/OpenMontage into vendor/openmontage/engine"
+  }
+}

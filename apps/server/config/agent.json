@@ -1,0 +1,9 @@
+{
+  "provider": "duoyuanx",
+  "model": "gpt-5.5",
+  "baseUrl": "https://duoyuanx.com",
+  "wireApi": "responses",
+  "enabled": true,
+  "backend": "app-server",
+  "maxToolRounds": 4
+}

@@ -1,0 +1,7 @@
+interface:
+  display_name: "原创AI角色捏脸"
+  short_description: "原创角色脸型与定妆照提示词生成。"
+  default_prompt: "Use $original-ai-character-face to design an original AI character face and generate a reusable portrait prompt."
+
+policy:
+  allow_implicit_invocation: true

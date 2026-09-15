@@ -1,0 +1,1359 @@
+{
+  "generatedAt": "2026-09-12T10:04:38.633Z",
+  "count": 118,
+  "tools": [
+    {
+      "name": "atlas_3d",
+      "className": "Atlas3D",
+      "capability": "3d_asset_generation",
+      "provider": "atlas_cloud",
+      "tier": "generate",
+      "agentSkills": [
+        "3d-asset-generation",
+        "threejs-loaders",
+        "threejs-materials"
+      ],
+      "file": "graphics/atlas_3d.py"
+    },
+    {
+      "name": "atlas_image",
+      "className": "AtlasImage",
+      "capability": "image_generation",
+      "provider": "atlascloud",
+      "tier": "generate",
+      "agentSkills": [
+        "atlas-cloud",
+        "flux-best-practices"
+      ],
+      "file": "graphics/atlas_image.py"
+    },
+    {
+      "name": "atlas_video",
+      "className": "AtlasVideo",
+      "capability": "video_generation",
+      "provider": "atlascloud",
+      "tier": "generate",
+      "agentSkills": [
+        "atlas-cloud",
+        "ai-video-gen",
+        "seedance-2-0",
+        "gemini-omni"
+      ],
+      "file": "video/atlas_video.py"
+    },
+    {
+      "name": "audio_energy",
+      "className": "AudioEnergy",
+      "capability": "analysis",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [],
+      "file": "analysis/audio_energy.py"
+    },
+    {
+      "name": "audio_enhance",
+      "className": "AudioEnhance",
+      "capability": "audio_processing",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg",
+        "elevenlabs"
+      ],
+      "file": "audio/audio_enhance.py"
+    },
+    {
+      "name": "audio_mixer",
+      "className": "AudioMixer",
+      "capability": "audio_processing",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg",
+        "video-toolkit"
+      ],
+      "file": "audio/audio_mixer.py"
+    },
+    {
+      "name": "audio_probe",
+      "className": "AudioProbe",
+      "capability": "analysis",
+      "provider": "ffprobe",
+      "tier": "core",
+      "agentSkills": [],
+      "file": "analysis/audio_probe.py"
+    },
+    {
+      "name": "auto_reframe",
+      "className": "AutoReframe",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "video/auto_reframe.py"
+    },
+    {
+      "name": "azure_stt",
+      "className": "AzureSpeechToText",
+      "capability": "analysis",
+      "provider": "azure",
+      "tier": "core",
+      "agentSkills": [
+        "azure-speech-to-text"
+      ],
+      "file": "analysis/azure_stt.py"
+    },
+    {
+      "name": "azure_tts",
+      "className": "AzureTTS",
+      "capability": "tts",
+      "provider": "azure",
+      "tier": "voice",
+      "agentSkills": [
+        "azure-text-to-speech",
+        "text-to-speech"
+      ],
+      "file": "audio/azure_tts.py"
+    },
+    {
+      "name": "bg_remove",
+      "className": "BgRemove",
+      "capability": "enhancement",
+      "provider": "rembg",
+      "tier": "enhance",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/bg_remove.py"
+    },
+    {
+      "name": "blender_world",
+      "className": "BlenderWorld",
+      "capability": "3d_world_rendering",
+      "provider": "blender",
+      "tier": "generate",
+      "agentSkills": [
+        "3d-asset-generation",
+        "threejs-world-generation",
+        "threejs-loaders",
+        "threejs-materials",
+        "threejs-textures",
+        "threejs-lighting",
+        "threejs-postprocessing"
+      ],
+      "file": "graphics/blender_world.py"
+    },
+    {
+      "name": "cap_recorder",
+      "className": "CapRecorder",
+      "capability": "screen_capture",
+      "provider": "cap",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "capture/cap_recorder.py"
+    },
+    {
+      "name": "character_spec_generator",
+      "className": "CharacterSpecGenerator",
+      "capability": "character_animation",
+      "provider": "openmontage",
+      "tier": "core",
+      "agentSkills": [
+        "character-rigging",
+        "pose-library-design",
+        "character-rigging",
+        "svg-character-animation",
+        "gsap-core",
+        "gsap-timeline",
+        "pose-library-design",
+        "character-rigging",
+        "svg-character-animation",
+        "pose-library-design",
+        "svg-character-animation",
+        "gsap-timeline",
+        "character-rigging",
+        "svg-character-animation",
+        "canvas-procedural-animation",
+        "gsap-core",
+        "gsap-timeline",
+        "remotion-best-practices",
+        "hyperframes",
+        "character-animation-qa"
+      ],
+      "file": "character/character_animation.py"
+    },
+    {
+      "name": "clip_search",
+      "className": "ClipSearch",
+      "capability": "clip_retrieval",
+      "provider": "openmontage",
+      "tier": "analyze",
+      "agentSkills": [],
+      "file": "video/clip_search.py"
+    },
+    {
+      "name": "code_snippet",
+      "className": "CodeSnippet",
+      "capability": "graphics",
+      "provider": "pygments",
+      "tier": "core",
+      "agentSkills": [],
+      "file": "graphics/code_snippet.py"
+    },
+    {
+      "name": "cogvideo_video",
+      "className": "CogVideoVideo",
+      "capability": "video_generation",
+      "provider": "cogvideo",
+      "tier": "generate",
+      "agentSkills": [
+        "ltx2"
+      ],
+      "file": "video/cogvideo_video.py"
+    },
+    {
+      "name": "color_grade",
+      "className": "ColorGrade",
+      "capability": "enhancement",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/color_grade.py"
+    },
+    {
+      "name": "comfyui_image",
+      "className": "ComfyUIImage",
+      "capability": "image_generation",
+      "provider": "comfyui",
+      "tier": "generate",
+      "agentSkills": [
+        "comfyui",
+        "flux-best-practices"
+      ],
+      "file": "graphics/comfyui_image.py"
+    },
+    {
+      "name": "comfyui_music",
+      "className": "ComfyUIMusic",
+      "capability": "music_generation",
+      "provider": "comfyui",
+      "tier": "generate",
+      "agentSkills": [
+        "comfyui"
+      ],
+      "file": "audio/comfyui_music.py"
+    },
+    {
+      "name": "comfyui_video",
+      "className": "ComfyUIVideo",
+      "capability": "video_generation",
+      "provider": "comfyui",
+      "tier": "generate",
+      "agentSkills": [
+        "comfyui",
+        "gemini-omni",
+        "seedance-2-5",
+        "minimax-h3",
+        "ai-video-gen",
+        "ltx2"
+      ],
+      "file": "video/comfyui_video.py"
+    },
+    {
+      "name": "composition_validator",
+      "className": "CompositionValidator",
+      "capability": "analysis",
+      "provider": "local",
+      "tier": "core",
+      "agentSkills": [],
+      "file": "analysis/composition_validator.py"
+    },
+    {
+      "name": "corpus_builder",
+      "className": "CorpusBuilder",
+      "capability": "corpus_population",
+      "provider": "openmontage",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "video/corpus_builder.py"
+    },
+    {
+      "name": "dashscope_asr",
+      "className": "DashscopeAsr",
+      "capability": "analysis",
+      "provider": "dashscope",
+      "tier": "analyze",
+      "agentSkills": [
+        "dashscope"
+      ],
+      "file": "analysis/dashscope_asr.py"
+    },
+    {
+      "name": "dashscope_image",
+      "className": "DashscopeImage",
+      "capability": "image_generation",
+      "provider": "dashscope",
+      "tier": "generate",
+      "agentSkills": [
+        "dashscope"
+      ],
+      "file": "graphics/dashscope_image.py"
+    },
+    {
+      "name": "dashscope_tts",
+      "className": "DashscopeTTS",
+      "capability": "tts",
+      "provider": "dashscope",
+      "tier": "voice",
+      "agentSkills": [
+        "dashscope"
+      ],
+      "file": "audio/dashscope_tts.py"
+    },
+    {
+      "name": "diagram_gen",
+      "className": "DiagramGen",
+      "capability": "graphics",
+      "provider": "mermaid",
+      "tier": "core",
+      "agentSkills": [
+        "beautiful-mermaid",
+        "d3-viz"
+      ],
+      "file": "graphics/diagram_gen.py"
+    },
+    {
+      "name": "direct_clip_search",
+      "className": "DirectClipSearch",
+      "capability": "clip_acquisition",
+      "provider": "openmontage",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "video/direct_clip_search.py"
+    },
+    {
+      "name": "doubao_tts",
+      "className": "DoubaoTTS",
+      "capability": "tts",
+      "provider": "doubao",
+      "tier": "voice",
+      "agentSkills": [
+        "doubao-tts",
+        "text-to-speech"
+      ],
+      "file": "audio/doubao_tts.py"
+    },
+    {
+      "name": "edit_plan",
+      "className": "EditPlan",
+      "capability": "video_post",
+      "provider": "local",
+      "tier": "core",
+      "agentSkills": [
+        "ecom-video",
+        "ffmpeg"
+      ],
+      "file": "video/edit_plan.py"
+    },
+    {
+      "name": "elevenlabs_tts",
+      "className": "ElevenLabsTTS",
+      "capability": "tts",
+      "provider": "elevenlabs",
+      "tier": "voice",
+      "agentSkills": [
+        "elevenlabs",
+        "text-to-speech"
+      ],
+      "file": "audio/elevenlabs_tts.py"
+    },
+    {
+      "name": "export_bundle",
+      "className": "ExportBundle",
+      "capability": "publish",
+      "provider": "local",
+      "tier": "publish",
+      "agentSkills": [],
+      "file": "publishers/export_bundle.py"
+    },
+    {
+      "name": "eye_enhance",
+      "className": "EyeEnhance",
+      "capability": "enhancement",
+      "provider": "mediapipe",
+      "tier": "enhance",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/eye_enhance.py"
+    },
+    {
+      "name": "face_enhance",
+      "className": "FaceEnhance",
+      "capability": "enhancement",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/face_enhance.py"
+    },
+    {
+      "name": "face_restore",
+      "className": "FaceRestore",
+      "capability": "enhancement",
+      "provider": "codeformer",
+      "tier": "enhance",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/face_restore.py"
+    },
+    {
+      "name": "face_tracker",
+      "className": "FaceTracker",
+      "capability": "analysis",
+      "provider": "mediapipe",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "analysis/face_tracker.py"
+    },
+    {
+      "name": "fal_3d",
+      "className": "Fal3D",
+      "capability": "3d_asset_generation",
+      "provider": "fal",
+      "tier": "generate",
+      "agentSkills": [
+        "3d-asset-generation",
+        "threejs-loaders",
+        "threejs-materials"
+      ],
+      "file": "graphics/fal_3d.py"
+    },
+    {
+      "name": "fal_elevenlabs_music",
+      "className": "FalElevenLabsMusic",
+      "capability": "music_generation",
+      "provider": "fal.ai",
+      "tier": "generate",
+      "agentSkills": [
+        "music",
+        "elevenlabs"
+      ],
+      "file": "audio/fal_elevenlabs_music.py"
+    },
+    {
+      "name": "fal_elevenlabs_tts",
+      "className": "FalElevenLabsTTS",
+      "capability": "tts",
+      "provider": "fal.ai",
+      "tier": "voice",
+      "agentSkills": [
+        "elevenlabs"
+      ],
+      "file": "audio/fal_elevenlabs_tts.py"
+    },
+    {
+      "name": "fish_audio_tts",
+      "className": "FishAudioTTS",
+      "capability": "tts",
+      "provider": "fish_audio",
+      "tier": "voice",
+      "agentSkills": [
+        "fish-audio-tts",
+        "text-to-speech"
+      ],
+      "file": "audio/fish_audio_tts.py"
+    },
+    {
+      "name": "flux_image",
+      "className": "FluxImage",
+      "capability": "image_generation",
+      "provider": "flux",
+      "tier": "generate",
+      "agentSkills": [
+        "flux-best-practices",
+        "bfl-api"
+      ],
+      "file": "graphics/flux_image.py"
+    },
+    {
+      "name": "frame_sampler",
+      "className": "FrameSampler",
+      "capability": "analysis",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "analysis/frame_sampler.py"
+    },
+    {
+      "name": "freesound_music",
+      "className": "FreesoundMusic",
+      "capability": "music_search",
+      "provider": "freesound",
+      "tier": "source",
+      "agentSkills": [
+        "music"
+      ],
+      "file": "audio/freesound_music.py"
+    },
+    {
+      "name": "gemini_omni_fal",
+      "className": "GeminiOmniFalVideo",
+      "capability": "video_generation",
+      "provider": "gemini_omni",
+      "tier": "generate",
+      "agentSkills": [
+        "gemini-omni",
+        "ai-video-gen"
+      ],
+      "file": "video/gemini_omni_fal.py"
+    },
+    {
+      "name": "gemini_omni_video",
+      "className": "GeminiOmniVideo",
+      "capability": "video_generation",
+      "provider": "gemini_omni",
+      "tier": "generate",
+      "agentSkills": [
+        "gemini-omni",
+        "ai-video-gen"
+      ],
+      "file": "video/gemini_omni_video.py"
+    },
+    {
+      "name": "google_imagen",
+      "className": "GoogleImagen",
+      "capability": "image_generation",
+      "provider": "google_imagen",
+      "tier": "generate",
+      "agentSkills": [],
+      "file": "graphics/google_imagen.py"
+    },
+    {
+      "name": "google_music",
+      "className": "GoogleMusic",
+      "capability": "music_generation",
+      "provider": "google",
+      "tier": "generate",
+      "agentSkills": [
+        "lyria"
+      ],
+      "file": "audio/google_music.py"
+    },
+    {
+      "name": "google_tts",
+      "className": "GoogleTTS",
+      "capability": "tts",
+      "provider": "google_tts",
+      "tier": "voice",
+      "agentSkills": [
+        "text-to-speech"
+      ],
+      "file": "audio/google_tts.py"
+    },
+    {
+      "name": "green_screen_composite",
+      "className": "GreenScreenComposite",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "video/green_screen_composite.py"
+    },
+    {
+      "name": "green_screen_processor",
+      "className": "GreenScreenProcessor",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "video/green_screen_processor.py"
+    },
+    {
+      "name": "grok_image",
+      "className": "GrokImage",
+      "capability": "image_generation",
+      "provider": "grok",
+      "tier": "generate",
+      "agentSkills": [
+        "grok-media"
+      ],
+      "file": "graphics/grok_image.py"
+    },
+    {
+      "name": "grok_video",
+      "className": "GrokVideo",
+      "capability": "video_generation",
+      "provider": "grok",
+      "tier": "generate",
+      "agentSkills": [
+        "grok-media",
+        "ai-video-gen"
+      ],
+      "file": "video/grok_video.py"
+    },
+    {
+      "name": "heygen_video",
+      "className": "HeyGenVideo",
+      "capability": "video_generation",
+      "provider": "heygen",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen",
+        "create-video"
+      ],
+      "file": "video/heygen_video.py"
+    },
+    {
+      "name": "higgsfield_video",
+      "className": "HiggsFieldVideo",
+      "capability": "video_generation",
+      "provider": "higgsfield",
+      "tier": "generate",
+      "agentSkills": [
+        "seedance-2-0",
+        "ai-video-gen"
+      ],
+      "file": "video/higgsfield_video.py"
+    },
+    {
+      "name": "hunyuan_cloud_video",
+      "className": "HunyuanCloudVideo",
+      "capability": "video_generation",
+      "provider": "hunyuan_cloud",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen"
+      ],
+      "file": "video/hunyuan_cloud_video.py"
+    },
+    {
+      "name": "hunyuan_image",
+      "className": "HunyuanImage",
+      "capability": "image_generation",
+      "provider": "hunyuan_cloud",
+      "tier": "generate",
+      "agentSkills": [
+        "visual-style"
+      ],
+      "file": "graphics/hunyuan_image.py"
+    },
+    {
+      "name": "hunyuan_video",
+      "className": "HunyuanVideo",
+      "capability": "video_generation",
+      "provider": "hunyuan",
+      "tier": "generate",
+      "agentSkills": [
+        "ltx2"
+      ],
+      "file": "video/hunyuan_video.py"
+    },
+    {
+      "name": "hyperframes_compose",
+      "className": "HyperFramesCompose",
+      "capability": "video_post",
+      "provider": "hyperframes",
+      "tier": "core",
+      "agentSkills": [
+        "hyperframes",
+        "hyperframes-cli",
+        "hyperframes-registry",
+        "website-to-video",
+        "gsap-core",
+        "gsap-timeline"
+      ],
+      "file": "video/hyperframes_compose.py"
+    },
+    {
+      "name": "image_gen",
+      "className": "ImageGen",
+      "capability": "image_generation",
+      "provider": "multi",
+      "tier": "core",
+      "agentSkills": [
+        "flux-best-practices",
+        "bfl-api"
+      ],
+      "file": "graphics/image_gen.py"
+    },
+    {
+      "name": "image_selector",
+      "className": "ImageSelector",
+      "capability": "image_generation",
+      "provider": "selector",
+      "tier": "generate",
+      "agentSkills": [
+        "flux-best-practices",
+        "bfl-api",
+        "atlas-cloud"
+      ],
+      "file": "graphics/image_selector.py"
+    },
+    {
+      "name": "jimeng_video",
+      "className": "JimengVideo",
+      "capability": "video_generation",
+      "provider": "volcengine",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen"
+      ],
+      "file": "video/jimeng_video.py"
+    },
+    {
+      "name": "kling_avatar",
+      "className": "KlingAvatar",
+      "capability": "avatar",
+      "provider": "kling_official",
+      "tier": "generate",
+      "agentSkills": [
+        "kling-official",
+        "avatar-video"
+      ],
+      "file": "avatar/kling_avatar.py"
+    },
+    {
+      "name": "kling_lip_sync",
+      "className": "KlingLipSync",
+      "capability": "avatar",
+      "provider": "kling_official",
+      "tier": "generate",
+      "agentSkills": [
+        "kling-official",
+        "avatar-video"
+      ],
+      "file": "avatar/kling_lip_sync.py"
+    },
+    {
+      "name": "kling_official_image",
+      "className": "KlingOfficialImage",
+      "capability": "image_generation",
+      "provider": "kling_official",
+      "tier": "generate",
+      "agentSkills": [
+        "kling-official"
+      ],
+      "file": "graphics/kling_official_image.py"
+    },
+    {
+      "name": "kling_official_video",
+      "className": "KlingOfficialVideo",
+      "capability": "video_generation",
+      "provider": "kling_official",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen",
+        "kling-official"
+      ],
+      "file": "video/kling_official_video.py"
+    },
+    {
+      "name": "kling_tts",
+      "className": "KlingTTS",
+      "capability": "tts",
+      "provider": "kling_official",
+      "tier": "voice",
+      "agentSkills": [
+        "kling-official",
+        "text-to-speech"
+      ],
+      "file": "audio/kling_tts.py"
+    },
+    {
+      "name": "kling_video",
+      "className": "KlingVideo",
+      "capability": "video_generation",
+      "provider": "kling",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen"
+      ],
+      "file": "video/kling_video.py"
+    },
+    {
+      "name": "lip_sync",
+      "className": "LipSync",
+      "capability": "avatar",
+      "provider": "wav2lip",
+      "tier": "generate",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "avatar/lip_sync.py"
+    },
+    {
+      "name": "local_diffusion",
+      "className": "LocalDiffusion",
+      "capability": "image_generation",
+      "provider": "local_diffusion",
+      "tier": "generate",
+      "agentSkills": [],
+      "file": "graphics/local_diffusion.py"
+    },
+    {
+      "name": "ltx_video_local",
+      "className": "LTXVideoLocal",
+      "capability": "video_generation",
+      "provider": "ltx",
+      "tier": "generate",
+      "agentSkills": [
+        "ltx2"
+      ],
+      "file": "video/ltx_video_local.py"
+    },
+    {
+      "name": "ltx_video_modal",
+      "className": "LTXVideoModal",
+      "capability": "video_generation",
+      "provider": "ltx-modal",
+      "tier": "generate",
+      "agentSkills": [
+        "ltx2"
+      ],
+      "file": "video/ltx_video_modal.py"
+    },
+    {
+      "name": "material_ledger",
+      "className": "MaterialLedger",
+      "capability": "asset_management",
+      "provider": "local",
+      "tier": "core",
+      "agentSkills": [
+        "ecom-video"
+      ],
+      "file": "asset_management/material_ledger.py"
+    },
+    {
+      "name": "math_animate",
+      "className": "MathAnimate",
+      "capability": "graphics",
+      "provider": "manim",
+      "tier": "generate",
+      "agentSkills": [
+        "manimce-best-practices",
+        "manim-composer"
+      ],
+      "file": "graphics/math_animate.py"
+    },
+    {
+      "name": "minimax_fal_video",
+      "className": "MiniMaxFalVideo",
+      "capability": "video_generation",
+      "provider": "minimax",
+      "tier": "generate",
+      "agentSkills": [
+        "minimax-h3",
+        "ai-video-gen"
+      ],
+      "file": "video/minimax_fal_video.py"
+    },
+    {
+      "name": "minimax_image",
+      "className": "MiniMaxImage",
+      "capability": "image_generation",
+      "provider": "minimax",
+      "tier": "generate",
+      "agentSkills": [
+        "visual-style"
+      ],
+      "file": "graphics/minimax_image.py"
+    },
+    {
+      "name": "minimax_video",
+      "className": "MiniMaxVideo",
+      "capability": "video_generation",
+      "provider": "minimax",
+      "tier": "generate",
+      "agentSkills": [
+        "minimax-h3",
+        "ai-video-gen"
+      ],
+      "file": "video/minimax_video.py"
+    },
+    {
+      "name": "music_gen",
+      "className": "MusicGen",
+      "capability": "music_generation",
+      "provider": "elevenlabs",
+      "tier": "generate",
+      "agentSkills": [
+        "music",
+        "sound-effects",
+        "elevenlabs"
+      ],
+      "file": "audio/music_gen.py"
+    },
+    {
+      "name": "music_library",
+      "className": "MusicLibrary",
+      "capability": "music_library",
+      "provider": "local",
+      "tier": "source",
+      "agentSkills": [
+        "music"
+      ],
+      "file": "audio/music_library.py"
+    },
+    {
+      "name": "openai_image",
+      "className": "OpenAIImage",
+      "capability": "image_generation",
+      "provider": "openai",
+      "tier": "generate",
+      "agentSkills": [
+        "flux-best-practices"
+      ],
+      "file": "graphics/openai_image.py"
+    },
+    {
+      "name": "openai_tts",
+      "className": "OpenAITTS",
+      "capability": "tts",
+      "provider": "openai",
+      "tier": "voice",
+      "agentSkills": [],
+      "file": "audio/openai_tts.py"
+    },
+    {
+      "name": "pexels_image",
+      "className": "PexelsImage",
+      "capability": "image_generation",
+      "provider": "pexels",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "graphics/pexels_image.py"
+    },
+    {
+      "name": "pexels_video",
+      "className": "PexelsVideo",
+      "capability": "video_generation",
+      "provider": "pexels",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "video/pexels_video.py"
+    },
+    {
+      "name": "piper_tts",
+      "className": "PiperTTS",
+      "capability": "tts",
+      "provider": "piper",
+      "tier": "voice",
+      "agentSkills": [
+        "text-to-speech"
+      ],
+      "file": "audio/piper_tts.py"
+    },
+    {
+      "name": "pixabay_image",
+      "className": "PixabayImage",
+      "capability": "image_generation",
+      "provider": "pixabay",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "graphics/pixabay_image.py"
+    },
+    {
+      "name": "pixabay_music",
+      "className": "PixabayMusic",
+      "capability": "music_search",
+      "provider": "pixabay_music",
+      "tier": "source",
+      "agentSkills": [
+        "music"
+      ],
+      "file": "audio/pixabay_music.py"
+    },
+    {
+      "name": "pixabay_video",
+      "className": "PixabayVideo",
+      "capability": "video_generation",
+      "provider": "pixabay",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "video/pixabay_video.py"
+    },
+    {
+      "name": "recraft_image",
+      "className": "RecraftImage",
+      "capability": "image_generation",
+      "provider": "recraft",
+      "tier": "generate",
+      "agentSkills": [],
+      "file": "graphics/recraft_image.py"
+    },
+    {
+      "name": "remotion_caption_burn",
+      "className": "RemotionCaptionBurn",
+      "capability": "subtitle",
+      "provider": "remotion",
+      "tier": "core",
+      "agentSkills": [
+        "remotion-best-practices",
+        "ffmpeg"
+      ],
+      "file": "video/remotion_caption_burn.py"
+    },
+    {
+      "name": "runway_video",
+      "className": "RunwayVideo",
+      "capability": "video_generation",
+      "provider": "runway",
+      "tier": "generate",
+      "agentSkills": [
+        "seedance-2-0",
+        "seedance-2-5",
+        "gemini-omni",
+        "minimax-h3",
+        "ai-video-gen"
+      ],
+      "file": "video/runway_video.py"
+    },
+    {
+      "name": "scene_detect",
+      "className": "SceneDetect",
+      "capability": "analysis",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "analysis/scene_detect.py"
+    },
+    {
+      "name": "screen_capture_selector",
+      "className": "ScreenCaptureSelector",
+      "capability": "screen_capture",
+      "provider": "selector",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "capture/screen_capture_selector.py"
+    },
+    {
+      "name": "screen_recorder",
+      "className": "ScreenRecorder",
+      "capability": "screen_capture",
+      "provider": "ffmpeg",
+      "tier": "source",
+      "agentSkills": [],
+      "file": "capture/screen_recorder.py"
+    },
+    {
+      "name": "seedance_ark",
+      "className": "SeedanceArkVideo",
+      "capability": "video_generation",
+      "provider": "ark",
+      "tier": "generate",
+      "agentSkills": [
+        "seedance-2-0",
+        "seedance-2-5",
+        "ai-video-gen"
+      ],
+      "file": "video/seedance_ark.py"
+    },
+    {
+      "name": "seedance_replicate",
+      "className": "SeedanceReplicate",
+      "capability": "video_generation",
+      "provider": "seedance",
+      "tier": "generate",
+      "agentSkills": [
+        "seedance-2-0",
+        "ai-video-gen"
+      ],
+      "file": "video/seedance_replicate.py"
+    },
+    {
+      "name": "seedance_video",
+      "className": "SeedanceVideo",
+      "capability": "video_generation",
+      "provider": "seedance",
+      "tier": "generate",
+      "agentSkills": [
+        "seedance-2-0",
+        "seedance-2-5",
+        "ai-video-gen"
+      ],
+      "file": "video/seedance_video.py"
+    },
+    {
+      "name": "seedream_image",
+      "className": "SeedreamImage",
+      "capability": "image_generation",
+      "provider": "bytedance",
+      "tier": "generate",
+      "agentSkills": [
+        "visual-style"
+      ],
+      "file": "graphics/seedream_image.py"
+    },
+    {
+      "name": "showcase_card",
+      "className": "ShowcaseCard",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg",
+        "video-toolkit"
+      ],
+      "file": "video/showcase_card.py"
+    },
+    {
+      "name": "silence_cutter",
+      "className": "SilenceCutter",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "video/silence_cutter.py"
+    },
+    {
+      "name": "sora_video",
+      "className": "SoraVideo",
+      "capability": "video_generation",
+      "provider": "openai",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen"
+      ],
+      "file": "video/sora_video.py"
+    },
+    {
+      "name": "subtitle_gen",
+      "className": "SubtitleGen",
+      "capability": "subtitle",
+      "provider": "openmontage",
+      "tier": "core",
+      "agentSkills": [
+        "remotion-best-practices"
+      ],
+      "file": "subtitle/subtitle_gen.py"
+    },
+    {
+      "name": "suno_music",
+      "className": "SunoMusic",
+      "capability": "music_generation",
+      "provider": "suno",
+      "tier": "generate",
+      "agentSkills": [
+        "music"
+      ],
+      "file": "audio/suno_music.py"
+    },
+    {
+      "name": "talking_head",
+      "className": "TalkingHead",
+      "capability": "avatar",
+      "provider": "sadtalker",
+      "tier": "generate",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "avatar/talking_head.py"
+    },
+    {
+      "name": "threejs_asset_catalog",
+      "className": "ThreeJSAssetCatalog",
+      "capability": "3d_asset_acquisition",
+      "provider": "multi",
+      "tier": "source",
+      "agentSkills": [
+        "threejs-world-generation",
+        "threejs-loaders",
+        "threejs-materials",
+        "threejs-textures"
+      ],
+      "file": "graphics/threejs_asset_catalog.py"
+    },
+    {
+      "name": "threejs_world",
+      "className": "ThreeJSWorld",
+      "capability": "3d_world_generation",
+      "provider": "threejs",
+      "tier": "generate",
+      "agentSkills": [
+        "threejs-world-generation"
+      ],
+      "file": "graphics/threejs_world.py"
+    },
+    {
+      "name": "transcriber",
+      "className": "Transcriber",
+      "capability": "analysis",
+      "provider": "whisperx",
+      "tier": "core",
+      "agentSkills": [
+        "speech-to-text"
+      ],
+      "file": "analysis/transcriber.py"
+    },
+    {
+      "name": "transcript_fetcher",
+      "className": "TranscriptFetcher",
+      "capability": "analysis",
+      "provider": "youtube-transcript-api",
+      "tier": "analyze",
+      "agentSkills": [],
+      "file": "analysis/transcript_fetcher.py"
+    },
+    {
+      "name": "tts_selector",
+      "className": "TTSSelector",
+      "capability": "tts",
+      "provider": "selector",
+      "tier": "voice",
+      "agentSkills": [
+        "text-to-speech",
+        "elevenlabs"
+      ],
+      "file": "audio/tts_selector.py"
+    },
+    {
+      "name": "upscale",
+      "className": "Upscale",
+      "capability": "enhancement",
+      "provider": "realesrgan",
+      "tier": "enhance",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "enhancement/upscale.py"
+    },
+    {
+      "name": "veo_video",
+      "className": "VeoVideo",
+      "capability": "video_generation",
+      "provider": "veo",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen"
+      ],
+      "file": "video/veo_video.py"
+    },
+    {
+      "name": "video_analyzer",
+      "className": "VideoAnalyzer",
+      "capability": "analysis",
+      "provider": "multi",
+      "tier": "analyze",
+      "agentSkills": [
+        "video-understand",
+        "ffmpeg"
+      ],
+      "file": "analysis/video_analyzer.py"
+    },
+    {
+      "name": "video_compose",
+      "className": "VideoCompose",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "remotion-best-practices",
+        "remotion",
+        "ffmpeg"
+      ],
+      "file": "video/video_compose.py"
+    },
+    {
+      "name": "video_downloader",
+      "className": "VideoDownloader",
+      "capability": "source_ingest",
+      "provider": "yt-dlp",
+      "tier": "source",
+      "agentSkills": [
+        "video-download"
+      ],
+      "file": "analysis/video_downloader.py"
+    },
+    {
+      "name": "video_selector",
+      "className": "VideoSelector",
+      "capability": "video_generation",
+      "provider": "selector",
+      "tier": "generate",
+      "agentSkills": [
+        "ai-video-gen",
+        "create-video",
+        "ltx2",
+        "gemini-omni",
+        "atlas-cloud"
+      ],
+      "file": "video/video_selector.py"
+    },
+    {
+      "name": "video_stitch",
+      "className": "VideoStitch",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg",
+        "video-toolkit"
+      ],
+      "file": "video/video_stitch.py"
+    },
+    {
+      "name": "video_trimmer",
+      "className": "VideoTrimmer",
+      "capability": "video_post",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg",
+        "video-toolkit"
+      ],
+      "file": "video/video_trimmer.py"
+    },
+    {
+      "name": "video_understand",
+      "className": "VideoUnderstand",
+      "capability": "analysis",
+      "provider": "transformers",
+      "tier": "analyze",
+      "agentSkills": [
+        "video-understand"
+      ],
+      "file": "analysis/video_understand.py"
+    },
+    {
+      "name": "visual_qa",
+      "className": "VisualQA",
+      "capability": "analysis",
+      "provider": "ffmpeg",
+      "tier": "core",
+      "agentSkills": [
+        "ffmpeg"
+      ],
+      "file": "analysis/visual_qa.py"
+    },
+    {
+      "name": "wan_video",
+      "className": "WanVideo",
+      "capability": "video_generation",
+      "provider": "wan",
+      "tier": "generate",
+      "agentSkills": [
+        "ltx2"
+      ],
+      "file": "video/wan_video.py"
+    }
+  ]
+}

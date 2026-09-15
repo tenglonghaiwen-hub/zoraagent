@@ -1,0 +1,17 @@
+{
+  "name": "zora-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node apps/server/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:desktop": "node scripts/acceptance-desktop.mjs",
+    "check": "node --check apps/server/server.mjs && node --check apps/client/app.js",
+    "desktop": "npm --prefix apps/desktop start",
+    "desktop:install": "npm --prefix apps/desktop install"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

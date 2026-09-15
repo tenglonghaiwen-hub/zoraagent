@@ -1,0 +1,39 @@
+import http from 'node:http';
+import {createChatService} from './chat-service.mjs';
+import {agentStatus} from './codex-agent.mjs';
+import {loadCatalog} from './catalog.mjs';
+import {readFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {catalog,account,validateDraft} from '../../packages/contracts/domain.mjs';
+const root = new URL('../client/',import.meta.url);
+const files = {'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8']};
+export function createServer({catalogPath,agentRunner}={}){const chat=createChatService({run:agentRunner});return http.createServer(async(req,res)=>{
+  const send=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+  try{
+    const path=new URL(req.url,'http://localhost').pathname;
+    if(req.method==='GET' && path==='/api/models') return send(200,{mode:'demo',...await loadCatalog(catalogPath)});
+    if(req.method==='GET' && path==='/api/account') return send(200,{...account,maxConcurrency:(await loadCatalog(catalogPath)).accountMaxConcurrency});
+    if(req.method==='GET' && path==='/api/health') return send(200,{mode:'demo',codex:'not_connected',openmontage:'not_connected',payments:'not_connected'});
+    if(req.method==='GET' && path==='/api/agent/status')return send(200,agentStatus());
+    if(req.method==='POST' && path==='/api/chat'){
+      if(req.headers.origin && req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'不允许跨站调用'});
+      let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32768)return send(413,{error:'请求过大'});}
+      let input;try{input=JSON.parse(raw);}catch{return send(400,{error:'请求格式错误'});}
+      try{return send(200,await chat(input,await loadCatalog(catalogPath)));}catch(e){return send(e.status||502,{error:e.status?e.message:'Agent 调用或任务校验失败，请检查后台配置后重试'});}
+    }
+    if(req.method==='POST' && path==='/api/preview'){
+      let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32768)return send(413,{error:'请求过大'});}
+      let input;try{input=JSON.parse(raw);}catch{return send(400,{error:'请求格式错误'});}
+      const config=await loadCatalog(catalogPath);
+      try{return send(200,{mode:'demo',draft:validateDraft(input,config.models,config.accountMaxConcurrency),points:null,canSubmit:false,message:'清单预览已校验；真实生成与计费尚未接入。'});}catch(e){return send(400,{error:e.message});}
+    }
+    if(req.method==='POST' && ['/api/generate','/api/chat','/api/orders'].includes(path))return send(501,{error:'骨架阶段尚未接入，不会生成或扣费'});
+    if(req.method!=='GET')return send(405,{error:'不支持的方法'});
+    if(!files[path])return send(404,{error:'Not found'});
+    const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'X-Content-Type-Options':'nosniff','Cache-Control':'no-store'});res.end(await readFile(new URL(name,root)));
+  }catch{if(!res.headersSent)send(500,{error:'本地服务发生错误'});else res.end();}
+});}
+if(process.argv[1]===fileURLToPath(import.meta.url)){
+ const port=Number(process.env.PORT||4317);const server=createServer();server.listen(port,'127.0.0.1',()=>console.log(`Zora skeleton: http://127.0.0.1:${port}`));
+ server.on('error',e=>{console.error(e.message);process.exitCode=1;});
+}

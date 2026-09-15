@@ -1,0 +1,31 @@
+node_modules/
+.env
+.env.*
+!.env.example
+runtime/
+outputs/
+*.log
+
+# OpenMontage bundled binaries / linked engine (keep placeholders)
+vendor/openmontage/runtime/node/**
+vendor/openmontage/runtime/python/**
+vendor/openmontage/runtime/ffmpeg/**
+vendor/openmontage/runtime/hyperframes/**
+vendor/openmontage/runtime/codex/**
+!vendor/openmontage/runtime/**/.gitkeep.txt
+vendor/openmontage/engine/**
+!vendor/openmontage/engine/.gitkeep.txt
+vendor/openmontage/projects/**
+!vendor/openmontage/projects/.gitkeep.txt
+vendor/openmontage/config/config.local.yaml
+
+vendor/openmontage/sidecar-state.json
+
+# Local user state and generated files
+/data/
+/workspace/
+**/__pycache__/
+*.pyc
+*.local.json
+*.local.toml
+/vendor/openmontage/engine/
