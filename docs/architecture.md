@@ -7,7 +7,7 @@ Electron / 浏览器界面
   → Zora Node 后端
     → 包内 Codex app-server → Responses 模型服务
       → 原生工具 / Zora 动态工具 / 媒体子 Agent
-    → 多元图像视频接口 → 持久化任务记录与查询
+    → 多元图像视频接口 / MiniMax H3 官方接口 → 持久化任务记录与查询
     → OpenMontage sidecar
     → 本地工作区、Docker 与桌面工具桥
 ```
@@ -16,6 +16,8 @@ Electron / 浏览器界面
 
 设置层持久保存界面偏好，壁纸独立保存于 IndexedDB。减少动态效果会暂停背景视频；审批展示与工具执行策略分离。
 
-RunningHub 已移除，无相关服务接口或后续接入计划。Codex 不依赖桌面安装目录，但模型推理仍需要上游 API，Docker 和媒体工具仍有各自依赖。
+RunningHub 服务入口已移除，工具设置隐藏相关项；仍有旧工具定义，不再安排接入。Codex 不依赖桌面安装目录，但模型推理仍需要上游 API，Docker 和媒体工具仍有各自依赖。
 
 生产仍需远程凭据托管、账户鉴权、持久化账本、对账、支付与干净环境安装验收。本地开发配置不能代替生产安全设计。
+
+文件交付通过 workspace-artifacts 控制允许的路径和文件类型；PPTX 增加结构检查，下载失败返回 422，不能代替渲染验收。参考素材二进制保存于客户端 IndexedDB，会话记录保存引用标识；二者备份与迁移需分别考虑。桌面生成媒体下载经受限 IPC 交给 Electron 主进程，详见 [文件交付](FILE-DELIVERY.md)。

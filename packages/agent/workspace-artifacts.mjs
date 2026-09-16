@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {validatePptx} from './pptx-validation.mjs';
 
 const types={
  '.xlsx':['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','document'],'.xls':['application/vnd.ms-excel','document'],'.docx':['application/vnd.openxmlformats-officedocument.wordprocessingml.document','document'],'.doc':['application/msword','document'],'.pptx':['application/vnd.openxmlformats-officedocument.presentationml.presentation','document'],
@@ -31,15 +32,16 @@ export function createWorkspaceArtifacts({workspaceRoot}={}){
  const metadata=(relative,stat)=>{const id=Buffer.from(relative,'utf8').toString('base64url');return {id,name:path.posix.basename(relative),path:relative,size:stat.size,modifiedAt:stat.mtime.toISOString(),url:'/api/workspace-files/'+id,kind:types[path.posix.extname(relative).toLowerCase()][1]};};
  function list(){
   if(!rootPath())return [];const files=[];let visited=0;
-  const walk=(directory,relative='',depth=0)=>{if(depth>16)throw fail('工作区目录层级超过文件列表上限',413);if(fs.lstatSync(directory).isSymbolicLink()||(directory!==root&&!within(fs.realpathSync(root),fs.realpathSync(directory))))return;for(const entry of fs.readdirSync(directory,{withFileTypes:true})){if(++visited>20000)throw fail('工作区文件数量超过列表上限',413);if(blocked(entry.name)||entry.isSymbolicLink())continue;const rel=relative?relative+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(directory,entry.name),rel,depth+1);else if(entry.isFile()&&types[path.extname(entry.name).toLowerCase()]){try{const found=resolve(rel);files.push(metadata(rel,found.stat));}catch(e){if(e.status!==404&&e.status!==403&&e.code!=='ENOENT')throw e;}}}};
+  const walk=(directory,relative='',depth=0)=>{if(depth>16)throw fail('工作区目录层级超过文件列表上限',413);if(fs.lstatSync(directory).isSymbolicLink()||(directory!==root&&!within(fs.realpathSync(root),fs.realpathSync(directory))))return;for(const entry of fs.readdirSync(directory,{withFileTypes:true})){if(++visited>20000)throw fail('工作区文件数量超过列表上限',413);if(blocked(entry.name)||entry.isSymbolicLink())continue;const rel=relative?relative+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(directory,entry.name),rel,depth+1);else if(entry.isFile()&&types[path.extname(entry.name).toLowerCase()]){try{const found=resolve(rel);files.push({...metadata(rel,found.stat),...(rel.toLowerCase().endsWith('.pptx')?{validation:validatePptx(found.actual)}:{})});}catch(e){if(e.status!==404&&e.status!==403&&e.code!=='ENOENT')throw e;}}}};
   walk(root);return files.sort((a,b)=>b.modifiedAt.localeCompare(a.modifiedAt)||a.path.localeCompare(b.path));
  }
  function open(id){
   if(typeof id!=='string'||!/^[A-Za-z0-9_-]{1,4096}$/.test(id))throw fail('文件编号无效');
   const relative=Buffer.from(id,'base64url').toString('utf8');if(Buffer.from(relative,'utf8').toString('base64url')!==id)throw fail('文件编号无效');
   let fd;
-  try{const found=resolve(relative);fd=fs.openSync(found.actual,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);const rechecked=resolve(relative);if(!stat.isFile()||stat.ino!==rechecked.stat.ino||stat.dev!==rechecked.stat.dev)throw fail('文件在读取前已改变',409);return {...metadata(relative,stat),fd,mimeType:types[path.extname(relative).toLowerCase()][0]};}
+  try{const found=resolve(relative);if(relative.toLowerCase().endsWith('.pptx')){const validation=validatePptx(found.actual);if(!validation.ok)throw fail(validation.error,422);}fd=fs.openSync(found.actual,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);const rechecked=resolve(relative);if(!stat.isFile()||stat.ino!==rechecked.stat.ino||stat.dev!==rechecked.stat.dev)throw fail('文件在读取前已改变',409);return {...metadata(relative,stat),fd,mimeType:types[path.extname(relative).toLowerCase()][0]};}
   catch(e){if(fd!==undefined)fs.closeSync(fd);if(e.status)throw e;throw fail(e.code==='ENOENT'?'文件不存在':'文件读取失败');}
  }
  return {list,open};
 }
+

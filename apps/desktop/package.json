@@ -2,7 +2,7 @@
   "name": "zora-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "造境 Zora Electron shell — wraps existing studio UI + local server",
+  "description": "造境 Zora：以包内开源 Codex app-server 为内核的 Windows 创作客户端，连接会话、媒体生成、工作区文件与本地工具（开发版本）。",
   "main": "main/main.mjs",
   "type": "module",
   "scripts": {

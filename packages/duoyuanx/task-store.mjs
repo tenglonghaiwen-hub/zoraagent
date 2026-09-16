@@ -1,3 +1,4 @@
+import {minimaxCredentials} from './minimax-official.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -8,7 +9,7 @@ const fingerprint=draft=>createHash('sha256').update(JSON.stringify(Object.fromE
 const ambiguousLegacyFailure=item=>item?.ok===false&&item.submissionUnknown===undefined&&item.errorPhase!=='pre_submission'&&!(item.httpStatus>=400&&item.httpStatus<500)&&/timeout|timed out|aborted|aborterror|fetch failed|socket|ECONNRESET|UND_ERR|terminated|超时|请求中断|结果未知/i.test(item.error||'');
 
 // Only task receipts/results are stored. Prompts, input files and credentials stay out of this ledger.
-export function createGenerationTaskStore({directory,getModel,generate,fetchImpl=fetch,base,key,now=Date.now,pollInterval=5000,maxAge=3*24*3600000}){
+export function createGenerationTaskStore({directory,getModel,generate,fetchImpl=fetch,base,key,now=Date.now,pollInterval=5000,maxAge=3*24*3600000,minimaxKey=process.env.MINIMAX_API_KEY}){
  const records=new Map(),inflight=new Set();let timer,closed=false,lastStorageError='';
  fs.mkdirSync(directory,{recursive:true});
  const write=record=>{record.updatedAt=now();record.revision=(record.revision||0)+1;const file=path.join(directory,record.id+'.json');fs.writeFileSync(file+'.tmp',JSON.stringify(record));fs.renameSync(file+'.tmp',file);records.set(record.id,record);};
@@ -54,7 +55,8 @@ export function createGenerationTaskStore({directory,getModel,generate,fetchImpl
     const responses=[];
     for(const id of ids){
      try{
-      const response=await fetchImpl(base+queryRoute.replace('{task_id}',encodeURIComponent(id)),{headers:{Authorization:result.authorizationScheme==='raw'?key:`Bearer ${key}`},signal:AbortSignal.timeout(30000)});
+      const endpoint=result.provider==='minimax-official'?minimaxCredentials(minimaxKey):{base,key};
+      const response=await fetchImpl(endpoint.base+queryRoute.replace('{task_id}',encodeURIComponent(id)),{headers:{Authorization:result.authorizationScheme==='raw'?endpoint.key:`Bearer ${endpoint.key}`},signal:AbortSignal.timeout(30000)});
       const data=await response.json();
       if(response.status===404||response.status===410){responses.push({error:'上游任务不存在或已过期',task_id:id});continue;}
       if(!response.ok)throw Error('任务查询暂不可用（'+response.status+'）');
@@ -63,7 +65,7 @@ export function createGenerationTaskStore({directory,getModel,generate,fetchImpl
      }catch(e){transient=true;record.pollError=e.message;responses.push({task_id:id});}
     }
     const previous=normalizeMediaResults(result.upstream);
-    record.results[i]={ok:true,queryRoute,...(result.authorizationScheme?{authorizationScheme:result.authorizationScheme}:{}),upstream:[...previous.urls.map(url=>({url})),...previous.errors.map(error=>({error})),...responses]};
+    record.results[i]={ok:true,queryRoute,...(result.provider?{provider:result.provider}:{}),...(result.authorizationScheme?{authorizationScheme:result.authorizationScheme}:{}),upstream:[...previous.urls.map(url=>({url})),...previous.errors.map(error=>({error})),...responses]};
    }
    record.failures=transient?(record.failures||0)+1:0;
    record.nextPoll=now()+Math.min(60000,pollInterval*2**Math.min(record.failures,4));settle(record);write(record);

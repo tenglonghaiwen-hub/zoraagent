@@ -8,6 +8,12 @@ import {promisify} from 'node:util';
 import {createWorkspaceArtifacts} from '../packages/agent/workspace-artifacts.mjs';
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'zora-artifacts-'));
 const id=p=>Buffer.from(p).toString('base64url');
+test('invalid PPTX remains listed with reason but cannot be downloaded',()=>{
+ const workspaceRoot=temp();fs.writeFileSync(path.join(workspaceRoot,'broken.pptx'),'not a presentation');
+ const library=createWorkspaceArtifacts({workspaceRoot});
+ assert.equal(library.list()[0].validation.ok,false);
+ assert.throws(()=>library.open(id('broken.pptx')),error=>error.status===422&&error.message.includes('PPTX'));
+});
 test('lists deliverable extensions with stable Unicode IDs and opens exact bytes',()=>{
  const workspaceRoot=temp();fs.mkdirSync(path.join(workspaceRoot,'成品'));fs.writeFileSync(path.join(workspaceRoot,'成品','报表.xlsx'),'test spreadsheet');fs.writeFileSync(path.join(workspaceRoot,'image.png'),'test png');
  const library=createWorkspaceArtifacts({workspaceRoot}),files=library.list(),sheet=files.find(f=>f.name==='报表.xlsx');assert.equal(files.length,2);assert.equal(sheet.path,'成品/报表.xlsx');assert.equal(sheet.id,id(sheet.path));assert.equal(sheet.url,'/api/workspace-files/'+sheet.id);assert.equal(sheet.kind,'document');assert.ok(sheet.modifiedAt);

@@ -29,7 +29,7 @@ let models=[],drafts=[],assets=[],generatedAssets=[],assetFilter='upload',toastT
 // modelChanged() runs before the picker UI is constructed.
 const pickers=[];
 function restorePendingMessage(message){
-  return message?.pending?{...message,pending:false,error:'上次请求因页面刷新或关闭而中断，请重新发送。'}:message;
+  return message?.pending?{...message,pending:false,recovering:true,error:'页面连接已断开，正在核对后台执行状态，请勿重复发送。'}:message;
 }
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4000);}
 
@@ -1867,6 +1867,7 @@ function addGeneratedAsset(item){
     meta:item.meta||'生成结果 · 待接入'
   };
   if(!durableMediaUrl(entry.url)){renderAssetsGrid();return entry;}
+  const existing=generatedAssets.find(a=>a.url===entry.url);if(existing)return existing;
   generatedAssets.unshift(entry);
   pruneGeneratedAssets();
   saveGeneratedAssets();
@@ -1887,11 +1888,11 @@ async function downloadGenerated(url,kind='image',automatic=false){
   if(!url){toast('还没有可下载的结果');return;}
   const name=`zora-${automatic?'auto-':''}${Date.now()}-${crypto.randomUUID()}.${kind==='video'?'mp4':'png'}`;
   try{
-    const res=await fetch(url);if(res.ok){const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2500);toast('已开始下载');return;}
-  }catch{}
-  if(automatic)throw Error('下载请求失败');
-  const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.download=name;document.body.append(a);a.click();a.remove();toast('已打开下载链接');
+    if(window.zoraDesktop?.downloadMedia){toast('正在下载…');const result=await window.zoraDesktop.downloadMedia(url,name);toast('已保存到下载目录 Zora 文件夹');return result;}
+    const res=await fetch(url);if(!res.ok)throw Error('下载请求失败');const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000);toast('已开始下载');
+  }catch(e){toast(e.message||'下载失败，请重试；桌面客户端需重新打开以加载下载功能');if(automatic)throw e;}
 }
+
 async function useGeneratedAsReference(url,kind='image'){
   if(!url){toast('还没有可引用的结果');return null;}
   if(assets.length>=50){toast('最多添加 50 个参考素材');return null;}
@@ -1933,7 +1934,8 @@ function wireComposerDrop(){
 
 
 function renderAssetsGrid(){const grid=$('#asset-grid');if(!grid)return;grid.replaceChildren();
-const items=assetFilter==='generated'?generatedAssets:assets.filter(a=>(a.source||'upload')==='upload');
+const items=assetFilter==='generated'?[...new Map(generatedAssets.map(a=>[a.url,a])).values()]:assets.filter(a=>(a.source||'upload')==='upload');
+let total=document.getElementById('asset-library-count');if(!total){total=document.createElement('p');total.id='asset-library-count';total.className='muted';grid.before(total);}total.textContent=assetFilter==='generated'?'共 '+items.length+' 个生成结果（相同链接合并展示）':'共 '+items.length+' 个上传素材';
 if(!items.length){grid.className='asset-grid asset-grid-empty';grid.textContent=assetFilter==='generated'?'还没有生成素材。完成一次创作后，结果会出现在这里（保留 7 天）。':'还没有本地上传素材。在创作页点左侧 + 添加图片或视频。';return;}
 grid.className='asset-grid';
 for(const a of items){
@@ -1941,7 +1943,7 @@ for(const a of items){
   const badge=document.createElement('span');badge.className='asset-badge';badge.textContent=(a.source||assetFilter)==='generated'?'生成':'本地';
   let media;
   if(a.file&&a.file.type&&a.file.type.startsWith('video/')||a.kind==='video'){
-    media=document.createElement('video');media.src=a.url;media.controls=true;media.preload='metadata';
+    media=document.createElement('video');media.src=a.url;media.controls=true;media.preload='none';
   }else{
     media=document.createElement('img');media.src=a.url;media.alt=a.name||(a.file&&a.file.name)||(a.reference?('@'+a.reference):'素材');
   }
@@ -2275,7 +2277,7 @@ function ingestAgentTasks(message, {openTasks=false, applyFirst=true}={}){
 async function prepareAgentReferences(references=[]){
  if(references.length>6)throw Error('最多支持 6 个参考素材，请减少后发送');
  return Promise.all(references.map(async reference=>{
-  const item=await prepareMediaReference(reference,fileToDataUrl);
+  await saveReference(reference);const item=await prepareMediaReference(reference,fileToDataUrl);
   if(!item.contentUrl)throw Error('参考素材不可读取，请重新添加');
   return {...item,reference:reference.reference||true};
  }));
@@ -2324,7 +2326,7 @@ const sendBeforeAgent=$('#send-prompt').onclick;let agentSending=false;
 $('#send-prompt').onclick=async()=>{
  if($('#creation-kind').value!=='agent')return sendBeforeAgent();if(agentSending)return;const text=buildInstructionText();if(!text){toast('请先填写创作需求或 @ 素材');return;}
  if(!currentConversation){currentConversation={id:'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:text.slice(0,24),messages:[],projectId:currentProjectId,createdAt:Date.now(),updatedAt:Date.now()};conversations.unshift(currentConversation);}else{touchConversation(currentConversation);ensureConversationId(currentConversation);}const conversation=currentConversation;const message={id:crypto.randomUUID(),text,kind:'agent',count:0,meta:'',references:[...(mentionedAssets())],liveAgent:true,pending:true,createdAt:Date.now()};conversation.messages.push(message);$('#prompt').value='';agentSending=true;$('#send-prompt').disabled=true;saveSession();renderConversation();
- try{const refs=await prepareAgentReferences(message.references);const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=result.reply;message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
+ try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=result.reply;message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
 };
 /* directory-capsule-hooks */
 const _renderConversationForDirectory=renderConversation;
@@ -2592,3 +2594,24 @@ function renderAgentProcess(reply,message){
 
 // Imported personal skills: names in the UI, full documents read by the Agent tool.
 fetch('/imported-skills.json').then(r=>{if(!r.ok)throw Error('技能目录读取失败');return r.json();}).then(list=>{for(const skill of list){const index=skillCatalog.findIndex(s=>s.id===skill.id);if(index<0)skillCatalog.push(skill);else skillCatalog[index]=skill;}renderSkills();renderSkillShortcuts();}).catch(e=>console.warn(e.message));
+
+window.addEventListener('zora-runtime-state',event=>{
+ const activities=event.detail?.codexActivities||[];let changed=false;
+ for(const conversation of conversations){for(const message of conversation.messages||[]){
+  const activity=activities.find(a=>a.messageId&&a.messageId===message.id);if(!activity)continue;
+  if(conversation.backendId!==activity.conversationId){conversation.backendId=activity.conversationId;changed=true;}
+  if(!message.recovering&&!String(message.error||'').includes('上次请求因页面刷新'))continue;
+  const text=activity.status==='running'?(activity.retrying?'后台连接异常，正在重试；可使用停止执行按钮。':'后台任务仍在执行，请勿重复发送。'):activity.status==='completed'?'后台执行已完成，请查看下方执行记录和素材结果。':activity.status==='interrupted'?'任务已停止。':activity.error||'后台执行状态待核对，请查看执行记录。';
+  if(message.error!==text){message.error=text;message.recovering=activity.status==='running';changed=true;}
+ }}
+ if(changed){saveSession();renderConversation();}
+});
+
+// Reattach persisted source files after the complete UI has initialized.
+(async()=>{
+ let restored=0,missing=0;
+ const references=conversations.flatMap(c=>(c.messages||[]).flatMap(m=>m.references||[]));
+ for(const ref of references){if(ref.storageId&&!(ref.file instanceof Blob)){try{if(await restoreReference(ref))restored++;else missing++;}catch{missing++;}}}
+ if(restored){renderConversation();}
+ if(missing)toast('部分历史原素材未保存在本机；已保存的素材已恢复。');
+})();

@@ -29,7 +29,7 @@ Zora 自行启动包内 Codex 进程，不依赖电脑其他目录的 Codex 安�
 
 ## 当前能力与边界
 
-最新维护汇总见 [当前实现状态](docs/CURRENT-STATUS.md)。设置支持本地图片/视频壁纸；减少动态效果会暂停背景视频，隐藏页面也停止播放。RunningHub 已移除，不再提供相关接口或安排接入。
+最新维护汇总见 [当前实现状态](docs/CURRENT-STATUS.md)。设置支持本地图片/视频壁纸；减少动态效果会暂停背景视频，隐藏页面也停止播放。RunningHub 服务入口已移除，工具设置隐藏相关项，不再安排接入；代码仍有旧工具定义，详见当前状态。
 
 
 | 能力 | 实现情况 |
@@ -120,6 +120,7 @@ Invoke-RestMethod http://127.0.0.1:4317/api/agent/status | ConvertTo-Json -Depth
 | `ZORA_AGENT_BASE_URL` | 主 Agent 模型服务地址 |
 | `ZORA_AGENT_MODEL` | 主 Agent 模型 ID；当前配置默认 `gpt-5.5` |
 | `DUOYUANX_API_KEY` | 多元图像、视频等接口凭据；未设置主 Agent Key 时也作为其候选凭据 |
+| `MINIMAX_API_KEY` | MiniMax H3 官方独立凭据；也可由 Windows DPAPI 配置窗口保存 |
 | `DUOYUANX_BASE_URL` | 多元生成服务地址，代码默认 `https://duoyuanx.com` |
 | `ZORA_WORKSPACE_ROOT` | Zora 本地运行工具的工作区路径；不代表所有子系统都会同步迁移 |
 | `ZORA_SANDBOX_IMAGE` | 本地 Docker 执行镜像，默认 `node:24-bookworm-slim` |
@@ -138,7 +139,7 @@ apps/client/             对话、创作、任务、素材库与设置界面
 apps/desktop/            Electron 桌面壳、浏览器与桌面桥
 apps/server/             HTTP 服务、对话编排、配置与任务接口
 packages/agent/          Codex 内核、交互处理及 Agent 能力
-packages/duoyuanx/       多元生成接口适配
+packages/duoyuanx/       多元接口及 MiniMax H3 官方适配
 packages/desktop/       Windows 桌面驱动
 packages/contracts/     模型、参数和任务契约
 packages/adapters/      外部系统适配
@@ -158,6 +159,8 @@ outputs/                验证输出与运行日志
 已生成的结果与任务记录需要分开判断。上游已接受但本地结果不明时，应先查询原任务，避免重复提交造成重复计费。线程恢复也不意味着可以在进程退出后无条件重放未完成的外部操作。
 
 ## 验证
+
+2026-09-16 本地源码回归：`node --test tests/*.test.mjs` **140 项全部通过**。此次没有重跑 Electron 交互脚本、付费生成、WPS 打开或干净机器安装验收；以下旧数字保留为历史记录。
 
 包内运行时专项验证（2026-09-15）：12 项测试通过；移除外部 Codex 查找路径后，真实包内进程的工具调用、连续对话及重启恢复通过。后端实际进程路径已核实位于 `runtime/codex`。旧损坏程序已原位替换，未创建旧版本备份；验证使用本地模拟模型服务，未发起付费请求。
 
@@ -186,6 +189,8 @@ Codex 原生沙箱与 Docker 工具执行是不同路径，Docker 就绪不代�
 
 ## 进一步阅读
 
+- [文档索引](docs/README.md)
+- [文件交付与 PPTX 检查](docs/FILE-DELIVERY.md)
 - [项目约定](AGENTS.md)
 - [包内运行时](docs/bundled-runtime.md)
 - [Codex 主 Agent 接入](docs/codex-agent.md)
@@ -201,3 +206,15 @@ Codex 原生沙箱与 Docker 工具执行是不同路径，Docker 就绪不代�
 ### 技能与执行恢复
 
 任务按规则自动匹配已安装的视频/人物技能，显式选择优先；在“思考与执行”查看技能、摘要、计划及工具阶段。执行记录持久保存，重启后恢复历史并标记中断任务待核对，不自动重提媒体任务。设置中的“工具管理”可搜索和启停 Zora 扩展工具，原生工具由审批模式控制。详见 [当前状态](docs/CURRENT-STATUS.md)。
+
+### MiniMax H3 官方接口
+
+H3 使用 `https://api.minimax.cn/v2/video_generation`，需配置独立 `MINIMAX_API_KEY` 或使用下方 Windows 凭据窗口，并重启后台。此密钥不与中转或 Codex 密钥混用。请求体采用 `content` 角色与顶层 `ratio`/`resolution`/`duration`。旧任务保留原查询来源。文档：https://platform.minimax.cn/docs/api-reference/video-generation-v2-create 。
+
+Windows 可运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/set-minimax-key.ps1` 隐藏输入密钥，按当前用户 DPAPI 加密保存至已被 Git 忽略的 `runtime/minimax-key.dpapi`。显式环境变量优先。保存后重启后台。
+
+### 文件交付与素材恢复
+
+会话参考素材保存在当前浏览器配置的 IndexedDB，刷新时恢复；发送仍只使用明确 @ 的素材。不同浏览器、清空网站数据或换电脑不等于自动迁移素材。生成素材按相同结果 URL 合并显示，不删除原文件。
+
+桌面媒体下载保存到系统下载目录的 Zora 子目录，失败不再跳转网页。工作区 PPTX 下载前检查已知结构错误，失败返回 422 和原因；Agent 指令要求校验失败后修复重导出。这不是完整 OOXML 或 WPS 兼容性验证，也未实现自动修复服务。使用方法与限制见 [文件交付](docs/FILE-DELIVERY.md)。

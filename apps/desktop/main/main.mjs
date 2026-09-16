@@ -1,9 +1,9 @@
 /**
- * Zora Electron main process — minimal shell.
- * Starts (or reuses) the existing Node app server, optionally OM sidecar,
- * then loads the current studio UI. No UI redesign.
+ * Zora desktop host: starts or reuses the local server and optional OM sidecar.
+ * Hosts the studio, browser/desktop bridges and controlled media downloads.
+ * Backend and main/preload updates have separate restart requirements.
  */
-import { app, BrowserWindow, shell, Menu, session, dialog } from 'electron';
+import { app, BrowserWindow, shell, Menu, session, dialog, ipcMain } from 'electron';
 import {editContextItems} from './edit-context-menu.mjs';
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 import path from 'node:path';
@@ -239,6 +239,25 @@ async function boot() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('zora:download-media',async(event,{url,name}={})=>{
+    if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('下载来源无效');
+    if(typeof url!=='string'||!(/^(https?:\/\/|blob:|data:(image|video)\/)/.test(url))||!/^zora-(auto-)?[\w-]+\.(png|mp4)$/.test(name||''))throw Error('下载参数无效');
+    const contents=event.sender;const sess=contents.session;
+    return new Promise((resolve,reject)=>{
+      const cleanup=()=>{clearTimeout(timer);sess.removeListener('will-download',receive);};
+      const receive=(_event,item,owner)=>{
+        if(owner!==contents||!(item.getURLChain().includes(url)||item.getURL()===url))return;
+        cleanup();
+        try{const directory=path.join(app.getPath('downloads'),'Zora');fs.mkdirSync(directory,{recursive:true});item.setSavePath(path.join(directory,name));}
+        catch{item.cancel();reject(Error('无法写入下载目录'));return;}
+        item.once('done',(_e,state)=>state==='completed'?resolve({ok:true,path:item.getSavePath()}):reject(Error(state==='cancelled'?'下载已取消':'下载中断，请重试')));
+      };
+      const timer=setTimeout(()=>{cleanup();reject(Error('下载启动超时'));},60000);
+      sess.on('will-download',receive);
+      try{contents.downloadURL(url);}catch(e){cleanup();reject(Error('无法启动下载'));}
+    });
+  });
+
   session.defaultSession.on('will-download',(_event,item)=>{
     if(!/^zora-auto-[\w-]+\.(png|mp4)$/.test(item.getFilename()))return;
     const directory=path.join(app.getPath('downloads'),'Zora');

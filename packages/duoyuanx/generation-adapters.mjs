@@ -82,7 +82,13 @@ function packAdapterRequest(draft, model) {
     const selected=selectH3(draft);
     if(!selected.ok)throw Error(selected.error);
     if(images.length>9||videos.length>3||audios.length>3)throw Error('H3 参考图最多9张，参考视频和音频分别最多3个');
-    return {method:'POST',path:selected.selected.apiRoute,authorizationScheme:'raw',contentType:'json',body:{model:model.id,prompt:draft.prompt,duration:draft.duration,size:draft.resolution,...(images.length?{images}:{}),metadata:{ratio:draft.ratio||'adaptive',...(videos.length?{reference_videos:videos}:{}),...(audios.length?{reference_audios:audios}:{}),aigc_watermark:false}},queryRoute:selected.queryRoute};
+    // Legacy OpenAI body and raw-key authorization disabled:
+    // return {method:'POST',path:selected.selected.apiRoute,authorizationScheme:'raw',contentType:'json',body:{model:model.id,prompt:draft.prompt,duration:draft.duration,size:draft.resolution,...(images.length?{images}:{}),metadata:{ratio:draft.ratio||'adaptive',...(videos.length?{reference_videos:videos}:{}),...(audios.length?{reference_audios:audios}:{}),aigc_watermark:false}},queryRoute:selected.queryRoute};
+    const content=[{type:'text',text:draft.prompt},...refs.map((r,i)=>{const type=r.type.split('/')[0]+'_url';return {type,[type]:{url:r.contentUrl},role:type==='image_url'?(selected.mode==='fl'?(i===0?'first_frame':'last_frame'):selected.mode==='i2v'?'first_frame':'reference_image'):type==='video_url'?'reference_video':'reference_audio'};})];
+    if(!draft.prompt?.trim())throw Error('H3 提示词不能为空');
+    const body={model:model.id,content,duration:draft.duration,resolution:draft.resolution,ratio:draft.ratio||'adaptive',aigc_watermark:false};
+    if(Buffer.byteLength(JSON.stringify(body))>64*1024*1024)throw Error('MiniMax 官方请求体上限为64MB，请改用公网素材URL');
+    return {method:'POST',path:selected.selected.apiRoute,provider:'minimax-official',authorizationScheme:'bearer',contentType:'json',body,queryRoute:selected.queryRoute};
   }
   if(model.family==='omni'){
     if(audios.length||images.length>5||videos.length>1||(videos.length&&model.id!=='omni-fast-v2v'))throw Error('Omni 参考素材类型或数量不支持');

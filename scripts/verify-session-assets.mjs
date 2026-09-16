@@ -1,0 +1,56 @@
+import { createRequire } from 'node:module';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { startAcceptanceFixture } from '../tests/helpers/acceptance-fixture.mjs';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+const output=path.resolve(process.env.ZORA_ACCEPTANCE_OUTPUT||path.join(root,'outputs','acceptance-'+Date.now()));
+await mkdir(output,{recursive:true});
+const require=createRequire(path.join(process.env.ZORA_TEST_NODE_MODULES||'C:/Users/强哥/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules','../package.json'));
+const {_electron}=require('playwright');
+const fixture=await startAcceptanceFixture();
+const launchEnv={...process.env,PORT:String(fixture.port),OM_AUTO_SIDECAR:'false',ZORA_AGENT_API_KEY:'acceptance-dummy-not-a-key',DUOYUANX_API_KEY:'',RUNNINGHUB_API_KEY:''};
+delete launchEnv.ELECTRON_RUN_AS_NODE;
+const app=await _electron.launch({executablePath:path.join(root,'apps/desktop/node_modules/electron/dist/electron.exe'),args:[path.join(root,'apps/desktop'),'--user-data-dir='+path.join(output,'profile-'+Date.now())],env:launchEnv});
+const page=await app.firstWindow();
+page.setDefaultTimeout(5000);
+const errors=[],results=[],blocked=[];
+page.on('pageerror',e=>errors.push(e.message));
+await page.context().route('**/*',route=>{const u=new URL(route.request().url());if(u.hostname==='127.0.0.1'&&Number(u.port)===fixture.port||['data:','blob:'].includes(u.protocol))return route.continue();blocked.push(u.origin);return route.abort();});
+const readStore=key=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),key);
+const test=async(name,fn)=>{
+  if(process.env.ZORA_ACCEPTANCE_ONLY&&!new RegExp(process.env.ZORA_ACCEPTANCE_ONLY).test(name))return;
+  try{await fn();results.push({name,status:'passed'});console.log('PASS '+name);}
+  catch(e){
+    const layout=await page.evaluate(()=>['#studio','.workspace','#create','.create-layout','.creation','#agent-workspace','.conversation-log','#work-mode-switch','#prompt-card'].map(s=>{const e=document.querySelector(s),c=getComputedStyle(e);return {s,rect:e.getBoundingClientRect().toJSON(),scrollTop:e.scrollTop,height:c.height,minHeight:c.minHeight,flex:c.flex,overflow:c.overflow,position:c.position,justify:c.justifyContent,padding:c.padding};}));
+    results.push({name,status:'failed',error:e.message,layout});console.log('FAIL '+name+' '+e.message.split('\n').slice(0,3).join(' '));await page.screenshot({path:path.join(output,'failure-'+results.length+'.png')}).catch(()=>{});
+  }
+};
+const canvas=()=>page.locator('[data-work-mode="canvas"]').click();
+const agent=()=>page.locator('[data-work-mode="agent"]').click();
+const seed=async()=>{
+  await page.evaluate(()=>{
+    const prefs=JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}');prefs['canvas-lib-filter']='';localStorage.setItem('zora.uiPrefs.v1',JSON.stringify(prefs));
+    const a={id:'fixture-a',name:'验收 A',nodes:[{id:'node-a',type:'free',x:50,y:70,title:'A'}]};
+    const b={id:'fixture-b',name:'验收 B',nodes:[{id:'node-b',type:'free',x:70,y:90,title:'B'}]};
+    localStorage.setItem('zora.canvases.v1',JSON.stringify([a,b]));
+    localStorage.setItem('zora.canvasCurrent.v1',a.id);
+    localStorage.setItem('zora.canvasNodes.v1',JSON.stringify(a.nodes));
+    localStorage.setItem('zora.workMode.v1','canvas');
+  });
+  await page.reload();await canvas();
+};
+const addNode=async()=>{const b=await page.locator('#canvas-board').boundingBox();await page.mouse.dblclick(b.x+600,b.y+400);await page.locator('#canvas-context-menu [data-canvas-node="text"]').click();};
+const canvasSend=async text=>{await page.locator('#canvas-agent-input').fill(text);const response=page.waitForResponse(r=>r.url().endsWith('/api/chat'));await page.locator('#canvas-agent-send').click();await response;await page.waitForFunction(()=>!document.querySelector('#canvas-agent-send').disabled);};
+const mainSend=async text=>{await page.locator('#prompt').fill(text);if(await page.locator('#creation-kind').inputValue()!=='agent'){await page.getByRole('button',{name:'创作类型',exact:true}).click();await page.getByRole('option',{name:'Agent 模式',exact:true}).click();}const response=page.waitForResponse(r=>r.url().endsWith('/api/chat'));await page.locator('#send-prompt').click();await response;await page.waitForFunction(()=>!document.querySelector('#send-prompt').disabled);};
+
+try{
+ await page.evaluate(()=>{localStorage.setItem('zora.auth.v1','1');location.hash='studio';});await page.reload();
+ const id=await page.evaluate(async()=>{const {saveReference}=await import('/reference-store.js');const ref={file:new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='),c=>c.charCodeAt(0))],'original.png',{type:'image/png'})};await saveReference(ref);localStorage.setItem('zora.session.v1',JSON.stringify({currentConversationId:'restore-test',conversations:[{id:'restore-test',title:'恢复测试',messages:[{id:'restore-message',kind:'agent',liveAgent:true,text:'参考图片',answer:'完成',createdAt:Date.now(),references:[{storageId:ref.storageId,reference:'图片1',file:{name:'original.png',type:'image/png',size:16}}]}]}]}));const entry={id:'same',url:'https://example.com/same.mp4',kind:'video',createdAt:Date.now()};localStorage.setItem('zora.generatedAssets.v1',JSON.stringify([entry,{...entry,id:'duplicate'}]));return ref.storageId;});
+ await page.reload();
+ const result=await page.evaluate(async id=>{const {restoreReference}=await import('/reference-store.js');const ref={storageId:id,file:{name:'original.png'}};const restored=await restoreReference(ref);return {restored,name:ref.file.name,text:await ref.file.text(),url:ref.url};},id);
+ await page.waitForFunction(()=>!!document.querySelector('.conversation-log img[src^="blob:"]'));await page.locator('[data-asset-filter=generated]').evaluate(e=>e.click());assert.equal(await page.locator('#asset-grid .asset').count(),1);assert(result.restored);assert.equal(result.name,'original.png');assert.ok(result.text.length>16);assert(result.url.startsWith('blob:'));assert.equal(errors.length,0);
+ await writeFile(path.join(output,'results.json'),JSON.stringify({passed:true,result,errors},null,2));console.log('PASS reference file survives page reload');
+}finally{await app.close();await fixture.close();}

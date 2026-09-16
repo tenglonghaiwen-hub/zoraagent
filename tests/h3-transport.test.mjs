@@ -1,16 +1,11 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {generateBatch} from '../packages/duoyuanx/generation-service.mjs';
-import {getModel} from '../packages/duoyuanx/catalog.mjs';
-const model=getModel('MiniMax-H3');
-const draft={modelId:model.id,prompt:'identity and motion',videoMode:'ref',ratio:'9:16',resolution:'768P',duration:7,count:1,concurrency:1,references:[{type:'video/mp4',contentUrl:'data:video/mp4;base64,AA=='}]};
-test('H3 uploads real inputs and sends OpenAI references once to V1 with its own polling route',async()=>{
- let uploads=0,posts=0;const result=await generateBatch(draft,model,{base:'https://gateway.test',key:'dummy',fetchImpl:async(url,options)=>{
- if(url.endsWith('/v1/file/upload')){uploads++;return {ok:true,json:async()=>({upload_url:'https://storage.test/put/'+uploads,download_url:'https://storage.test/ref/'+uploads})};}
- if(url.includes('/put/')){assert.equal(options.headers.Authorization,undefined);return {ok:true};}
- posts++;assert.equal(url,'https://gateway.test/v1/videos');const b=JSON.parse(options.body);assert.equal(b.content,undefined);assert.equal(b.metadata.reference_videos.length,1);assert.equal(b.metadata.ratio,'9:16');assert.equal(b.prompt,draft.prompt);assert(!options.body.includes('base64'));return {ok:true,status:200,json:async()=>({task_id:'test-job'})};
- }});assert.equal(uploads,1);assert.equal(posts,1);assert.equal(result[0].queryRoute,'/v1/videos/{task_id}');
-});
-test('H3 conflicting V1 reference selection makes no upload or generation call',async()=>{
- let calls=0;const r=await generateBatch({...draft,apiRoute:'/v2/video_generation'},model,{fetchImpl:async()=>{calls++;}});assert.equal(calls,0);assert.equal(r[0].errorPhase,'pre_submission');
+import test from 'node:test';import assert from 'node:assert/strict';import {generateBatch} from '../packages/duoyuanx/generation-service.mjs';import {getModel} from '../packages/duoyuanx/catalog.mjs';
+const model=getModel('MiniMax-H3');const draft={modelId:model.id,prompt:'identity and motion',videoMode:'ref',ratio:'9:16',resolution:'768P',duration:7,count:1,concurrency:1,references:[{type:'image/png',contentUrl:'data:image/png;base64,AA=='}]};
+test('official H3 direct request uses isolated bearer key, exact ratio and no relay upload',async()=>{let calls=0;let recorded;const result=await generateBatch(draft,model,{base:'https://relay.test',key:'relay-key',minimaxKey:'official-test',onRequest:(_,r)=>recorded=r,fetchImpl:async(url,o)=>{calls++;assert.equal(url,'https://api.minimax.cn/v2/video_generation');assert.equal(o.headers.Authorization,'Bearer official-test');const b=JSON.parse(o.body);assert.equal(b.ratio,'9:16');assert.equal(b.content[1].role,'reference_image');return {ok:true,status:200,json:async()=>({task_id:'job'})};}});assert.equal(calls,1);assert.equal(result[0].provider,'minimax-official');assert.equal(recorded.body.content[1].image_url.url,'[内嵌素材已省略]');});
+test('missing official key and old H3 route never submit or fall back',async()=>{for(const d of [draft,{...draft,apiRoute:'/v1/videos'}]){let calls=0;const r=await generateBatch(d,model,{key:'relay-key',minimaxKey:'',fetchImpl:async()=>calls++});assert.equal(calls,0);assert.equal(r[0].errorPhase,'pre_submission');}});
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {createGenerationTaskStore} from '../packages/duoyuanx/task-store.mjs';
+test('recovered official and historical relay receipts query their own provider only',async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'h3-official-'));const stamp=Date.now();
+ for(const [id,extra] of [['official-receipt-001',{provider:'minimax-official',queryRoute:'/v2/query/video_generation/{task_id}',authorizationScheme:'bearer'}],['legacy-receipt-0001',{queryRoute:'/v1/videos/{task_id}',authorizationScheme:'raw'}]])fs.writeFileSync(path.join(directory,id+'.json'),JSON.stringify({id,modelId:'MiniMax-H3',status:'running',createdAt:stamp,results:[{ok:true,...extra,upstream:{task_id:id}}],nextPoll:0}));
+ const calls=[];const store=createGenerationTaskStore({directory,getModel,base:'https://relay.test',key:'relay-test',minimaxKey:'official-test',fetchImpl:async(url,o)=>{calls.push([url,o.headers.Authorization]);return {ok:true,status:200,json:async()=>({task:{status:'succeeded',content:{url:'https://example.com/result.mp4'}}})};}});
+ await store.tick();assert.ok(calls.some(([u,a])=>u==='https://api.minimax.cn/v2/query/video_generation/official-receipt-001'&&a==='Bearer official-test'));assert.ok(calls.some(([u,a])=>u==='https://relay.test/v1/videos/legacy-receipt-0001'&&a==='relay-test'));assert.equal(store.get('official-receipt-001').status,'completed');store.close();
 });

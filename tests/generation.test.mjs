@@ -9,7 +9,7 @@ const draftFor=m=>({modelId:m.id,prompt:'test',count:1,concurrency:1,ratio:m.rat
 const model=family=>getModels().find(m=>m.family===family);
 test('all 18 media models pack prompt and reference requests',()=>{
  const media=getModels().filter(m=>m.kind!=='agent');assert.equal(media.length,18);
- for(const m of media){const draft=draftFor(m);assert.equal(packGenerateRequest(draft,m).path,m.family==='minimax'?'/v1/videos':m.route);const packed=packGenerateRequest({...draft,ratio:m.family==='veo'?'16:9':draft.ratio,videoMode:m.kind==='image'?'i2i':'ref',references:m.family==='minimax'?[image,image,image]:[image]},m);assert(JSON.stringify(packed).includes('AA=='),m.id);}
+ for(const m of media){const draft=draftFor(m);assert.equal(packGenerateRequest(draft,m).path,m.family==='minimax'?'/v2/video_generation':m.route);const packed=packGenerateRequest({...draft,ratio:m.family==='veo'?'16:9':draft.ratio,videoMode:m.kind==='image'?'i2i':'ref',references:m.family==='minimax'?[image,image,image]:[image]},m);assert(JSON.stringify(packed).includes('AA=='),m.id);}
 });
 test('family-specific reference fields and constraints',()=>{
  const pack=(family,extra)=>{const m=model(family);return packGenerateRequest({...draftFor(m),videoMode:'ref',references:family==='minimax'?[image,image,image]:[image],...extra},m);};
@@ -18,7 +18,7 @@ test('family-specific reference fields and constraints',()=>{
  assert.deepEqual(pack('gpt-image',{videoMode:'i2i'}).body.image,['AA==']);
  assert.equal(pack('seedance').body.content[1].role,'reference_image');
  assert.equal(pack('seedance',{videoMode:'fl',references:[image,image]}).body.content[2].role,'last_frame');
- assert.equal(pack('minimax',{ratio:'9:16'}).body.metadata.ratio,'9:16');assert.throws(()=>pack('minimax',{videoMode:'i2v'}));
+ assert.equal(pack('minimax',{ratio:'9:16'}).body.ratio,'9:16');assert.throws(()=>pack('minimax',{videoMode:'i2v'}));
  assert.equal(pack('veo',{ratio:'16:9',resolution:'1080P'}).body.size,'1920x1080');
  assert.throws(()=>pack('veo',{ratio:'9:16'}),/16:9/);
  assert.throws(()=>pack('qwen-image',{references:Array(4).fill(image)}),/3/);

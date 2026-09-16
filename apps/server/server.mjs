@@ -1,3 +1,4 @@
+import {loadStoredMinimaxKey} from './minimax-credentials.mjs';
 import {disabledTools,setToolEnabled} from '../../packages/agent/tool-preferences.mjs';
 import {MAIN_AGENT_TOOL_DEFS} from '../../packages/agent/media-subagents.mjs';
 import {loadStoredAgentKey} from './agent-credentials.mjs';
@@ -57,6 +58,7 @@ const envCandidates = [
 
 for (const p of envCandidates) loadEnvFile(p);
 loadStoredAgentKey(ROOT);
+loadStoredMinimaxKey(ROOT);
 
 const PORT = Number(process.env.PORT || 8787);
 const CLIENT_DIR = process.env.ZORA_CLIENT_DIR
@@ -196,8 +198,8 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         return sendJson(res, 400, { error: String(e?.message || e) });
       }
-      if (!process.env.DUOYUANX_API_KEY) {
-        return sendJson(res, 503, { error: '未配置 DUOYUANX_API_KEY' });
+      if (!(result.model.family==='minimax'?process.env.MINIMAX_API_KEY:process.env.DUOYUANX_API_KEY)) {
+        return sendJson(res, 503, { error: result.model.family==='minimax'?'未配置 MiniMax 官方 MINIMAX_API_KEY':'未配置 DUOYUANX_API_KEY' });
       }
       const base = (process.env.DUOYUANX_BASE_URL || 'https://duoyuanx.com').replace(/\/$/, '');
       if(body.requestId){try{return sendJson(res,202,{task:taskStore().submit(body.requestId,result.draft,result.model)});}catch(e){return sendJson(res,e.status||500,{error:e.message});}}

@@ -8,9 +8,9 @@ const ref={name:'original',type:'image/png',contentUrl:'data:image/png;base64,AA
 const base=m=>({modelId:m.id,prompt:'test',count:1,concurrency:1,ratio:m.ratios[0],resolution:m.resolutions[0],duration:m.fixedSeconds??m.durations?.[0]??m.durationRange?.min});
 test('explicit supported generation routes reach actual packer for every media model',()=>{
  for(const m of getModels().filter(m=>['image','video'].includes(m.kind))){
-  const checked=validateDraft({...base(m),operation:m.family==='minimax'?'reference':'generate',...(m.family==='minimax'?{videoMode:'ref',references:[ref,ref,ref]}:{}),apiRoute:m.family==='minimax'?'/v1/videos':m.route});assert(checked.ok,m.id+': '+checked.error);
-  assert.equal(checked.draft.apiRoute,m.family==='minimax'?'/v1/videos':m.route);assert.equal(packGenerateRequest(checked.draft).path,checked.draft.apiRoute);
-  const legacy=validateDraft({...base(m),...(m.family==='minimax'?{videoMode:'ref',references:[ref,ref,ref]}:{})});assert(legacy.ok);assert.equal(legacy.draft.operation,m.family==='minimax'?'reference':undefined);assert.equal(legacy.draft.apiRoute,m.family==='minimax'?'/v1/videos':undefined);
+  const checked=validateDraft({...base(m),operation:m.family==='minimax'?'reference':'generate',...(m.family==='minimax'?{videoMode:'ref',references:[ref,ref,ref]}:{}),apiRoute:m.family==='minimax'?'/v2/video_generation':m.route});assert(checked.ok,m.id+': '+checked.error);
+  assert.equal(checked.draft.apiRoute,m.family==='minimax'?'/v2/video_generation':m.route);assert.equal(packGenerateRequest(checked.draft).path,checked.draft.apiRoute);
+  const legacy=validateDraft({...base(m),...(m.family==='minimax'?{videoMode:'ref',references:[ref,ref,ref]}:{})});assert(legacy.ok);assert.equal(legacy.draft.operation,m.family==='minimax'?'reference':undefined);assert.equal(legacy.draft.apiRoute,m.family==='minimax'?'/v2/video_generation':undefined);
  }
 });
 test('reference routing rejects missing images, wrong endpoints and conflicting operations',()=>{

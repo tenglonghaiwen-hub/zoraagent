@@ -578,8 +578,9 @@ export const MODELS = [
     kind: 'video',
     family: 'minimax',
     enabled: true,
-    route: '/v1/videos', // 按模式和素材角色选择实际路由。
-    queryRoute: '/v1/videos/{task_id}',
+    // Legacy H3 route: /v1/videos; query: /v1/videos/{task_id}.
+    route: '/v2/video_generation',
+    queryRoute: '/v2/query/video_generation/{task_id}',
     contentType: 'json',
     ratios: ['16:9', '9:16', '1:1', 'adaptive', '21:9', '4:3', '3:4'],
     resolutions: ['768P', '2K'],

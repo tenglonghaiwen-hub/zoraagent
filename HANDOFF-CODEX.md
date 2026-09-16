@@ -1,5 +1,7 @@
 # 造境 Zora → Codex 交接文档
 
+> 2026-09-16：此文件为历史交接记录，最新维护入口见 [文档索引](docs/README.md)。旧缓存版本、路由与测试数字不代表当前部署。
+
 > 当前运行时说明（2026-09-15）：已使用包内开源 Codex 0.154.0 app-server，禁止外部安装回退。下文为历史交接记录；最新启动与运行时以 [README](README.md)、[包内运行时](docs/bundled-runtime.md) 和 [Agent 接入](docs/codex-agent.md) 为准。
 
 > 日期：2026-09-12  
