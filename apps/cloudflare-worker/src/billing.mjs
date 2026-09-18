@@ -161,7 +161,8 @@ export async function getUserUsageLogs(db, userId, { limit = 20, offset = 0 } = 
  */
 export async function getServerModels(db) {
   const { results } = await db.prepare(
-    `SELECT id, name, kind, enabled, provider, quota_cost_per_unit as quotaCostPerUnit,
+    `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
+            quota_cost_per_unit as quotaCostPerUnit,
             max_concurrency as maxConcurrency, updated_at as updatedAt
      FROM server_models
      WHERE enabled = 1
@@ -176,7 +177,8 @@ export async function getServerModels(db) {
  */
 export async function getAllServerModels(db) {
   const { results } = await db.prepare(
-    `SELECT id, name, kind, enabled, provider, quota_cost_per_unit as quotaCostPerUnit,
+    `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
+            quota_cost_per_unit as quotaCostPerUnit,
             max_concurrency as maxConcurrency, updated_at as updatedAt
      FROM server_models
      ORDER BY kind ASC, name ASC`
@@ -186,7 +188,7 @@ export async function getAllServerModels(db) {
 }
 
 /**
- * Upsert a server model
+ * Upsert a server model with custom or default API route
  */
 export async function upsertServerModel(db, model) {
   const now = Date.now();
@@ -200,20 +202,42 @@ export async function upsertServerModel(db, model) {
   const quotaCostPerUnit = Math.max(0, parseInt(model.quotaCostPerUnit, 10) || 10);
   const maxConcurrency = Math.max(1, parseInt(model.maxConcurrency, 10) || 1);
 
+  let route = (model.route || '').trim();
+  let queryRoute = (model.queryRoute || model.query_route || '').trim();
+
+  // Auto-fill canonical routes if not provided
+  if (!route) {
+    if (kind === 'video') {
+      route = (provider === 'minimax' || id === 'MiniMax-H3') ? '/v2/video_generation' : '/v1/videos';
+    } else if (kind === 'image') {
+      route = '/v1/images/generations';
+    } else {
+      route = '/v1/chat/completions';
+    }
+  }
+
+  if (!queryRoute && kind === 'video') {
+    queryRoute = (provider === 'minimax' || id === 'MiniMax-H3')
+      ? '/v2/query/video_generation/{task_id}'
+      : '/v1/videos/{task_id}';
+  }
+
   await db.prepare(
-    `INSERT INTO server_models (id, name, kind, enabled, provider, quota_cost_per_unit, max_concurrency, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO server_models (id, name, kind, enabled, provider, route, query_route, quota_cost_per_unit, max_concurrency, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        kind = excluded.kind,
        enabled = excluded.enabled,
        provider = excluded.provider,
+       route = excluded.route,
+       query_route = excluded.query_route,
        quota_cost_per_unit = excluded.quota_cost_per_unit,
        max_concurrency = excluded.max_concurrency,
        updated_at = excluded.updated_at`
-  ).bind(id, name, kind, enabled, provider, quotaCostPerUnit, maxConcurrency, now, now).run();
+  ).bind(id, name, kind, enabled, provider, route, queryRoute || null, quotaCostPerUnit, maxConcurrency, now, now).run();
 
-  return { id, name, kind, enabled, provider, quotaCostPerUnit, maxConcurrency, updatedAt: now };
+  return { id, name, kind, enabled, provider, route, queryRoute, quotaCostPerUnit, maxConcurrency, updatedAt: now };
 }
 
 /**

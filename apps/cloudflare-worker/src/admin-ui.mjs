@@ -882,7 +882,7 @@ export function renderAdminHtml() {
         const tbody = document.getElementById('modelsTableBody');
         tbody.innerHTML = '';
         if (!d.models || d.models.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">暂无配置的模型</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">暂无配置的模型</td></tr>';
           return;
         }
 
@@ -901,11 +901,13 @@ export function renderAdminHtml() {
           const tr = document.createElement('tr');
           const isEnabled = m.enabled === 1 || m.enabled === true;
           const badgeClass = m.kind === 'video' ? 'badge-video' : (m.kind === 'agent' ? 'badge-agent' : 'badge-primary');
+          const routeDisplay = m.route ? ('<span class="mono" style="color: #38bdf8; font-size: 0.78rem;">' + m.route + '</span>' + (m.queryRoute ? '<br><span class="mono" style="color: #94a3b8; font-size: 0.72rem;">' + m.queryRoute + '</span>' : '')) : '<span style="color: var(--text-muted);">-</span>';
           tr.innerHTML = \`
             <td class="mono" style="font-weight: 600;">\${m.id}</td>
             <td>\${m.name}</td>
             <td><span class="badge \${badgeClass}">\${m.kind}</span></td>
             <td>\${getProviderBadge(m.provider)}</td>
+            <td>\${routeDisplay}</td>
             <td><strong style="color: #fbbf24;">\${m.quotaCostPerUnit}</strong> 积分</td>
             <td>\${m.maxConcurrency || 1}</td>
             <td>
@@ -948,6 +950,8 @@ export function renderAdminHtml() {
         kind: document.getElementById('m_kind').value,
         quotaCostPerUnit: parseInt(document.getElementById('m_cost').value, 10),
         provider: document.getElementById('m_provider').value.trim(),
+        route: document.getElementById('m_route').value.trim(),
+        queryRoute: document.getElementById('m_query_route').value.trim(),
         maxConcurrency: parseInt(document.getElementById('m_concurrency').value, 10),
         enabled: document.getElementById('m_enabled').checked ? 1 : 0
       };

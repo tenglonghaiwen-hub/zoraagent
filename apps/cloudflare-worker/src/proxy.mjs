@@ -131,7 +131,7 @@ function buildMiniMaxContent(body) {
 /**
  * Proxy video or image generation to upstream provider
  */
-export async function proxyGeneration({ body, env, provider = null }) {
+export async function proxyGeneration({ body, env, provider = null, route = null, queryRoute = null }) {
   const modelId = body.model || body.modelId || 'flux-schnell';
   
   // Auto-detect provider if not explicitly given
@@ -153,9 +153,23 @@ export async function proxyGeneration({ body, env, provider = null }) {
     );
   }
 
+  const isVideo = body.duration !== undefined || body.videoMode !== undefined || body.kind === 'video';
+
+  // Determine upstream route for this specific model
+  let targetRoute = route;
+  if (!targetRoute) {
+    if (targetProvider === 'minimax' || modelId === 'MiniMax-H3') {
+      targetRoute = '/v2/video_generation';
+    } else if (isVideo) {
+      targetRoute = '/v1/videos';
+    } else {
+      targetRoute = '/v1/images/generations';
+    }
+  }
+  const endpoint = `${baseUrl}${targetRoute.startsWith('/') ? targetRoute : '/' + targetRoute}`;
+
   // 1. MiniMax Official Protocol
   if (targetProvider === 'minimax') {
-    const endpoint = `${baseUrl}/v2/video_generation`;
     const payload = {
       model: modelId,
       content: buildMiniMaxContent(body),
@@ -186,15 +200,13 @@ export async function proxyGeneration({ body, env, provider = null }) {
       taskId,
       status: 'processing',
       provider: 'minimax-official',
+      route: targetRoute,
       base_resp: data.base_resp,
       upstream: data
     };
   }
 
   // 2. Duoyuanx / OpenAI / SiliconFlow / Custom Protocol
-  const isVideo = body.duration !== undefined || body.videoMode !== undefined || body.kind === 'video';
-  const endpoint = isVideo ? `${baseUrl}/v1/videos/generations` : `${baseUrl}/v1/images/generations`;
-
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -212,13 +224,16 @@ export async function proxyGeneration({ body, env, provider = null }) {
     );
   }
 
-  return data;
+  return {
+    ...data,
+    route: targetRoute
+  };
 }
 
 /**
  * Proxy task query (e.g. video polling) to upstream provider
  */
-export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
+export async function proxyQueryTask({ taskId, provider = 'minimax', queryRoute = null, env }) {
   const normProvider = String(provider || 'minimax').toLowerCase();
   const { apiKey, baseUrl, title } = await resolveProviderConfig(env, normProvider);
 
@@ -226,24 +241,35 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
     throw Object.assign(new Error(`未配置 ${title} API 密钥`), { status: 500 });
   }
 
-  if (normProvider === 'minimax') {
-    // Official route: /v2/query/video_generation/{task_id}
-    const endpoint = `${baseUrl}/v2/query/video_generation/${encodeURIComponent(taskId)}`;
-    const upstreamRes = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
-
-    const data = await upstreamRes.json().catch(() => ({}));
-    if (!upstreamRes.ok) {
-      throw Object.assign(
-        new Error(data.base_resp?.status_msg || data.error?.message || `查询任务状态失败 (${upstreamRes.status})`),
-        { status: upstreamRes.status }
-      );
+  // Determine query endpoint
+  let targetQueryRoute = queryRoute;
+  if (!targetQueryRoute) {
+    if (normProvider === 'minimax') {
+      targetQueryRoute = '/v2/query/video_generation/{task_id}';
+    } else {
+      targetQueryRoute = '/v1/videos/{task_id}';
     }
+  }
 
+  const queryPath = targetQueryRoute
+    .replace('{task_id}', encodeURIComponent(taskId))
+    .replace('{taskId}', encodeURIComponent(taskId));
+  const endpoint = `${baseUrl}${queryPath.startsWith('/') ? queryPath : '/' + queryPath}`;
+
+  const upstreamRes = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  });
+
+  const data = await upstreamRes.json().catch(() => ({}));
+  if (!upstreamRes.ok) {
+    const errMsg = data.base_resp?.status_msg || data.error?.message || data.message || `查询任务状态失败 (${upstreamRes.status})`;
+    throw Object.assign(new Error(errMsg), { status: upstreamRes.status });
+  }
+
+  if (normProvider === 'minimax') {
     // MiniMax returns { task: { id, status: 'succeeded'|'running'|'failed', content: { url } }, file_id }
     const rawStatus = (data.task?.status || data.status || '').toLowerCase();
     const isSuccess = rawStatus === 'succeeded' || rawStatus === 'success';
@@ -256,22 +282,9 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
       status: isSuccess ? 'succeeded' : isFailed ? 'failed' : 'processing',
       url,
       provider: 'minimax-official',
+      route: targetQueryRoute,
       upstream: data
     };
-  }
-
-  // Duoyuanx query route: /v1/videos/{task_id}
-  const endpoint = `${baseUrl}/v1/videos/${encodeURIComponent(taskId)}`;
-  const upstreamRes = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`
-    }
-  });
-
-  const data = await upstreamRes.json().catch(() => ({}));
-  if (!upstreamRes.ok) {
-    throw Object.assign(new Error(`查询任务状态失败 (${upstreamRes.status})`), { status: upstreamRes.status });
   }
 
   return {
@@ -280,6 +293,7 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
     status: data.status || 'processing',
     url: data.url || data.output_url || (data.data && data.data[0]?.url) || null,
     provider: normProvider,
+    route: targetQueryRoute,
     upstream: data
   };
 }
@@ -287,7 +301,7 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
 /**
  * Proxy chat completion to upstream LLM
  */
-export async function proxyChat({ body, env, provider = null }) {
+export async function proxyChat({ body, env, provider = null, route = null }) {
   const modelId = body.modelId || body.model || 'gpt-5.5';
 
   // Determine provider if not provided
@@ -307,7 +321,8 @@ export async function proxyChat({ body, env, provider = null }) {
     );
   }
 
-  const endpoint = `${baseUrl}/v1/chat/completions`;
+  const targetRoute = route || '/v1/chat/completions';
+  const endpoint = `${baseUrl}${targetRoute.startsWith('/') ? targetRoute : '/' + targetRoute}`;
   const messages = Array.isArray(body.messages)
     ? body.messages
     : [{ role: 'user', content: String(body.message || '') }];

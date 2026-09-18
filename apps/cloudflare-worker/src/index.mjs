@@ -463,7 +463,8 @@ export default {
         if (!taskId) return errorResponse('缺少 taskId 参数', 400, cors);
 
         const provider = url.searchParams.get('provider') || (path.includes('video_generation') ? 'minimax' : 'minimax');
-        const taskResult = await proxyQueryTask({ taskId, provider, env });
+        const queryRoute = url.searchParams.get('queryRoute') || url.searchParams.get('query_route') || null;
+        const taskResult = await proxyQueryTask({ taskId, provider, queryRoute, env });
         return jsonResponse(taskResult, 200, cors);
       }
 
@@ -481,12 +482,12 @@ export default {
           return errorResponse('缺少必要的 prompt 参数', 400, cors);
         }
 
-        // Check if model is enabled in database
+        // Check if model is enabled in database & retrieve custom routes
         let modelInfo = null;
         if (env.DB) {
           try {
             modelInfo = await env.DB.prepare(
-              'SELECT id, name, kind, provider, enabled FROM server_models WHERE id = ?'
+              'SELECT id, name, kind, provider, route, query_route, enabled FROM server_models WHERE id = ?'
             ).bind(model).first();
           } catch {}
         }
@@ -496,6 +497,8 @@ export default {
         }
 
         const provider = body.provider || modelInfo?.provider || (model === 'MiniMax-H3' ? 'minimax' : 'duoyuanx');
+        const route = body.route || modelInfo?.route || null;
+        const queryRoute = body.queryRoute || body.query_route || modelInfo?.query_route || null;
 
         const cost = await calculateQuotaCost(env.DB, { modelId: model, kind, count: 1 });
         const currentBalance = user.quotaBalance || 0;
@@ -510,11 +513,13 @@ export default {
           );
         }
 
-        // Upstream generation with provider routing
+        // Upstream generation with provider & route routing
         const upstreamData = await proxyGeneration({
           body: { ...body, model, kind },
           env,
-          provider
+          provider,
+          route,
+          queryRoute
         });
 
         // Extract result URL / Task ID
@@ -536,6 +541,7 @@ export default {
           task_id: taskId,
           status,
           provider: upstreamData.provider || provider,
+          route: upstreamData.route || route,
           cost,
           newBalance,
           balance: newBalance,
@@ -551,12 +557,12 @@ export default {
         const body = await request.json().catch(() => ({}));
         const model = body.modelId || body.model || 'gpt-5.5';
 
-        // Check if model is enabled
+        // Check if model is enabled & retrieve custom route
         let modelInfo = null;
         if (env.DB) {
           try {
             modelInfo = await env.DB.prepare(
-              'SELECT id, name, kind, provider, enabled FROM server_models WHERE id = ?'
+              'SELECT id, name, kind, provider, route, enabled FROM server_models WHERE id = ?'
             ).bind(model).first();
           } catch {}
         }
@@ -566,6 +572,7 @@ export default {
         }
 
         const provider = body.provider || modelInfo?.provider || null;
+        const route = body.route || modelInfo?.route || null;
 
         const cost = await calculateQuotaCost(env.DB, { modelId: model, kind: 'agent', count: 1 });
         const currentBalance = user.quotaBalance || 0;
@@ -582,7 +589,8 @@ export default {
         const upstreamData = await proxyChat({
           body: { ...body, modelId: model },
           env,
-          provider
+          provider,
+          route
         });
 
         const newBalance = await deductUserQuota(env.DB, user.id, cost, {
