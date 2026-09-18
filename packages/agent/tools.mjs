@@ -1,10 +1,12 @@
-import {importedSkills,readImportedSkill} from './imported-skills.mjs';
 /** Zora Agent tool registry: skills + preview/generate control + APIs. */
-import {createHash, randomUUID} from 'node:crypto';
-import {validateDraft} from '../contracts/domain.mjs';
-import {getRouteCapabilities} from '../duoyuanx/route-capabilities.mjs';
-import {callBrowser} from './browser-client.mjs';
-import {callDesktop} from './desktop-client.mjs';
+import { importedSkills } from './imported-skills.mjs';
+import { createHash, randomUUID } from 'node:crypto';
+import { validateDraft } from '../contracts/domain.mjs';
+import { getRouteCapabilities } from '../duoyuanx/route-capabilities.mjs';
+import { handleBrowserTool } from './tool-handlers/browser-tools.mjs';
+import { handleSkillTool } from './tool-handlers/skill-tools.mjs';
+import { handleOMTool } from './tool-handlers/om-tools.mjs';
+import { handleRuntimeTool } from './tool-handlers/runtime-tools.mjs';
 
 export const AGENT_TOOL_DEFS = [
   {type:'function',name:'desktop_jianying',description:'查看或操作本机剪映。先listWindows再readWindow，只有确认可访问元素与坐标后才操作；操作会弹出用户确认。无法读取界面时说明受阻，不能猜坐标。',parameters:{type:'object',properties:{action:{type:'string',enum:['listWindows','launchJianying','readWindow','click','type','keys']},windowId:{type:'string'},x:{type:'number'},y:{type:'number'},text:{type:'string'},key:{type:'string'}},required:['action'],additionalProperties:false}},
@@ -91,38 +93,6 @@ export const AGENT_TOOL_DEFS = [
     },
   },
 
-  {
-    type: 'function',
-    name: 'rh_list_workflows',
-    description: '列出已配置的 RunningHub/Comfy 工作流（当前为空置接口，返回占位）。',
-    parameters: { type: 'object', additionalProperties: false, properties: {}, required: [] },
-  },
-  {
-    type: 'function',
-    name: 'rh_run_workflow',
-    description: '提交 RunningHub Comfy 工作流任务（空置：尚未接入真实 API）。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        workflowId: { type: 'string' },
-        nodeInfoList: { type: 'array', items: { type: 'object' } },
-        prompt: { type: 'string' },
-      },
-      required: ['workflowId'],
-    },
-  },
-  {
-    type: 'function',
-    name: 'rh_get_task',
-    description: '查询 RunningHub 任务状态与输出（空置：尚未接入）。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: { taskId: { type: 'string' } },
-      required: ['taskId'],
-    },
-  },
   {
     type: 'function',
     name: 'om_status',
@@ -284,53 +254,20 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
   const media = Array.isArray(mediaModels) ? mediaModels.map(m=>({...m,routes:m.routes||getRouteCapabilities(m)})) : [];
 
   return async function runTool(name, args = {}) {
-    if(name==='desktop_jianying')return callDesktop(args);
-    if(['browser_open','browser_search','browser_read'].includes(name))return callBrowser({...args,action:name.slice(8)});
-    if(['local_runtime_status','propose_local_action','plan_local_workflow'].includes(name)){
-      if(typeof callApi!=='function')return {ok:false,error:'本机执行层未就绪'};
-      return callApi({method:name==='local_runtime_status'?'GET':'POST',path:'/api/local-runtime'+(name==='local_runtime_status'?'':name==='propose_local_action'?'/propose':'/workflows'),body:{...args,conversationId,messageId}});
+    // Browser & Desktop tools
+    const browserResult = await handleBrowserTool(name, args);
+    if (browserResult !== undefined) return browserResult;
+
+    // Runtime & workflow tools
+    const runtimeTools = ['local_runtime_status', 'propose_local_action', 'plan_local_workflow'];
+    if (runtimeTools.includes(name)) {
+      return handleRuntimeTool(name, args, callApi, { conversationId, messageId });
     }
-    if (name === 'list_skills') {
-      const local = catalog.map((s) => ({
-        id: s.id,
-        name: s.name,
-        category: s.category || '',
-        description: s.description || '',
-        source: s.source || 'zora',
-      }));
-      let om = [];
-      if (typeof callApi === 'function') {
-        try {
-          const res = await callApi({ method: 'GET', path: '/api/om/skills?limit=300' });
-          const list = res?.data?.skills || res?.skills || [];
-          if (Array.isArray(list)) om = list;
-        } catch {}
-      }
-      return { skills: [...local, ...om], count: local.length + om.length };
-    }
-    if (name === 'get_skill') {
-      const sid = String(args.skillId || importedSkills.find(s=>s.name===args.name)?.id || '');
-      if(sid.startsWith('codex:'))return readImportedSkill(sid,args.resource)||{error:'技能不存在'};
-      if (sid.startsWith('om:') && typeof callApi === 'function') {
-        return callApi({ method: 'GET', path: '/api/om/skills/' + encodeURIComponent(sid) });
-      }
-      const hit =
-        catalog.find((s) => s.id && s.id === args.skillId) ||
-        catalog.find((s) => s.name && s.name === args.name);
-      if (!hit) {
-        if (sid && typeof callApi === 'function') {
-          return callApi({ method: 'GET', path: '/api/om/skills/' + encodeURIComponent(sid) });
-        }
-        return { error: '技能不存在' };
-      }
-      return {
-        id: hit.id,
-        name: hit.name,
-        category: hit.category || '',
-        description: hit.description || '',
-        prompt: hit.prompt || '',
-        source: hit.source || 'zora',
-      };
+
+    // Skill tools
+    const skillTools = ['list_skills', 'get_skill'];
+    if (skillTools.includes(name)) {
+      return handleSkillTool(name, args, { catalog, callApi });
     }
     if (name === 'list_media_models') {
       const kind = args.kind && args.kind !== 'all' ? args.kind : null;
@@ -343,75 +280,10 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
       return name==='submit_generation'?submit(draftBody(args)):callApi({ method: 'POST', path, body: withReferences(draftBody(args)) });
     }
 
-    if (name === 'rh_list_workflows') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'GET', path: '/api/rh/workflows' });
-    }
-    if (name === 'rh_run_workflow') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'POST', path: '/api/rh/tasks', body: args });
-    }
-    if (name === 'rh_get_task') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      const id = encodeURIComponent(String(args.taskId || ''));
-      return callApi({ method: 'GET', path: `/api/rh/tasks/${id}` });
-    }
-    if (name === 'om_status') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'GET', path: '/api/om/status' });
-    }
-    if (name === 'om_list_projects') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'GET', path: '/api/om/projects' });
-    }
-    if (name === 'om_execute_tool') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({
-        method: 'POST',
-        path: '/api/om/tools/execute',
-        body: {
-          projectId: args.projectId,
-          tool: args.tool,
-          args: args.args || {},
-          idempotencyKey: args.idempotencyKey,
-        },
-      });
-    }
-    if (name === 'om_start_sidecar') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'POST', path: '/api/om/sidecar/start', body: { force: Boolean(args.force) } });
-    }
-    if (name === 'om_stop_sidecar') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      return callApi({ method: 'POST', path: '/api/om/sidecar/stop', body: {} });
-    }
-    if (name === 'om_get_project') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      const id = encodeURIComponent(String(args.projectId || ''));
-      return callApi({ method: 'GET', path: `/api/om/projects/${id}` });
-    }
-    if (name === 'om_list_tools') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      const q = new URLSearchParams();
-      if (args.capability) q.set('capability', String(args.capability));
-      if (args.q) q.set('q', String(args.q));
-      if (args.limit != null) q.set('limit', String(args.limit));
-      const qs = q.toString();
-      return callApi({ method: 'GET', path: '/api/om/tools' + (qs ? '?' + qs : '') });
-    }
-    if (name === 'om_list_skills') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      const q = new URLSearchParams();
-      if (args.category) q.set('category', String(args.category));
-      if (args.q) q.set('q', String(args.q));
-      if (args.limit != null) q.set('limit', String(args.limit));
-      const qs = q.toString();
-      return callApi({ method: 'GET', path: '/api/om/skills' + (qs ? '?' + qs : '') });
-    }
-    if (name === 'om_get_skill') {
-      if (typeof callApi !== 'function') return { error: 'API 层未就绪' };
-      const id = encodeURIComponent(String(args.skillId || ''));
-      return callApi({ method: 'GET', path: `/api/om/skills/${id}` });
+    // OpenMontage tools
+    const omTools = ['om_status', 'om_list_projects', 'om_execute_tool', 'om_start_sidecar', 'om_stop_sidecar', 'om_get_project', 'om_list_tools', 'om_list_skills', 'om_get_skill'];
+    if (omTools.includes(name)) {
+      return handleOMTool(name, args, callApi);
     }
     if (name === 'call_api') {
       if (typeof callApi !== 'function') return { error: 'API 层未就绪' };

@@ -1,0 +1,32 @@
+{
+  "files.associations": {
+    "*.mjs": "javascript"
+  },
+  "javascript.validate.enable": true,
+  "javascript.preferences.importModuleSpecifier": "relative",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/data/codex-home/.tmp": true,
+    "**/outputs": false
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/runtime/cargo": true,
+    "**/runtime/rustup": true,
+    "**/vendor/openmontage/runtime": true,
+    "**/data": true,
+    "**/outputs": true
+  },
+  "files.watcherExclude": {
+    "**/runtime/cargo/**": true,
+    "**/runtime/rustup/**": true,
+    "**/vendor/**": true,
+    "**/data/**": true,
+    "**/outputs/**": true
+  }
+}
