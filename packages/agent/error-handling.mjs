@@ -98,8 +98,8 @@ export const Errors = {
       details: '此操作需要用户授权',
     }),
 
-  authenticationRequired: () =>
-    createError('需要身份验证', {
+  authenticationRequired: (message = '需要身份验证') =>
+    createError(message, {
       status: 401,
       category: ErrorCategory.PERMISSION,
     }),

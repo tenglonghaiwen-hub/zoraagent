@@ -66,6 +66,18 @@ export function initLoginPage() {
     });
   }
 
+  // Autofill test account on clicking hint
+  const testHint = document.querySelector('#login .fine');
+  if (testHint) {
+    testHint.style.cursor = 'pointer';
+    testHint.title = '点击一键填入测试账号';
+    testHint.addEventListener('click', () => {
+      emailInput.value = 'test@zora.local';
+      passwordInput.value = 'test123';
+      showLoginStatus('已填入测试账号 (test@zora.local / test123)，点击登录即可', 'info');
+    });
+  }
+
   function showLoginStatus(message, type = 'info') {
     if (!statusEl) return;
     statusEl.textContent = message;

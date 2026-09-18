@@ -98,7 +98,7 @@ export async function loginUser({ email, password }) {
   const user = await queryOne('SELECT * FROM users WHERE email = ?', [email]);
 
   if (!user) {
-    throw Errors.authenticationRequired();
+    throw Errors.authenticationRequired('邮箱或密码错误');
   }
 
   if (user.status !== 'active') {
@@ -108,7 +108,7 @@ export async function loginUser({ email, password }) {
   // Verify password
   const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
-    throw Errors.authenticationRequired();
+    throw Errors.authenticationRequired('邮箱或密码错误');
   }
 
   // Generate token
