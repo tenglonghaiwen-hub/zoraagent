@@ -90,6 +90,7 @@ function runtime() {
     directory: path.join(ROOT, 'data', 'local-approvals'),
     workspaceRoot: WORKSPACE_ROOT,
     dockerImage: process.env.ZORA_SANDBOX_IMAGE || 'node:24-bookworm-slim',
+    backend: process.env.ZORA_RUNTIME_BACKEND || 'auto',
   }));
 }
 
