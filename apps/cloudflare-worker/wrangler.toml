@@ -12,7 +12,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "zora-db"
-database_id = "your-d1-database-id-here"
+database_id = "295307be-7caa-4d26-b85e-e68ac22a0c51"
 
 # 密钥配置说明（在 Cloudflare Dashboard 或命令行设置，不写入代码中）：
 # wrangler secret put JWT_SECRET
