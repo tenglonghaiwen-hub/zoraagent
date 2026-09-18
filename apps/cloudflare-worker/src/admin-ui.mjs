@@ -449,6 +449,7 @@ export function renderAdminHtml() {
               <th>显示名称</th>
               <th>类型</th>
               <th>供应商</th>
+              <th>调用路由</th>
               <th>单价 (积分/次)</th>
               <th>并发限制</th>
               <th>状态</th>
@@ -456,7 +457,7 @@ export function renderAdminHtml() {
             </tr>
           </thead>
           <tbody id="modelsTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">正在加载模型列表...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">正在加载模型列表...</td></tr>
           </tbody>
         </table>
       </div>
@@ -717,6 +718,18 @@ export function renderAdminHtml() {
             <input type="number" id="m_concurrency" min="1" max="20" value="2">
           </div>
         </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="m_route">API 请求路由 (Route)</label>
+            <input type="text" id="m_route" placeholder="/v2/video_generation 或 /v1/images/generations">
+            <div class="form-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">MiniMax为 /v2/video_generation，通用生图为 /v1/images/generations</div>
+          </div>
+          <div class="form-group">
+            <label for="m_query_route">异步任务轮询路由 (Query Route)</label>
+            <input type="text" id="m_query_route" placeholder="/v2/query/video_generation/{task_id}">
+            <div class="form-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">支持 {task_id} 占位符，视频模型必填</div>
+          </div>
+        </div>
         <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
           <input type="checkbox" id="m_enabled" checked>
           <label for="m_enabled" style="margin-bottom: 0; cursor: pointer;">启用此模型向客户端开放</label>
@@ -805,10 +818,49 @@ export function renderAdminHtml() {
       document.getElementById('m_kind').value = data ? data.kind : 'image';
       document.getElementById('m_cost').value = data ? data.quotaCostPerUnit : '10';
       document.getElementById('m_provider').value = data ? data.provider : 'duoyuanx';
+      document.getElementById('m_route').value = data ? (data.route || '') : '';
+      document.getElementById('m_query_route').value = data ? (data.queryRoute || data.query_route || '') : '';
       document.getElementById('m_concurrency').value = data ? data.maxConcurrency : '2';
       document.getElementById('m_enabled').checked = data ? (data.enabled === 1 || data.enabled === true) : true;
+      if (!isEdit) autoSuggestRoute();
       document.getElementById('modelModal').classList.add('active');
     }
+
+    function autoSuggestRoute() {
+      const kind = document.getElementById('m_kind').value;
+      const provider = document.getElementById('m_provider').value;
+      const id = document.getElementById('m_id').value.trim();
+      const routeInput = document.getElementById('m_route');
+      const queryInput = document.getElementById('m_query_route');
+
+      if (provider === 'minimax' || id === 'MiniMax-H3') {
+        if (!routeInput.value || routeInput.value === '/v1/videos' || routeInput.value === '/v1/images/generations') {
+          routeInput.value = '/v2/video_generation';
+        }
+        if (!queryInput.value || queryInput.value === '/v1/videos/{task_id}') {
+          queryInput.value = '/v2/query/video_generation/{task_id}';
+        }
+      } else if (kind === 'video') {
+        if (!routeInput.value || routeInput.value === '/v2/video_generation' || routeInput.value === '/v1/images/generations') {
+          routeInput.value = '/v1/videos';
+        }
+        if (!queryInput.value || queryInput.value === '/v2/query/video_generation/{task_id}') {
+          queryInput.value = '/v1/videos/{task_id}';
+        }
+      } else if (kind === 'image') {
+        if (!routeInput.value || routeInput.value === '/v2/video_generation' || routeInput.value === '/v1/videos') {
+          routeInput.value = '/v1/images/generations';
+        }
+        queryInput.value = '';
+      } else if (kind === 'agent') {
+        if (!routeInput.value || routeInput.value === '/v1/images/generations' || routeInput.value === '/v1/videos') {
+          routeInput.value = '/v1/chat/completions';
+        }
+        queryInput.value = '';
+      }
+    }
+    document.getElementById('m_kind').addEventListener('change', autoSuggestRoute);
+    document.getElementById('m_provider').addEventListener('change', autoSuggestRoute);
     function closeModelModal() { document.getElementById('modelModal').classList.remove('active'); }
     function openAdjustModal(userId, username) {
       document.getElementById('adj_user_id').value = userId;
