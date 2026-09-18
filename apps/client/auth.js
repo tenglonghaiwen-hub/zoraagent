@@ -62,6 +62,22 @@ export function clearAuth() {
   }
 }
 
+export function getApiBase() {
+  if (typeof window !== 'undefined') {
+    if (window.ZORA_API_BASE) return window.ZORA_API_BASE.replace(/\/+$/, '');
+    const stored = localStorage.getItem('zora.api.base');
+    if (stored) return stored.replace(/\/+$/, '');
+  }
+  return '';
+}
+
+export function apiUrl(path) {
+  const base = getApiBase();
+  if (!base) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base}${path.startsWith('/') ? path : '/' + path}`;
+}
+
 /**
  * Check if user is authenticated
  */
@@ -73,10 +89,10 @@ export function isAuthenticated() {
  * Login with email and password
  */
 export async function login(email, password) {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, username: email }),
   });
 
   const data = await response.json();
@@ -95,10 +111,10 @@ export async function login(email, password) {
  * Register new user
  */
 export async function register(email, password, username) {
-  const response = await fetch('/api/auth/register', {
+  const response = await fetch(apiUrl('/api/auth/register'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, username }),
+    body: JSON.stringify({ email, password, username: username || email }),
   });
 
   const data = await response.json();
@@ -118,7 +134,7 @@ export async function logout() {
 
   if (token) {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(apiUrl('/api/auth/logout'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -140,7 +156,7 @@ export async function refreshToken() {
   if (!token) return null;
 
   try {
-    const response = await fetch('/api/auth/refresh', {
+    const response = await fetch(apiUrl('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -166,7 +182,7 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const response = await fetch('/api/auth/me', {
+  const response = await fetch(apiUrl('/api/auth/me'), {
     headers: { 'Authorization': `Bearer ${token}` },
   });
 
@@ -194,7 +210,8 @@ export async function authFetch(url, options = {}, isRetry = false) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const finalUrl = apiUrl(url);
+  const response = await fetch(finalUrl, { ...options, headers });
 
   // Handle 401 - try refresh token once if not a retry and not already an auth endpoint
   if (response.status === 401 && !isRetry && token && !url.includes('/api/auth/')) {
@@ -263,6 +280,6 @@ export async function topupDemoQuota(amount = 100) {
  * Fetch server models list
  */
 export async function fetchServerModels() {
-  const res = await fetch('/api/models');
+  const res = await fetch(apiUrl('/api/models'));
   return res.json();
 }

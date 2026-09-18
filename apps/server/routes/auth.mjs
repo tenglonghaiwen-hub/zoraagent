@@ -50,7 +50,6 @@ export async function handleAuthRoutes(req, res, url, { sendJson }) {
       });
       return true;
     }
-
     // GET /api/user/usage
     if (req.method === 'GET' && url.pathname === '/api/user/usage') {
       const { user } = await authenticateRequest(req);

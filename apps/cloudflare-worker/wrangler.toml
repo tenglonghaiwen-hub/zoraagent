@@ -1,0 +1,19 @@
+name = "zora-api"
+main = "src/index.mjs"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+DUOYUANX_BASE_URL = "https://duoyuanx.com"
+ENVIRONMENT = "production"
+
+# Cloudflare D1 关系型数据库绑定
+# 执行 wrangler d1 create zora-db 后将返回的 database_id 填入此处
+[[d1_databases]]
+binding = "DB"
+database_name = "zora-db"
+database_id = "your-d1-database-id-here"
+
+# 密钥配置说明（在 Cloudflare Dashboard 或命令行设置，不写入代码中）：
+# wrangler secret put JWT_SECRET
+# wrangler secret put DUOYUANX_API_KEY

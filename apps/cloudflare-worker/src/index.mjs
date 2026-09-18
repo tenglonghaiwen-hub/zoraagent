@@ -1,0 +1,425 @@
+import {
+  hashPassword,
+  verifyPassword,
+  signJwt,
+  verifyJwt
+} from './auth.mjs';
+import {
+  authenticateRequest,
+  calculateQuotaCost,
+  deductUserQuota,
+  topupUserQuota,
+  getUserUsageLogs,
+  getServerModels
+} from './billing.mjs';
+import {
+  proxyGeneration,
+  proxyChat
+} from './proxy.mjs';
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get('Origin') || '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400'
+  };
+}
+
+function jsonResponse(data, status = 200, headers = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      ...headers
+    }
+  });
+}
+
+function errorResponse(message, status = 400, headers = {}, extra = {}) {
+  return jsonResponse({ ok: false, error: message, ...extra }, status, headers);
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const cors = corsHeaders(request, env);
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: cors });
+    }
+
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+    const jwtSecret = env.JWT_SECRET || 'zora-default-secret-change-in-production';
+
+    try {
+      // ----------------------------------------------------
+      // 1. Health / Gateway Metadata
+      // ----------------------------------------------------
+      if (path === '/' || path === '/health') {
+        return jsonResponse({
+          ok: true,
+          service: 'zora-cloud-gateway',
+          version: '1.0.0',
+          runtime: 'cloudflare-workers',
+          timestamp: new Date().toISOString()
+        }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 2. Model Catalog
+      // ----------------------------------------------------
+      if (path === '/api/models' && method === 'GET') {
+        const models = await getServerModels(env.DB);
+        return jsonResponse({ ok: true, models }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 3. Authentication Endpoints
+      // ----------------------------------------------------
+      if (path === '/api/auth/register' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const username = (body.username || body.email || '').trim();
+        const email = (body.email || body.username || '').trim();
+        const password = body.password;
+
+        if (!username || username.length < 3) {
+          return errorResponse('用户名至少需要 3 个字符', 400, cors);
+        }
+        if (!password || typeof password !== 'string' || password.length < 6) {
+          return errorResponse('密码至少需要 6 个字符', 400, cors);
+        }
+
+        // Check duplicate
+        const existing = await env.DB.prepare(
+          'SELECT id FROM users WHERE email = ? OR username = ?'
+        ).bind(email, username).first();
+
+        if (existing) {
+          return errorResponse('该用户/邮箱已被注册', 409, cors);
+        }
+
+        const userId = crypto.randomUUID();
+        const now = Date.now();
+        const passwordHash = await hashPassword(password);
+        const initialQuota = 100;
+
+        await env.DB.prepare(
+          `INSERT INTO users (id, email, password_hash, username, role, quota_balance, created_at, updated_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(userId, email, passwordHash, username, 'user', initialQuota, now, now, 'active').run();
+
+        const token = await signJwt({
+          userId,
+          username,
+          email,
+          role: 'user'
+        }, jwtSecret, 7 * 86400);
+
+        // Record session
+        const sessionId = crypto.randomUUID();
+        const expiresAt = now + 7 * 86400 * 1000;
+        await env.DB.prepare(
+          'INSERT INTO sessions (id, user_id, token, expires_at, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(sessionId, userId, token, expiresAt, now, now).run();
+
+        return jsonResponse({
+          ok: true,
+          token,
+          user: {
+            id: userId,
+            username,
+            email,
+            role: 'user',
+            balance: initialQuota,
+            quotaBalance: initialQuota
+          }
+        }, 201, cors);
+      }
+
+      if (path === '/api/auth/login' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const account = (body.email || body.username || '').trim();
+        const password = body.password;
+
+        if (!account || !password) {
+          return errorResponse('请输入账号与密码', 400, cors);
+        }
+
+        const user = await env.DB.prepare(
+          'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE email = ? OR username = ?'
+        ).bind(account, account).first();
+
+        if (!user) {
+          return errorResponse('账号或密码错误', 401, cors);
+        }
+
+        if (user.status !== 'active') {
+          return errorResponse('账号已被封禁', 403, cors);
+        }
+
+        const valid = await verifyPassword(password, user.password_hash);
+        if (!valid) {
+          return errorResponse('账号或密码错误', 401, cors);
+        }
+
+        const now = Date.now();
+        const token = await signJwt({
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        }, jwtSecret, 7 * 86400);
+
+        const sessionId = crypto.randomUUID();
+        const expiresAt = now + 7 * 86400 * 1000;
+        await env.DB.prepare(
+          'INSERT INTO sessions (id, user_id, token, expires_at, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(sessionId, user.id, token, expiresAt, now, now).run();
+
+        return jsonResponse({
+          ok: true,
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            balance: user.quotaBalance,
+            quotaBalance: user.quotaBalance
+          }
+        }, 200, cors);
+      }
+
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        const authHeader = request.headers.get('Authorization') || '';
+        const oldToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (!oldToken) {
+          return errorResponse('Missing token', 401, cors);
+        }
+
+        const payload = await verifyJwt(oldToken, jwtSecret);
+        if (!payload || !payload.userId) {
+          return errorResponse('Token 无效或已过期', 401, cors);
+        }
+
+        const user = await env.DB.prepare(
+          'SELECT id, email, username, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+        ).bind(payload.userId).first();
+
+        if (!user || user.status !== 'active') {
+          return errorResponse('用户不存在或已封禁', 401, cors);
+        }
+
+        const now = Date.now();
+        const newToken = await signJwt({
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        }, jwtSecret, 7 * 86400);
+
+        // Invalidate old session and insert new session
+        await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(oldToken).run();
+        const sessionId = crypto.randomUUID();
+        const expiresAt = now + 7 * 86400 * 1000;
+        await env.DB.prepare(
+          'INSERT INTO sessions (id, user_id, token, expires_at, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(sessionId, user.id, newToken, expiresAt, now, now).run();
+
+        return jsonResponse({
+          ok: true,
+          token: newToken,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            balance: user.quotaBalance,
+            quotaBalance: user.quotaBalance
+          }
+        }, 200, cors);
+      }
+
+      if (path === '/api/auth/me' && method === 'GET') {
+        const { user } = await authenticateRequest(request, env);
+        return jsonResponse({
+          ok: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            balance: user.quotaBalance,
+            quotaBalance: user.quotaBalance
+          }
+        }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 4. Ledger & Consumption Audit
+      // ----------------------------------------------------
+      if (path === '/api/user/usage' && method === 'GET') {
+        const { user } = await authenticateRequest(request, env);
+        const limit = parseInt(url.searchParams.get('limit') || url.searchParams.get('pageSize') || '20', 10);
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+        const logsData = await getUserUsageLogs(env.DB, user.id, { limit, offset });
+
+        return jsonResponse({
+          ok: true,
+          logs: logsData.logs,
+          total: logsData.total,
+          totalConsumed: logsData.totalConsumed,
+          limit,
+          offset
+        }, 200, cors);
+      }
+
+      if (path === '/api/user/topup' && method === 'POST') {
+        const { user } = await authenticateRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const amount = parseInt(body.amount, 10);
+
+        if (isNaN(amount) || amount <= 0 || amount > 1000) {
+          return errorResponse('无效的充值积分数量（单次体验上限 1000）', 400, cors);
+        }
+
+        const newBalance = await topupUserQuota(env.DB, user.id, amount, {
+          channel: 'demo',
+          requestId: `topup-${Date.now()}`
+        });
+
+        return jsonResponse({
+          ok: true,
+          message: `成功充值 ${amount} 积分 [DEMO]`,
+          newBalance,
+          balance: newBalance
+        }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 5. Cost Preview Endpoint
+      // ----------------------------------------------------
+      if (path === '/api/preview' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const modelId = body.model || body.modelId || 'flux-schnell';
+        const kind = body.type || body.kind || 'image';
+        const count = body.count || 1;
+
+        const cost = await calculateQuotaCost(env.DB, { modelId, kind, count });
+
+        return jsonResponse({
+          ok: true,
+          model: modelId,
+          type: kind,
+          cost_per_unit: cost,
+          unit_name: kind === 'video' ? '次' : '张',
+          estimated_cost: cost
+        }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 6. Upstream Proxy (Generate & Chat)
+      // ----------------------------------------------------
+      if (path === '/api/generate' && method === 'POST') {
+        const { user } = await authenticateRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const prompt = body.prompt;
+        const model = body.model || body.modelId || 'flux-schnell';
+        const kind = body.type || body.kind || (body.duration ? 'video' : 'image');
+
+        if (!prompt || typeof prompt !== 'string') {
+          return errorResponse('缺少必要的 prompt 参数', 400, cors);
+        }
+
+        const cost = await calculateQuotaCost(env.DB, { modelId: model, kind, count: 1 });
+        const currentBalance = user.quotaBalance || 0;
+
+        // Quota Pre-check
+        if (currentBalance < cost) {
+          return errorResponse(
+            `积分不足，本次操作需要 ${cost} 积分，当前可用 ${currentBalance} 积分，请充值后继续`,
+            402,
+            cors,
+            { currentBalance, requiredCost: cost }
+          );
+        }
+
+        // Upstream generation
+        const upstreamData = await proxyGeneration({ body: { ...body, model, kind }, env });
+
+        // Extract result URL
+        const outputUrl = upstreamData.data?.[0]?.url || upstreamData.url || null;
+        const taskId = upstreamData.task_id || upstreamData.taskId || `task-${Date.now()}`;
+
+        // Atomic balance deduction & log
+        const newBalance = await deductUserQuota(env.DB, user.id, cost, {
+          resourceType: 'generation',
+          modelId: model,
+          requestId: taskId
+        });
+
+        return jsonResponse({
+          ok: true,
+          url: outputUrl,
+          taskId,
+          status: 'success',
+          cost,
+          newBalance,
+          balance: newBalance,
+          model,
+          prompt,
+          data: upstreamData.data
+        }, 200, cors);
+      }
+
+      if (path === '/api/chat' && method === 'POST') {
+        const { user } = await authenticateRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const model = body.modelId || body.model || 'gpt-5.5';
+
+        const cost = await calculateQuotaCost(env.DB, { modelId: model, kind: 'agent', count: 1 });
+        const currentBalance = user.quotaBalance || 0;
+
+        if (currentBalance < cost) {
+          return errorResponse(
+            `积分不足，对话需要 ${cost} 积分，当前可用 ${currentBalance} 积分`,
+            402,
+            cors,
+            { currentBalance, requiredCost: cost }
+          );
+        }
+
+        const upstreamData = await proxyChat({ body: { ...body, modelId: model }, env });
+
+        const newBalance = await deductUserQuota(env.DB, user.id, cost, {
+          resourceType: 'chat',
+          modelId: model,
+          requestId: upstreamData.conversationId
+        });
+
+        return jsonResponse({
+          ok: true,
+          ...upstreamData,
+          cost,
+          newBalance,
+          balance: newBalance
+        }, 200, cors);
+      }
+
+      return errorResponse(`Endpoint not found: ${method} ${path}`, 404, cors);
+    } catch (err) {
+      console.error('[CloudflareWorker Error]', err);
+      return errorResponse(
+        err.message || '内部服务异常',
+        err.status || 500,
+        cors
+      );
+    }
+  }
+};

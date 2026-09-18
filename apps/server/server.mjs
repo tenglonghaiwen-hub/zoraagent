@@ -155,10 +155,10 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
     // Route delegation — each handler returns true if it consumed the request
-    if (await handleAuthRoutes(req, res, url, ctx)) return;
     if (await handleWorkspaceRoutes(req, res, url, ctx)) return;
     if (await handleLocalRuntimeRoutes(req, res, url, ctx)) return;
     if (await handleDuoyuanxRequest(req, res, url)) return;
+    if (await handleAuthRoutes(req, res, url, ctx)) return;
     if (await handleGenerationRoutes(req, res, url, ctx)) return;
     if (await handleOpenMontageRoutes(req, res, url, ctx)) return;
     if (req.method === 'GET' && serveStatic(req, res, url, ctx)) return;
