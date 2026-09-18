@@ -23,6 +23,7 @@ import { handleWorkspaceRoutes } from './routes/workspace.mjs';
 import { handleLocalRuntimeRoutes } from './routes/local-runtime.mjs';
 import { handleGenerationRoutes } from './routes/generation.mjs';
 import { handleOpenMontageRoutes } from './routes/openmontage.mjs';
+import { handleAuthRoutes } from './routes/auth.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -153,6 +154,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
     // Route delegation — each handler returns true if it consumed the request
+    if (await handleAuthRoutes(req, res, url, ctx)) return;
     if (await handleWorkspaceRoutes(req, res, url, ctx)) return;
     if (await handleLocalRuntimeRoutes(req, res, url, ctx)) return;
     if (await handleDuoyuanxRequest(req, res, url)) return;

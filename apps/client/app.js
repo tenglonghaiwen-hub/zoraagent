@@ -5,6 +5,8 @@ import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
 import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio136';
+import {isAuthenticated, getUser, authFetch, logout, clearAuth} from './auth.js';
+import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu} from './login-handler.js';
 function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}')||{};}catch{return {};}}
 function saveUIPref(key,value){try{localStorage.setItem('zora.uiPrefs.v1',JSON.stringify({...readUIPrefs(),[key]:value}));}catch{toast('设置保存失败，请检查本地存储空间');}}
 function canvasNodeIcon(type){const paths=type==='res-image'||type==='image'||type==='t2i'||type==='i2i'?'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>':type==='res-video'||type==='video'||type==='t2v'||type==='i2v'?'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4Z"/>':'<path d="M5 5h14M5 10h14M5 15h10M5 20h7"/>';return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';}
@@ -35,8 +37,8 @@ function toast(message){$('#toast').textContent=message;$('#toast').hidden=false
 
 const AUTH_KEY='zora.auth.v1';
 const THEME_KEY='zora.theme.v2';
-function isAuthed(){try{return localStorage.getItem(AUTH_KEY)==='1';}catch{return false;}}
-function setAuthed(on){try{localStorage.setItem(AUTH_KEY,on?'1':'0');}catch{}}
+function isAuthed(){try{return isAuthenticated()||localStorage.getItem(AUTH_KEY)==='1';}catch{return false;}}
+function setAuthed(on){try{localStorage.setItem(AUTH_KEY,on?'1':'0');if(!on)clearAuth();}catch{}}
 function loadTheme(){try{const t=localStorage.getItem(THEME_KEY);if(t==='night')return 'night';return 'day';}catch{return 'day';}}
 function applyTheme(theme){
   const t=theme==='night'?'night':'day';
@@ -1502,7 +1504,7 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
     input.value=''; renderLog(); save();
     try{
       const refs=await prepareAgentReferences(assets);
-      const response=await fetch('/api/chat',{
+      const response=await authFetch('/api/chat',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
@@ -1625,6 +1627,36 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
   window.__setCanvasAgentRailCollapsed=setCollapsed;
 })();
 
+// Initialize authentication
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.location.hash === '#login') {
+      initLoginPage();
+    }
+    if (isAuthenticated()) {
+      initUserMenu();
+    }
+  });
+} else {
+  if (window.location.hash === '#login') {
+    initLoginPage();
+  }
+  if (isAuthenticated()) {
+    initUserMenu();
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#login') {
+    initLoginPage();
+  }
+  if (isAuthenticated()) {
+    initUserMenu();
+  } else {
+    clearUserMenu();
+  }
+});
+
 ensureBackdrops();
 
 function route(){
@@ -1681,7 +1713,7 @@ $('#model').onchange=()=>{modelChanged();saveModelPref($('#creation-kind').value
 function wireOptionPrefSaves(){for(const id of ['video-mode','ratio','resolution','duration','concurrency','count']){const el=$('#'+id);if(!el||el.dataset.prefWired)continue;el.dataset.prefWired='1';el.addEventListener('change',()=>saveOptionPrefsForKind());}}
 wireOptionPrefSaves();
 $('#creation-kind').dataset.prevKind=$('#creation-kind').value;
-try{const response=await fetch('/api/models');if(!response.ok)throw Error();models=(await response.json()).models;kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
+try{const response=await authFetch('/api/models');if(!response.ok)throw Error();models=(await response.json()).models;kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
 /* legacy files.onchange replaced by incremental handler below */
 function renderTasks(){
   $('#task-count').textContent=drafts.reduce((n,d)=>n+(Number(d.count)||1),0);
@@ -1735,7 +1767,7 @@ async function runPreviewTaskList(){
   button.disabled=true;if(label!==button)label.textContent='正在校验…';else button.textContent='正在校验…';
   try{
     const body={modelId:$('#model').value,prompt,count:Number($('#count').value),concurrency:Number($('#concurrency').value),ratio:$('#ratio').value,resolution:$('#resolution').value,duration:Number($('#duration').value),videoMode:$('#video-mode')?.value||undefined};
-    const response=await fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const response=await authFetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const result=await response.json();
     if(!response.ok)throw Error(result.error||'参数校验失败');
     drafts.push(result.draft);renderTasks();
@@ -2076,7 +2108,7 @@ document.querySelectorAll('[data-message-kind]').forEach(b=>b.onclick=()=>{messa
 function toggleAccount(e){const open=accountMenu.hidden;closeMessages();closeAccount();if(open){accountMenu.hidden=false;panelReturn=e.currentTarget;e.currentTarget.setAttribute('aria-expanded','true');accountMenu.querySelector('button').focus();}}
 $('#account-menu-open').onclick=toggleAccount;$('#wallet-open').onclick=toggleAccount;
 document.querySelectorAll('[data-account-route]').forEach(b=>b.onclick=()=>{closeAccount();tab(b.dataset.accountRoute);});
-$('#account-signout').onclick=()=>{closeAccount();setAuthed(false);location.hash='welcome';};
+$('#account-signout').onclick=async()=>{closeAccount();try{await logout();}catch{}setAuthed(false);clearUserMenu();location.hash='welcome';};
 document.addEventListener('pointerdown',e=>{if(!accountMenu.hidden&&!accountMenu.contains(e.target)&&!e.target.closest('#account-menu-open,#wallet-open'))closeAccount();if(!messagePanel.hidden&&!messagePanel.contains(e.target)&&!e.target.closest('#messages-open'))closeMessages();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(!accountMenu.hidden||!messagePanel.hidden)){closeAccount();closeMessages();panelReturn?.focus();}});
 window.addEventListener('hashchange',()=>{closeAccount();closeMessages();});
@@ -2214,7 +2246,7 @@ function renderMediaTask(message,target=conversationLog){
  const header=chatNode('header','media-task-header');const refs=chatNode('div','media-task-references');
  let missingReferences=0;const reportMissing=()=>{missingReferences++;let notice=refs.querySelector('.reference-unavailable');if(!notice){notice=chatNode('span','reference-unavailable');refs.append(notice);}notice.textContent=missingReferences+' 项参考素材不可用，请重新添加';};
  for(const a of (message.references||[]).slice(0,5)){const mime=(a.file&&a.file.type)||'';const media=document.createElement(mime.startsWith('video/')||a.kind==='video'?'video':'img');if(!a.url){reportMissing();continue;}media.src=a.url;media.onerror=()=>{media.remove();reportMissing();};media.title=(a.file&&a.file.name)||a.reference||'';if(media.tagName==='IMG')media.alt=(a.file&&a.file.name)||'参考';refs.append(media);}
- const heading=chatNode('div','media-task-heading');const prompt=chatNode('p','media-task-prompt',message.text);heading.append(prompt);if((message.text||'').length>220){prompt.classList.add('is-collapsed');const expand=chatNode('button','media-prompt-expand','展开提示词');expand.type='button';expand.setAttribute('aria-expanded','false');expand.onclick=()=>{const collapsed=prompt.classList.toggle('is-collapsed');expand.textContent=collapsed?'展开提示词':'收起提示词';expand.setAttribute('aria-expanded',String(!collapsed));};heading.append(expand);}heading.append(chatNode('span','conversation-meta',message.meta));const details=document.createElement('details');details.className='media-task-details';details.append(chatNode('summary','','详细信息'),chatNode('p','',`${message.kind==='video'?'视频':'图片'}任务 · ${message.count} 个结果 · ${message.meta} · ${message.genError||message.genStatus||'待发送'}`));{let requestLoading=false,requestLoaded=false;const loadRequest=async()=>{details.open=true;if(requestLoading||requestLoaded)return;requestLoading=true;try{if(!message.genBatchId){let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');details.append(pre);}pre.textContent='此记录没有本地生成任务编号，无法查询实际提交请求体。';return;}const r=await fetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId));const j=await r.json();if(!r.ok)throw Error(j.error||'读取失败');let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto';details.append(pre);}pre.textContent=j.task?.requests?.length?JSON.stringify(j.task.requests,null,2):'此任务未保存提交请求体；旧任务不能追溯还原。';requestLoaded=true;}catch(e){let note=details.querySelector('.request-error');if(!note){note=chatNode('p','request-error');details.append(note);}note.textContent=e.message;}finally{requestLoading=false;}};details.addEventListener('mouseenter',loadRequest);details.addEventListener('focusin',loadRequest);details.addEventListener('mouseleave',()=>{if(!details.contains(document.activeElement))details.open=false;});details.addEventListener('toggle',()=>{if(details.open)void loadRequest();});}heading.append(details);header.append(refs,heading);article.append(header);
+ const heading=chatNode('div','media-task-heading');const prompt=chatNode('p','media-task-prompt',message.text);heading.append(prompt);if((message.text||'').length>220){prompt.classList.add('is-collapsed');const expand=chatNode('button','media-prompt-expand','展开提示词');expand.type='button';expand.setAttribute('aria-expanded','false');expand.onclick=()=>{const collapsed=prompt.classList.toggle('is-collapsed');expand.textContent=collapsed?'展开提示词':'收起提示词';expand.setAttribute('aria-expanded',String(!collapsed));};heading.append(expand);}heading.append(chatNode('span','conversation-meta',message.meta));const details=document.createElement('details');details.className='media-task-details';details.append(chatNode('summary','','详细信息'),chatNode('p','',`${message.kind==='video'?'视频':'图片'}任务 · ${message.count} 个结果 · ${message.meta} · ${message.genError||message.genStatus||'待发送'}`));{let requestLoading=false,requestLoaded=false;const loadRequest=async()=>{details.open=true;if(requestLoading||requestLoaded)return;requestLoading=true;try{if(!message.genBatchId){let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');details.append(pre);}pre.textContent='此记录没有本地生成任务编号，无法查询实际提交请求体。';return;}const r=await authFetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId));const j=await r.json();if(!r.ok)throw Error(j.error||'读取失败');let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto';details.append(pre);}pre.textContent=j.task?.requests?.length?JSON.stringify(j.task.requests,null,2):'此任务未保存提交请求体；旧任务不能追溯还原。';requestLoaded=true;}catch(e){let note=details.querySelector('.request-error');if(!note){note=chatNode('p','request-error');details.append(note);}note.textContent=e.message;}finally{requestLoading=false;}};details.addEventListener('mouseenter',loadRequest);details.addEventListener('focusin',loadRequest);details.addEventListener('mouseleave',()=>{if(!details.contains(document.activeElement))details.open=false;});details.addEventListener('toggle',()=>{if(details.open)void loadRequest();});}heading.append(details);header.append(refs,heading);article.append(header);
  const results=chatNode('div','media-task-results');
  for(let i=0;i<message.count;i++){const resultUrl=message.genUrls?.[i]||(i===0?message.genUrl:null);const frame=chatNode('div','media-task-frame');const [w,h]=(message.ratio||'16:9').split(':').map(Number);frame.style.aspectRatio=`${w} / ${h}`;frame.style.width=`min(100%, ${Math.min(280,220*w/h)}px)`;const st=message.cancelled?'已取消':(message.genStatus||'待生成');frame.append(chatNode('span','media-task-status',st));if(message.genUrls?.[i]||(i===0&&message.genUrl)){const media=Object.assign(document.createElement(message.kind==='video'?'video':'img'),{src:message.genUrls?.[i]||message.genUrl,controls:false,className:'media-task-result',draggable:true});if(media.tagName==='IMG')media.alt='生成结果';media.title='点击放大预览，拖到输入框可当参考';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','打开生成素材预览');media.style.cursor='zoom-in';media.addEventListener('dragstart',e=>{try{e.dataTransfer.setData('application/x-zora-gen',JSON.stringify({url:resultUrl,kind:message.kind||'image'}));e.dataTransfer.setData('text/uri-list',resultUrl);e.dataTransfer.setData('text/plain',resultUrl);e.dataTransfer.effectAllowed='copy';}catch{}});media.addEventListener('click',()=>openGeneratedPreview(resultUrl,message.kind||'image'));media.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openGeneratedPreview(resultUrl,message.kind||'image');}});frame.append(media);}else{frame.append(chatNode('span','media-task-placeholder',`${message.kind==='video'?'视频':'图片'}预览${message.count>1?' '+(i+1):''}`));}results.append(frame);}article.append(results);
  const actions=chatNode('div','media-task-actions');
@@ -2230,7 +2262,7 @@ $('#creation-kind').addEventListener('change',updateModeControls);updateModeCont
 
 // Refresh backend-owned capabilities on focus; retain only still-supported values.
 async function refreshModelCatalog(){
- try{const response=await fetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=data.models;
+ try{const response=await authFetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=data.models;
  options($('#creation-kind'),[{id:'agent',name:'Agent 模式'},{id:'video',name:'视频生成'},{id:'image',name:'图片生成'}]);
  if([...$('#creation-kind').options].some(o=>o.value===before['creation-kind']))$('#creation-kind').value=before['creation-kind'];kindChanged();if(models.some(m=>m.id===before.model&&m.kind===$('#creation-kind').value)){$('#model').value=before.model;modelChanged();}
  for(const id of ['ratio','resolution','duration','video-mode'])if($('#'+id)&&[...$('#'+id).options].some(o=>o.value===before[id]))$('#'+id).value=before[id];applyOptionPrefs($('#creation-kind').value);applyBackendLimits();syncPickers();updateModeControls();saveOptionPrefsForKind();$('#send-prompt').disabled=!models.length;$('#preview').disabled=!models.length;$('#preview').title=models.some(m=>m.kind!=='agent')?'校验当前视频/图片参数，并打开任务清单':'模型目录异常时仍可打开任务页；视频/图片预览需有效模型';
@@ -2239,7 +2271,7 @@ async function refreshModelCatalog(){
 function applyBackendLimits(){const m=models.find(m=>m.id===$('#model').value);$('#count').max=m?.maxCount||1;$('#count').value=Math.max(1,Math.min(Number($('#count').value)||1,Number($('#count').max)));$('#concurrency').max=m?.maxConcurrency||1;$('#concurrency').value=Math.max(1,Math.min(Number($('#concurrency').value)||1,Number($('#concurrency').max)));}
 $('#model').addEventListener('change',applyBackendLimits);$('#creation-kind').addEventListener('change',applyBackendLimits);window.addEventListener('focus',refreshModelCatalog);await refreshModelCatalog();
 
-async function refreshDuoyuanxStatus(){const el=$('#duoyuanx-status');if(!el)return;try{const r=await fetch('/api/duoyuanx/status',{cache:'no-store'});const s=await r.json();el.textContent=s.configured?`多元探索 API：已配置 · 代理路由 ${s.routesCount||0} 条`:`多元探索 API：未配置 DUOYUANX_API_KEY · 目录仍可加载`;}catch{el.textContent='多元探索 API：状态不可用';}}
+async function refreshDuoyuanxStatus(){const el=$('#duoyuanx-status');if(!el)return;try{const r=await authFetch('/api/duoyuanx/status',{cache:'no-store'});const s=await r.json();el.textContent=s.configured?`多元探索 API：已配置 · 代理路由 ${s.routesCount||0} 条`:`多元探索 API：未配置 DUOYUANX_API_KEY · 目录仍可加载`;}catch{el.textContent='多元探索 API：状态不可用';}}
 refreshDuoyuanxStatus();window.addEventListener('focus',refreshDuoyuanxStatus);
 
 
@@ -2284,21 +2316,21 @@ async function prepareAgentReferences(references=[]){
 }
 async function submitMediaGeneration(message){
  if(!message.genBatchId&&!message.genTaskId&&!message.genTaskIds?.length){
-  const capability=await fetch('/api/generation-capabilities',{cache:'no-store'});
+  const capability=await authFetch('/api/generation-capabilities',{cache:'no-store'});
   const supported=capability.ok&&await capability.json().catch(()=>null);
   if(!supported?.durableTasks)throw Error('后端版本过旧，尚未支持生成结果恢复。请重启后端服务后再提交；本次未调用生成模型。');
  }
  const model=models.find(m=>m.id===message.modelId||m.aliases?.includes(message.modelId)),queryIds=message.genTaskIds||(message.genTaskId?[message.genTaskId]:[]);
  let result;
- if(message.genBatchId){const response=await fetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId),{signal:AbortSignal.timeout(15000)});result=await response.json();if(!response.ok){if(response.status===404){message.genPending=false;message.genUnknown=true;message.genStatus='结果待确认';}throw Object.assign(Error(result.error||'任务查询暂不可用'),{terminal:response.status===404});}}
- else if(queryIds.length){if(!model?.queryRoute)throw Error('当前模型未提供查询接口');const upstreams=[];for(const id of queryIds){const r=await fetch('/api/duoyuanx'+model.queryRoute.replace('{task_id}',encodeURIComponent(id)),{signal:AbortSignal.timeout(30000)});const data=await r.json();if(!r.ok)throw Error(data.error?.message||data.error||'任务查询失败');if(!data.id&&!data.task_id&&!data.url&&!data.video_url)data.id=id;upstreams.push(data);}result={upstreams};}
+ if(message.genBatchId){const response=await authFetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId),{signal:AbortSignal.timeout(15000)});result=await response.json();if(!response.ok){if(response.status===404){message.genPending=false;message.genUnknown=true;message.genStatus='结果待确认';}throw Object.assign(Error(result.error||'任务查询暂不可用'),{terminal:response.status===404});}}
+ else if(queryIds.length){if(!model?.queryRoute)throw Error('当前模型未提供查询接口');const upstreams=[];for(const id of queryIds){const r=await authFetch('/api/duoyuanx'+model.queryRoute.replace('{task_id}',encodeURIComponent(id)),{signal:AbortSignal.timeout(30000)});const data=await r.json();if(!r.ok)throw Error(data.error?.message||data.error||'任务查询失败');if(!data.id&&!data.task_id&&!data.url&&!data.video_url)data.id=id;upstreams.push(data);}result={upstreams};}
  else{
  message.references=recoverTaskReferences(message,currentConversation?.messages||[]);
  if(!message.references.length&&(/请上传.*(?:图片|参考)|ask_user_files/.test(message.genError||message.referenceError||'')||message.videoMode==='i2i'))throw Error('此旧任务没有保存原图。请重新编辑并重新添加原图，再发送新任务；本次未调用上游。');
   message.genBatchId||=crypto.randomUUID();message.genStartedAt=Date.now();saveSession();
   const body={requestId:message.genBatchId,modelId:model?.id||message.modelId,prompt:message.text,count:Number(message.count)||1,concurrency:Number(message.concurrency)||1,ratio:message.ratio,resolution:message.resolution,duration:message.duration?Number(message.duration):undefined,videoMode:message.videoMode||undefined,operation:message.operation,apiRoute:message.apiRoute};
   body.references=await Promise.all((message.references||[]).map(async r=>{let ref=await prepareMediaReference(r,fileToDataUrl);if(/^https?:/.test(ref.contentUrl)&&['grok-video','gemini-image','gpt-image','grok-image','seedream'].includes(model?.family)){const response=await fetch(ref.contentUrl);if(!response.ok)throw Error('参考素材读取失败');const blob=await response.blob();ref={...ref,type:blob.type||ref.type,contentUrl:await fileToDataUrl(blob)};}return ref;}));
-  message.genPending=true;saveSession();let response;try{response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});result=await response.json();}catch(e){throw Object.assign(Error('提交回执暂未取得，正在查询原任务'),{submissionUnknown:true});}if(!response.ok){message.genPending=false;message.genBatchId=null;throw Error(result.error||'生成提交失败');}
+  message.genPending=true;saveSession();let response;try{response=await authFetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});result=await response.json();}catch(e){throw Object.assign(Error('提交回执暂未取得，正在查询原任务'),{submissionUnknown:true});}if(!response.ok){message.genPending=false;message.genBatchId=null;throw Error(result.error||'生成提交失败');}
  }
  if(result.stub||result.ok===false)throw Error(result.error||'生成未接入');
  if(result.task){applyGenerationReceipt(message,result.task);saveSession();for(const url of message.genUrls){try{addGeneratedAsset({kind:message.kind,url,meta:message.modelId});}catch{}await autoDownloadGenerated({...message,genTaskId:null,genUrl:url});}return result;}else{message.genPending=false;message.genBatchId=null;}
@@ -2309,7 +2341,7 @@ async function submitMediaGeneration(message){
  for(const url of message.genUrls){try{addGeneratedAsset({kind:message.kind,url,meta:message.modelId});}catch{}await autoDownloadGenerated({...message,genTaskId:null,genUrl:url});}
  saveSession();return result;
 }const sendLocalDraft=$('#send-prompt').onclick;
-$('#send-prompt').onclick=async()=>{if($('#creation-kind').value==='agent')return sendLocalDraft();const button=$('#send-prompt');button.disabled=true;try{const payload={modelId:$('#model').value,prompt:buildPackedPrompt(),count:Number($('#count').value),concurrency:Number($('#concurrency').value),ratio:$('#ratio').value,resolution:$('#resolution').value,duration:Number($('#duration').value),videoMode:$('#video-mode')?.value||undefined,references:await prepareAgentReferences(mentionedAssets())};const response=await fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.error||'参数校验失败');sendLocalDraft();const msg=currentConversation?.messages?.[currentConversation.messages.length-1];if(msg&&(msg.kind==='video'||msg.kind==='image')){msg.genStatus='生成中';renderConversation();try{await submitMediaGeneration(msg);toast(msg.genStatus);}catch(e){msg.genStatus=e.submissionUnknown?'结果待确认':'生成失败';msg.genError=e.submissionUnknown?'':e.message||'生成失败';msg.genPollError=e.submissionUnknown?e.message:'';toast(e.message);}saveSession();renderConversation();}}catch(e){toast(e.message);}finally{button.disabled=false;}};
+$('#send-prompt').onclick=async()=>{if($('#creation-kind').value==='agent')return sendLocalDraft();const button=$('#send-prompt');button.disabled=true;try{const payload={modelId:$('#model').value,prompt:buildPackedPrompt(),count:Number($('#count').value),concurrency:Number($('#concurrency').value),ratio:$('#ratio').value,resolution:$('#resolution').value,duration:Number($('#duration').value),videoMode:$('#video-mode')?.value||undefined,references:await prepareAgentReferences(mentionedAssets())};const response=await authFetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.error||'参数校验失败');sendLocalDraft();const msg=currentConversation?.messages?.[currentConversation.messages.length-1];if(msg&&(msg.kind==='video'||msg.kind==='image')){msg.genStatus='生成中';renderConversation();try{await submitMediaGeneration(msg);toast(msg.genStatus);}catch(e){msg.genStatus=e.submissionUnknown?'结果待确认':'生成失败';msg.genError=e.submissionUnknown?'':e.message||'生成失败';msg.genPollError=e.submissionUnknown?e.message:'';toast(e.message);}saveSession();renderConversation();}}catch(e){toast(e.message);}finally{button.disabled=false;}};
 
 // Agent replies come exclusively from the backend; media demo flow is unchanged.
 const renderBeforeLiveAgent=renderConversation;
@@ -2326,7 +2358,7 @@ const sendBeforeAgent=$('#send-prompt').onclick;let agentSending=false;
 $('#send-prompt').onclick=async()=>{
  if($('#creation-kind').value!=='agent')return sendBeforeAgent();if(agentSending)return;const text=buildInstructionText();if(!text){toast('请先填写创作需求或 @ 素材');return;}
  if(!currentConversation){currentConversation={id:'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:text.slice(0,24),messages:[],projectId:currentProjectId,createdAt:Date.now(),updatedAt:Date.now()};conversations.unshift(currentConversation);}else{touchConversation(currentConversation);ensureConversationId(currentConversation);}const conversation=currentConversation;const message={id:crypto.randomUUID(),text,kind:'agent',count:0,meta:'',references:[...(mentionedAssets())],liveAgent:true,pending:true,createdAt:Date.now()};conversation.messages.push(message);$('#prompt').value='';agentSending=true;$('#send-prompt').disabled=true;saveSession();renderConversation();
- try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=result.reply;message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
+ try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=result.reply;message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
 };
 /* directory-capsule-hooks */
 const _renderConversationForDirectory=renderConversation;
