@@ -464,35 +464,132 @@ export function renderAdminHtml() {
 
     <!-- TAB 3: CONFIG & API KEYS -->
     <section id="tab-config" class="tab-content">
-      <div class="panel" style="max-width: 760px;">
+      <div class="panel" style="max-width: 820px;">
         <div class="panel-header">
           <div>
-            <div class="panel-title">API 密钥与网关动态配置</div>
-            <div class="panel-desc">在此修改的 API Key 将存入 D1 并在代理调用时秒级生效，无需重新部署 Worker</div>
+            <div class="panel-title">多服务商 API 密钥与网关动态配置</div>
+            <div class="panel-desc">在此处设置各家大模型服务商的 API 密钥及接口地址，存入 D1 数据库即时生效，无需重新部署</div>
           </div>
         </div>
 
         <form id="configForm">
-          <div class="form-group">
-            <label for="cfg_duoyuanx_key">多元交叉 / 大模型上游 API 密钥 (DUOYUANX_API_KEY)</label>
-            <input type="password" id="cfg_duoyuanx_key" placeholder="sk-...">
-            <div class="form-desc">用于调用多元探索、GPT-5.5、生图生视频模型的官方秘钥。留空则自动回退至 Worker Secret。</div>
+          <!-- 1. MiniMax Official Section -->
+          <div style="background: rgba(236, 72, 153, 0.06); border: 1px solid rgba(236, 72, 153, 0.25); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <span style="font-size: 1.1rem;">🚀</span>
+              <strong style="color: #f472b6;">MiniMax 官方直连服务商 (MiniMax-H3 视频生成)</strong>
+              <span class="badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4);">官方直连</span>
+            </div>
+            <div class="form-desc" style="margin-bottom: 1rem; color: #e2e8f0;">
+              MiniMax-H3 视频生成已接入官方规范（<code>/v2/video_generation</code> 与 <code>/v2/query/video_generation/{task_id}</code>），直接填入海螺/MiniMax 开放平台申请的官方 API Key 即可。
+            </div>
+            <div class="form-group">
+              <label for="cfg_minimax_key">MiniMax 官方 API 密钥 (MINIMAX_API_KEY)</label>
+              <input type="password" id="cfg_minimax_key" placeholder="eyJhbGciOi... 或 留空保持现有配置">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="cfg_minimax_base">MiniMax 官方 API 地址 (MINIMAX_BASE_URL)</label>
+              <input type="text" id="cfg_minimax_base" placeholder="https://api.minimax.cn">
+              <div class="form-desc">默认为 https://api.minimax.cn，海外用户可填写 https://api.minimaxi.com。</div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="cfg_duoyuanx_base">多元探索上游 Base 地址 (DUOYUANX_BASE_URL)</label>
-            <input type="text" id="cfg_duoyuanx_base" placeholder="https://duoyuanx.com">
-            <div class="form-desc">默认为 https://duoyuanx.com，结尾不包含斜杠。</div>
+          <!-- 2. Duoyuanx Section -->
+          <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <span style="font-size: 1.1rem;">🌐</span>
+              <strong style="color: #60a5fa;">多元交叉 / 多元探索 (Duoyuanx)</strong>
+              <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">中转服务商</span>
+            </div>
+            <div class="form-group">
+              <label for="cfg_duoyuanx_key">多元探索 API 密钥 (DUOYUANX_API_KEY)</label>
+              <input type="password" id="cfg_duoyuanx_key" placeholder="sk-...">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="cfg_duoyuanx_base">多元探索 Base 地址 (DUOYUANX_BASE_URL)</label>
+              <input type="text" id="cfg_duoyuanx_base" placeholder="https://duoyuanx.com">
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="cfg_admin_pass">后台管理员密码 (ADMIN_PASSWORD)</label>
+          <!-- 3. OpenAI & DeepSeek & SiliconFlow Accordion/Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <!-- OpenAI -->
+            <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.1rem;">🤖</span>
+                <strong style="color: #34d399;">OpenAI 官方</strong>
+              </div>
+              <div class="form-group">
+                <label for="cfg_openai_key">API 密钥 (OPENAI_API_KEY)</label>
+                <input type="password" id="cfg_openai_key" placeholder="sk-...">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="cfg_openai_base">Base 地址</label>
+                <input type="text" id="cfg_openai_base" placeholder="https://api.openai.com">
+              </div>
+            </div>
+
+            <!-- DeepSeek -->
+            <div style="background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; padding: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.1rem;">🧠</span>
+                <strong style="color: #818cf8;">DeepSeek 官方</strong>
+              </div>
+              <div class="form-group">
+                <label for="cfg_deepseek_key">API 密钥 (DEEPSEEK_API_KEY)</label>
+                <input type="password" id="cfg_deepseek_key" placeholder="sk-...">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="cfg_deepseek_base">Base 地址</label>
+                <input type="text" id="cfg_deepseek_base" placeholder="https://api.deepseek.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. SiliconFlow & Custom -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <!-- SiliconFlow -->
+            <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 8px; padding: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.1rem;">⚡</span>
+                <strong style="color: #fbbf24;">硅基流动 (SiliconFlow)</strong>
+              </div>
+              <div class="form-group">
+                <label for="cfg_siliconflow_key">API 密钥 (SILICONFLOW_API_KEY)</label>
+                <input type="password" id="cfg_siliconflow_key" placeholder="sk-...">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="cfg_siliconflow_base">Base 地址</label>
+                <input type="text" id="cfg_siliconflow_base" placeholder="https://api.siliconflow.cn">
+              </div>
+            </div>
+
+            <!-- Custom OneAPI -->
+            <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; padding: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.1rem;">🔌</span>
+                <strong style="color: #c084fc;">自定义 / OneAPI 中转</strong>
+              </div>
+              <div class="form-group">
+                <label for="cfg_custom_key">自定义 API 密钥 (CUSTOM_API_KEY)</label>
+                <input type="password" id="cfg_custom_key" placeholder="sk-...">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="cfg_custom_base">自定义 Base 地址</label>
+                <input type="text" id="cfg_custom_base" placeholder="https://your-oneapi-domain.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Admin Password -->
+          <div class="form-group" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
+            <label for="cfg_admin_pass">后台管理员控制台登录密码 (ADMIN_PASSWORD)</label>
             <input type="password" id="cfg_admin_pass" placeholder="留空表示不修改">
-            <div class="form-desc">用于登录此可视化控制台的通行密码。请妥善保管。</div>
+            <div class="form-desc">用于登录此可视化控制台。若需修改请输入新密码。</div>
           </div>
 
-          <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn">保存所有配置</button>
+          <div style="margin-top: 1.75rem;">
+            <button type="submit" class="btn" style="padding: 0.65rem 1.5rem; font-size: 0.95rem;">保存所有服务商配置</button>
           </div>
         </form>
       </div>
@@ -605,8 +702,15 @@ export function renderAdminHtml() {
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
-            <label for="m_provider">供应商</label>
-            <input type="text" id="m_provider" placeholder="duoyuanx">
+            <label for="m_provider">供应商服务 (Provider)</label>
+            <select id="m_provider">
+              <option value="minimax">minimax (MiniMax 官方直连)</option>
+              <option value="duoyuanx">duoyuanx (多元探索)</option>
+              <option value="openai">openai (OpenAI 官方)</option>
+              <option value="siliconflow">siliconflow (硅基流动)</option>
+              <option value="deepseek">deepseek (DeepSeek 官方)</option>
+              <option value="custom">custom (自定义 / OneAPI)</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="m_concurrency">最大并发上限</label>
@@ -781,6 +885,18 @@ export function renderAdminHtml() {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">暂无配置的模型</td></tr>';
           return;
         }
+
+        function getProviderBadge(p) {
+          const norm = String(p || 'duoyuanx').toLowerCase();
+          if (norm === 'minimax') return '<span class="badge" style="background: rgba(236, 72, 153, 0.18); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4);">MiniMax 官方</span>';
+          if (norm === 'duoyuanx') return '<span class="badge" style="background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">多元交叉</span>';
+          if (norm === 'openai') return '<span class="badge" style="background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">OpenAI</span>';
+          if (norm === 'siliconflow') return '<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">硅基流动</span>';
+          if (norm === 'deepseek') return '<span class="badge" style="background: rgba(99, 102, 241, 0.18); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4);">DeepSeek</span>';
+          if (norm === 'custom') return '<span class="badge" style="background: rgba(139, 92, 246, 0.18); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4);">自定义</span>';
+          return '<span class="badge">' + norm + '</span>';
+        }
+
         d.models.forEach(m => {
           const tr = document.createElement('tr');
           const isEnabled = m.enabled === 1 || m.enabled === true;
@@ -789,7 +905,7 @@ export function renderAdminHtml() {
             <td class="mono" style="font-weight: 600;">\${m.id}</td>
             <td>\${m.name}</td>
             <td><span class="badge \${badgeClass}">\${m.kind}</span></td>
-            <td>\${m.provider || '-'}</td>
+            <td>\${getProviderBadge(m.provider)}</td>
             <td><strong style="color: #fbbf24;">\${m.quotaCostPerUnit}</strong> 积分</td>
             <td>\${m.maxConcurrency || 1}</td>
             <td>
@@ -858,10 +974,29 @@ export function renderAdminHtml() {
         const d = await res.json();
         if (d.ok && d.configs) {
           d.configs.forEach(c => {
-            if (c.key === 'DUOYUANX_BASE_URL') document.getElementById('cfg_duoyuanx_base').value = c.value;
-            if (c.key === 'DUOYUANX_API_KEY' && c.value) {
-              document.getElementById('cfg_duoyuanx_key').placeholder = '已配置 (••••••••' + c.value.slice(-6) + ')';
-            }
+            const key = c.key;
+            const val = c.value || '';
+            const setField = (id, isSecret = false) => {
+              const el = document.getElementById(id);
+              if (!el) return;
+              if (isSecret && val) {
+                el.placeholder = '已配置 (' + (val.length > 8 ? '••••••••' + val.slice(-6) : '••••••••') + ')';
+              } else if (!isSecret && val) {
+                el.value = val;
+              }
+            };
+            if (key === 'MINIMAX_API_KEY') setField('cfg_minimax_key', true);
+            if (key === 'MINIMAX_BASE_URL') setField('cfg_minimax_base', false);
+            if (key === 'DUOYUANX_API_KEY') setField('cfg_duoyuanx_key', true);
+            if (key === 'DUOYUANX_BASE_URL') setField('cfg_duoyuanx_base', false);
+            if (key === 'OPENAI_API_KEY') setField('cfg_openai_key', true);
+            if (key === 'OPENAI_BASE_URL') setField('cfg_openai_base', false);
+            if (key === 'SILICONFLOW_API_KEY') setField('cfg_siliconflow_key', true);
+            if (key === 'SILICONFLOW_BASE_URL') setField('cfg_siliconflow_base', false);
+            if (key === 'DEEPSEEK_API_KEY') setField('cfg_deepseek_key', true);
+            if (key === 'DEEPSEEK_BASE_URL') setField('cfg_deepseek_base', false);
+            if (key === 'CUSTOM_API_KEY') setField('cfg_custom_key', true);
+            if (key === 'CUSTOM_BASE_URL') setField('cfg_custom_base', false);
           });
         }
       } catch {}
@@ -870,14 +1005,27 @@ export function renderAdminHtml() {
     // Save Config Submit
     document.getElementById('configForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const duoyuanxKey = document.getElementById('cfg_duoyuanx_key').value.trim();
-      const duoyuanxBase = document.getElementById('cfg_duoyuanx_base').value.trim();
-      const adminPass = document.getElementById('cfg_admin_pass').value.trim();
-
       const payload = {};
-      if (duoyuanxKey) payload.DUOYUANX_API_KEY = duoyuanxKey;
-      if (duoyuanxBase) payload.DUOYUANX_BASE_URL = duoyuanxBase;
-      if (adminPass) payload.ADMIN_PASSWORD = adminPass;
+      const fields = [
+        ['cfg_minimax_key', 'MINIMAX_API_KEY'],
+        ['cfg_minimax_base', 'MINIMAX_BASE_URL'],
+        ['cfg_duoyuanx_key', 'DUOYUANX_API_KEY'],
+        ['cfg_duoyuanx_base', 'DUOYUANX_BASE_URL'],
+        ['cfg_openai_key', 'OPENAI_API_KEY'],
+        ['cfg_openai_base', 'OPENAI_BASE_URL'],
+        ['cfg_siliconflow_key', 'SILICONFLOW_API_KEY'],
+        ['cfg_siliconflow_base', 'SILICONFLOW_BASE_URL'],
+        ['cfg_deepseek_key', 'DEEPSEEK_API_KEY'],
+        ['cfg_deepseek_base', 'DEEPSEEK_BASE_URL'],
+        ['cfg_custom_key', 'CUSTOM_API_KEY'],
+        ['cfg_custom_base', 'CUSTOM_BASE_URL'],
+        ['cfg_admin_pass', 'ADMIN_PASSWORD'],
+      ];
+
+      for (const [elemId, configKey] of fields) {
+        const val = document.getElementById(elemId)?.value?.trim();
+        if (val) payload[configKey] = val;
+      }
 
       try {
         const res = await adminFetch('/api/admin/config', {
@@ -886,9 +1034,13 @@ export function renderAdminHtml() {
         });
         const d = await res.json();
         if (!d.ok) throw new Error(d.error);
-        showToast('系统配置已即时更新', 'success');
-        document.getElementById('cfg_duoyuanx_key').value = '';
-        document.getElementById('cfg_admin_pass').value = '';
+        showToast('所有服务商配置已即时更新', 'success');
+        for (const [elemId] of fields) {
+          if (elemId.includes('key') || elemId.includes('pass')) {
+            const el = document.getElementById(elemId);
+            if (el) el.value = '';
+          }
+        }
         loadConfigs();
       } catch (err) {
         showToast(err.message, 'error');

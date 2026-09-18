@@ -83,7 +83,17 @@ CREATE TABLE IF NOT EXISTS system_configs (
 
 INSERT OR IGNORE INTO system_configs (key, value, description, is_secret, updated_at)
 VALUES
+  ('MINIMAX_API_KEY', '', 'MiniMax 官方 API Key（用于 MiniMax-H3 视频生成）', 1, 1789700000000),
+  ('MINIMAX_BASE_URL', 'https://api.minimax.cn', 'MiniMax 官方 API Base 地址', 0, 1789700000000),
   ('DUOYUANX_API_KEY', '', '多元交叉/大模型上游 API Key（留空则使用 Cloudflare Secret）', 1, 1789700000000),
   ('DUOYUANX_BASE_URL', 'https://duoyuanx.com', '多元探索上游 API Base 地址', 0, 1789700000000),
+  ('OPENAI_API_KEY', '', 'OpenAI 官方 API Key', 1, 1789700000000),
+  ('OPENAI_BASE_URL', 'https://api.openai.com', 'OpenAI 官方 API Base 地址', 0, 1789700000000),
+  ('SILICONFLOW_API_KEY', '', '硅基流动 API Key', 1, 1789700000000),
+  ('SILICONFLOW_BASE_URL', 'https://api.siliconflow.cn', '硅基流动 API Base 地址', 0, 1789700000000),
+  ('DEEPSEEK_API_KEY', '', 'DeepSeek 官方 API Key', 1, 1789700000000),
+  ('DEEPSEEK_BASE_URL', 'https://api.deepseek.com', 'DeepSeek 官方 API Base 地址', 0, 1789700000000),
+  ('CUSTOM_API_KEY', '', '自定义 / OneAPI 中转 API Key', 1, 1789700000000),
+  ('CUSTOM_BASE_URL', '', '自定义 / OneAPI 中转 Base 地址', 0, 1789700000000),
   ('ADMIN_PASSWORD', 'admin123456', '网关可视化后台管理密码（请登录后及时修改）', 1, 1789700000000);
 

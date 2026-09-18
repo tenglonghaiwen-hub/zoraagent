@@ -24,7 +24,8 @@ import {
 } from './billing.mjs';
 import {
   proxyGeneration,
-  proxyChat
+  proxyChat,
+  proxyQueryTask
 } from './proxy.mjs';
 import { renderAdminHtml } from './admin-ui.mjs';
 
@@ -455,7 +456,19 @@ export default {
       }
 
       // ----------------------------------------------------
-      // 7. Upstream Proxy (Generate & Chat)
+      // 7. Generation Task Status Polling (MiniMax / Duoyuanx Video Tasks)
+      // ----------------------------------------------------
+      if (method === 'GET' && (path.startsWith('/api/generation-tasks/') || path.startsWith('/v2/query/video_generation/') || path.startsWith('/api/tasks/'))) {
+        const taskId = path.split('/').filter(Boolean).pop();
+        if (!taskId) return errorResponse('缺少 taskId 参数', 400, cors);
+
+        const provider = url.searchParams.get('provider') || (path.includes('video_generation') ? 'minimax' : 'minimax');
+        const taskResult = await proxyQueryTask({ taskId, provider, env });
+        return jsonResponse(taskResult, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 8. Upstream Proxy (Generate & Chat)
       // ----------------------------------------------------
       if (path === '/api/generate' && method === 'POST') {
         const { user } = await authenticateRequest(request, env);
@@ -467,6 +480,22 @@ export default {
         if (!prompt || typeof prompt !== 'string') {
           return errorResponse('缺少必要的 prompt 参数', 400, cors);
         }
+
+        // Check if model is enabled in database
+        let modelInfo = null;
+        if (env.DB) {
+          try {
+            modelInfo = await env.DB.prepare(
+              'SELECT id, name, kind, provider, enabled FROM server_models WHERE id = ?'
+            ).bind(model).first();
+          } catch {}
+        }
+
+        if (modelInfo && (modelInfo.enabled === 0 || modelInfo.enabled === false)) {
+          return errorResponse(`模型 ${model} 已下架或暂停开放`, 403, cors);
+        }
+
+        const provider = body.provider || modelInfo?.provider || (model === 'MiniMax-H3' ? 'minimax' : 'duoyuanx');
 
         const cost = await calculateQuotaCost(env.DB, { modelId: model, kind, count: 1 });
         const currentBalance = user.quotaBalance || 0;
@@ -481,12 +510,17 @@ export default {
           );
         }
 
-        // Upstream generation
-        const upstreamData = await proxyGeneration({ body: { ...body, model, kind }, env });
+        // Upstream generation with provider routing
+        const upstreamData = await proxyGeneration({
+          body: { ...body, model, kind },
+          env,
+          provider
+        });
 
-        // Extract result URL
+        // Extract result URL / Task ID
         const outputUrl = upstreamData.data?.[0]?.url || upstreamData.url || null;
         const taskId = upstreamData.task_id || upstreamData.taskId || `task-${Date.now()}`;
+        const status = upstreamData.status || (outputUrl ? 'success' : 'processing');
 
         // Atomic balance deduction & log
         const newBalance = await deductUserQuota(env.DB, user.id, cost, {
@@ -499,13 +533,16 @@ export default {
           ok: true,
           url: outputUrl,
           taskId,
-          status: 'success',
+          task_id: taskId,
+          status,
+          provider: upstreamData.provider || provider,
           cost,
           newBalance,
           balance: newBalance,
           model,
           prompt,
-          data: upstreamData.data
+          data: upstreamData.data,
+          upstream: upstreamData.upstream || upstreamData
         }, 200, cors);
       }
 
@@ -513,6 +550,22 @@ export default {
         const { user } = await authenticateRequest(request, env);
         const body = await request.json().catch(() => ({}));
         const model = body.modelId || body.model || 'gpt-5.5';
+
+        // Check if model is enabled
+        let modelInfo = null;
+        if (env.DB) {
+          try {
+            modelInfo = await env.DB.prepare(
+              'SELECT id, name, kind, provider, enabled FROM server_models WHERE id = ?'
+            ).bind(model).first();
+          } catch {}
+        }
+
+        if (modelInfo && (modelInfo.enabled === 0 || modelInfo.enabled === false)) {
+          return errorResponse(`模型 ${model} 已下架或暂停开放`, 403, cors);
+        }
+
+        const provider = body.provider || modelInfo?.provider || null;
 
         const cost = await calculateQuotaCost(env.DB, { modelId: model, kind: 'agent', count: 1 });
         const currentBalance = user.quotaBalance || 0;
@@ -526,7 +579,11 @@ export default {
           );
         }
 
-        const upstreamData = await proxyChat({ body: { ...body, modelId: model }, env });
+        const upstreamData = await proxyChat({
+          body: { ...body, modelId: model },
+          env,
+          provider
+        });
 
         const newBalance = await deductUserQuota(env.DB, user.id, cost, {
           resourceType: 'chat',

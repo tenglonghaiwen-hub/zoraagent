@@ -1,51 +1,207 @@
 /**
  * Upstream API Proxying for Cloudflare Workers
- * Injects DUOYUANX_API_KEY dynamically from D1 system_configs or fallback Secret
+ * Dynamically resolves API keys and Base URLs per provider from D1 system_configs or fallback Secrets.
+ * Supported providers:
+ *   - minimax: MiniMax Official (https://api.minimax.cn) for MiniMax-H3 video generation & queries
+ *   - duoyuanx: Duoyuanx Relay (https://duoyuanx.com)
+ *   - openai: OpenAI Official (https://api.openai.com)
+ *   - siliconflow: SiliconFlow (https://api.siliconflow.cn)
+ *   - deepseek: DeepSeek Official (https://api.deepseek.com)
+ *   - custom: Custom OneAPI / NewAPI / Relay
  */
 import { getSystemConfig } from './billing.mjs';
 
-async function resolveUpstreamConfig(env) {
+const PROVIDER_DEFAULTS = {
+  minimax: {
+    keyName: 'MINIMAX_API_KEY',
+    baseName: 'MINIMAX_BASE_URL',
+    defaultBase: 'https://api.minimax.cn',
+    title: 'MiniMax 官方'
+  },
+  duoyuanx: {
+    keyName: 'DUOYUANX_API_KEY',
+    baseName: 'DUOYUANX_BASE_URL',
+    defaultBase: 'https://duoyuanx.com',
+    title: '多元交叉'
+  },
+  openai: {
+    keyName: 'OPENAI_API_KEY',
+    baseName: 'OPENAI_BASE_URL',
+    defaultBase: 'https://api.openai.com',
+    title: 'OpenAI 官方'
+  },
+  siliconflow: {
+    keyName: 'SILICONFLOW_API_KEY',
+    baseName: 'SILICONFLOW_BASE_URL',
+    defaultBase: 'https://api.siliconflow.cn',
+    title: '硅基流动'
+  },
+  deepseek: {
+    keyName: 'DEEPSEEK_API_KEY',
+    baseName: 'DEEPSEEK_BASE_URL',
+    defaultBase: 'https://api.deepseek.com',
+    title: 'DeepSeek 官方'
+  },
+  custom: {
+    keyName: 'CUSTOM_API_KEY',
+    baseName: 'CUSTOM_BASE_URL',
+    defaultBase: '',
+    title: '自定义上游'
+  }
+};
+
+/**
+ * Resolve provider API Key and Base URL from D1 system_configs or Worker env secrets
+ */
+export async function resolveProviderConfig(env, provider = 'duoyuanx') {
+  const normProvider = String(provider || 'duoyuanx').toLowerCase();
+  const meta = PROVIDER_DEFAULTS[normProvider] || PROVIDER_DEFAULTS.duoyuanx;
+
   let apiKey = null;
   let baseUrl = null;
 
   if (env.DB) {
     try {
-      apiKey = await getSystemConfig(env.DB, 'DUOYUANX_API_KEY');
-      baseUrl = await getSystemConfig(env.DB, 'DUOYUANX_BASE_URL');
+      apiKey = await getSystemConfig(env.DB, meta.keyName);
+      baseUrl = await getSystemConfig(env.DB, meta.baseName);
     } catch {}
   }
 
-  // Fallback to environment secrets
-  apiKey = (apiKey && apiKey.trim()) || env.DUOYUANX_API_KEY || '';
-  baseUrl = (baseUrl && baseUrl.trim()) || env.DUOYUANX_BASE_URL || 'https://duoyuanx.com';
+  // Fallback to Worker Environment Secrets
+  apiKey = (apiKey && apiKey.trim()) || env[meta.keyName] || '';
+  baseUrl = (baseUrl && baseUrl.trim()) || env[meta.baseName] || meta.defaultBase || '';
+
+  // Secondary fallback for general models: if specific key missing, try DUOYUANX_API_KEY if applicable
+  if (!apiKey && normProvider !== 'minimax' && env.DUOYUANX_API_KEY) {
+    apiKey = env.DUOYUANX_API_KEY;
+    baseUrl = (baseUrl !== meta.defaultBase && baseUrl) ? baseUrl : (env.DUOYUANX_BASE_URL || 'https://duoyuanx.com');
+  }
 
   return {
-    apiKey,
+    provider: normProvider,
+    title: meta.title,
+    apiKey: apiKey.trim(),
     baseUrl: baseUrl.replace(/\/+$/, '')
   };
 }
 
 /**
- * Proxy generation request to Duoyuanx API
+ * Build MiniMax official content array for video generation
  */
-export async function proxyGeneration({ body, env }) {
-  const { apiKey, baseUrl: base } = await resolveUpstreamConfig(env);
-
-  if (!apiKey) {
-    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)，请在后台或环境变量中配置'), { status: 500 });
+function buildMiniMaxContent(body) {
+  if (Array.isArray(body.content) && body.content.length > 0) {
+    return body.content;
   }
 
-  // Determine upstream route based on model/kind
+  const prompt = body.prompt || '';
+  const content = [{ type: 'text', text: prompt }];
+
+  if (Array.isArray(body.references)) {
+    for (const ref of body.references) {
+      const rawType = ref.type || 'image/jpeg';
+      const kind = rawType.split('/')[0];
+      const url = ref.contentUrl || ref.url;
+      if (!url) continue;
+
+      if (kind === 'video') {
+        content.push({
+          type: 'video_url',
+          video_url: { url },
+          role: ref.role || 'reference_video'
+        });
+      } else if (kind === 'audio') {
+        content.push({
+          type: 'audio_url',
+          audio_url: { url },
+          role: ref.role || 'reference_audio'
+        });
+      } else {
+        content.push({
+          type: 'image_url',
+          image_url: { url },
+          role: ref.role || 'reference_image'
+        });
+      }
+    }
+  }
+
+  return content;
+}
+
+/**
+ * Proxy video or image generation to upstream provider
+ */
+export async function proxyGeneration({ body, env, provider = null }) {
+  const modelId = body.model || body.modelId || 'flux-schnell';
+  
+  // Auto-detect provider if not explicitly given
+  let targetProvider = provider;
+  if (!targetProvider) {
+    if (modelId === 'MiniMax-H3' || modelId.toLowerCase().includes('minimax')) {
+      targetProvider = 'minimax';
+    } else {
+      targetProvider = 'duoyuanx';
+    }
+  }
+
+  const { apiKey, baseUrl, title } = await resolveProviderConfig(env, targetProvider);
+
+  if (!apiKey) {
+    throw Object.assign(
+      new Error(`服务端未配置 ${title} API 密钥 (${PROVIDER_DEFAULTS[targetProvider]?.keyName || 'API_KEY'})，请在后台配置`),
+      { status: 500 }
+    );
+  }
+
+  // 1. MiniMax Official Protocol
+  if (targetProvider === 'minimax') {
+    const endpoint = `${baseUrl}/v2/video_generation`;
+    const payload = {
+      model: modelId,
+      content: buildMiniMaxContent(body),
+      duration: body.duration || 5,
+      resolution: body.resolution || '720P',
+      ratio: body.ratio || '16:9',
+      aigc_watermark: body.aigc_watermark !== undefined ? body.aigc_watermark : false
+    };
+
+    const upstreamRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await upstreamRes.json().catch(() => ({}));
+    if (!upstreamRes.ok || (data.base_resp && data.base_resp.status_code !== 0)) {
+      const errMsg = data.base_resp?.status_msg || data.error?.message || data.message || `MiniMax 官方接口错误 (${upstreamRes.status})`;
+      throw Object.assign(new Error(errMsg), { status: upstreamRes.status || 400 });
+    }
+
+    const taskId = data.task_id || data.taskId || '';
+    return {
+      task_id: taskId,
+      taskId,
+      status: 'processing',
+      provider: 'minimax-official',
+      base_resp: data.base_resp,
+      upstream: data
+    };
+  }
+
+  // 2. Duoyuanx / OpenAI / SiliconFlow / Custom Protocol
   const isVideo = body.duration !== undefined || body.videoMode !== undefined || body.kind === 'video';
-  const endpoint = isVideo ? `${base}/v1/videos/generations` : `${base}/v1/images/generations`;
+  const endpoint = isVideo ? `${baseUrl}/v1/videos/generations` : `${baseUrl}/v1/images/generations`;
 
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   });
 
   const data = await upstreamRes.json().catch(() => ({}));
@@ -60,33 +216,116 @@ export async function proxyGeneration({ body, env }) {
 }
 
 /**
- * Proxy chat completion to upstream LLM
+ * Proxy task query (e.g. video polling) to upstream provider
  */
-export async function proxyChat({ body, env }) {
-  const { apiKey, baseUrl: base } = await resolveUpstreamConfig(env);
+export async function proxyQueryTask({ taskId, provider = 'minimax', env }) {
+  const normProvider = String(provider || 'minimax').toLowerCase();
+  const { apiKey, baseUrl, title } = await resolveProviderConfig(env, normProvider);
 
   if (!apiKey) {
-    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)，请在后台或环境变量中配置'), { status: 500 });
+    throw Object.assign(new Error(`未配置 ${title} API 密钥`), { status: 500 });
   }
 
-  const endpoint = `${base}/v1/chat/completions`;
+  if (normProvider === 'minimax') {
+    // Official route: /v2/query/video_generation/{task_id}
+    const endpoint = `${baseUrl}/v2/query/video_generation/${encodeURIComponent(taskId)}`;
+    const upstreamRes = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    const data = await upstreamRes.json().catch(() => ({}));
+    if (!upstreamRes.ok) {
+      throw Object.assign(
+        new Error(data.base_resp?.status_msg || data.error?.message || `查询任务状态失败 (${upstreamRes.status})`),
+        { status: upstreamRes.status }
+      );
+    }
+
+    // MiniMax returns { task: { id, status: 'succeeded'|'running'|'failed', content: { url } }, file_id }
+    const rawStatus = (data.task?.status || data.status || '').toLowerCase();
+    const isSuccess = rawStatus === 'succeeded' || rawStatus === 'success';
+    const isFailed = rawStatus === 'failed' || rawStatus === 'fail';
+    const url = data.task?.content?.url || data.file_url || data.download_url || null;
+
+    return {
+      ok: true,
+      taskId,
+      status: isSuccess ? 'succeeded' : isFailed ? 'failed' : 'processing',
+      url,
+      provider: 'minimax-official',
+      upstream: data
+    };
+  }
+
+  // Duoyuanx query route: /v1/videos/{task_id}
+  const endpoint = `${baseUrl}/v1/videos/${encodeURIComponent(taskId)}`;
+  const upstreamRes = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  });
+
+  const data = await upstreamRes.json().catch(() => ({}));
+  if (!upstreamRes.ok) {
+    throw Object.assign(new Error(`查询任务状态失败 (${upstreamRes.status})`), { status: upstreamRes.status });
+  }
+
+  return {
+    ok: true,
+    taskId,
+    status: data.status || 'processing',
+    url: data.url || data.output_url || (data.data && data.data[0]?.url) || null,
+    provider: normProvider,
+    upstream: data
+  };
+}
+
+/**
+ * Proxy chat completion to upstream LLM
+ */
+export async function proxyChat({ body, env, provider = null }) {
+  const modelId = body.modelId || body.model || 'gpt-5.5';
+
+  // Determine provider if not provided
+  let targetProvider = provider;
+  if (!targetProvider) {
+    if (modelId.startsWith('deepseek')) targetProvider = 'deepseek';
+    else if (modelId.startsWith('gpt')) targetProvider = 'openai';
+    else targetProvider = 'duoyuanx';
+  }
+
+  const { apiKey, baseUrl, title } = await resolveProviderConfig(env, targetProvider);
+
+  if (!apiKey) {
+    throw Object.assign(
+      new Error(`服务端未配置 ${title} API 密钥 (${PROVIDER_DEFAULTS[targetProvider]?.keyName || 'API_KEY'})，请在后台配置`),
+      { status: 500 }
+    );
+  }
+
+  const endpoint = `${baseUrl}/v1/chat/completions`;
   const messages = Array.isArray(body.messages)
     ? body.messages
     : [{ role: 'user', content: String(body.message || '') }];
 
   const payload = {
-    model: body.modelId || 'gpt-5.5',
+    model: modelId,
     messages,
     stream: false,
+    ...(body.temperature !== undefined ? { temperature: body.temperature } : {})
   };
 
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
   });
 
   const data = await upstreamRes.json().catch(() => ({}));
@@ -101,6 +340,8 @@ export async function proxyChat({ body, env }) {
   return {
     conversationId: body.conversationId || `conv-${Date.now()}`,
     reply,
-    upstream: data,
+    provider: targetProvider,
+    upstream: data
   };
 }
+

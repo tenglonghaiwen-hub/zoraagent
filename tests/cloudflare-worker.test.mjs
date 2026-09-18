@@ -13,12 +13,15 @@ function createMockD1() {
   const systemConfigs = new Map([
     ['ADMIN_PASSWORD', { key: 'ADMIN_PASSWORD', value: 'admin123456', description: 'Admin Password', isSecret: 1, updatedAt: Date.now() }],
     ['DUOYUANX_BASE_URL', { key: 'DUOYUANX_BASE_URL', value: 'https://duoyuanx.com', description: 'Base URL', isSecret: 0, updatedAt: Date.now() }],
-    ['DUOYUANX_API_KEY', { key: 'DUOYUANX_API_KEY', value: '', description: 'API Key', isSecret: 1, updatedAt: Date.now() }]
+    ['DUOYUANX_API_KEY', { key: 'DUOYUANX_API_KEY', value: '', description: 'API Key', isSecret: 1, updatedAt: Date.now() }],
+    ['MINIMAX_API_KEY', { key: 'MINIMAX_API_KEY', value: '', description: 'MiniMax Key', isSecret: 1, updatedAt: Date.now() }],
+    ['MINIMAX_BASE_URL', { key: 'MINIMAX_BASE_URL', value: 'https://api.minimax.cn', description: 'MiniMax Base', isSecret: 0, updatedAt: Date.now() }]
   ]);
   const serverModels = [
     { id: 'flux-schnell', name: 'Flux Schnell', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 10, max_concurrency: 4, created_at: Date.now(), updated_at: Date.now() },
     { id: 'flux-dev', name: 'Flux Dev', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 20, max_concurrency: 2, created_at: Date.now(), updated_at: Date.now() },
-    { id: 'gpt-5.5', name: 'GPT 5.5', kind: 'agent', enabled: 1, provider: 'openai', quota_cost_per_unit: 1, max_concurrency: 1, created_at: Date.now(), updated_at: Date.now() }
+    { id: 'gpt-5.5', name: 'GPT 5.5', kind: 'agent', enabled: 1, provider: 'openai', quota_cost_per_unit: 1, max_concurrency: 1, created_at: Date.now(), updated_at: Date.now() },
+    { id: 'MiniMax-H3', name: 'MiniMax H3', kind: 'video', enabled: 1, provider: 'minimax', quota_cost_per_unit: 100, max_concurrency: 2, created_at: Date.now(), updated_at: Date.now() }
   ];
 
   function createStatement(query, boundArgs = []) {
@@ -214,9 +217,17 @@ function createMockD1() {
       return [];
     }
 
-    if (q.includes('SELECT quota_cost_per_unit as unitCost, enabled FROM server_models WHERE id = ?')) {
+    if (q.includes('FROM server_models WHERE id = ?')) {
       const m = serverModels.find(item => item.id === args[0]);
-      return m ? [{ unitCost: m.quota_cost_per_unit, enabled: m.enabled }] : [];
+      return m ? [{
+        id: m.id,
+        name: m.name,
+        kind: m.kind,
+        provider: m.provider,
+        enabled: m.enabled,
+        unitCost: m.quota_cost_per_unit,
+        quota_cost_per_unit: m.quota_cost_per_unit
+      }] : [];
     }
 
     // 12. System configs
@@ -550,3 +561,149 @@ test('Cloudflare Worker - Visual Admin Dashboard & Management APIs', async () =>
   }), env);
   assert.equal(delModelRes.status, 200);
 });
+
+test('Cloudflare Worker - Multi-Provider & MiniMax Official Direct Routing Test', async () => {
+  const mockDb = createMockD1();
+  const env = {
+    DB: mockDb,
+    JWT_SECRET: 'test-jwt-secret-multi-provider',
+    MINIMAX_API_KEY: 'official-minimax-jwt-secret-key-12345',
+    MINIMAX_BASE_URL: 'https://api.minimax.cn',
+    DUOYUANX_API_KEY: 'relay-duoyuanx-key',
+    OPENAI_API_KEY: 'sk-openai-official-key'
+  };
+
+  // 1. Register a test user with 200 initial points
+  const regRes = await worker.fetch(new Request('http://localhost/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: 'videomaker',
+      email: 'videomaker@example.com',
+      password: 'StrongPassword123!'
+    })
+  }), env);
+  assert.equal(regRes.status, 201);
+  const regData = await regRes.json();
+  const userToken = regData.token;
+
+  // Top up user to have enough balance for MiniMax H3 (cost: 100 points)
+  await worker.fetch(new Request('http://localhost/api/user/topup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${userToken}`
+    },
+    body: JSON.stringify({ amount: 100 })
+  }), env);
+
+  // 2. Mock upstream fetch calls
+  const originalFetch = globalThis.fetch;
+  const interceptedCalls = [];
+
+  globalThis.fetch = async (url, opts = {}) => {
+    const urlStr = String(url);
+    interceptedCalls.push({ url: urlStr, method: opts.method, headers: opts.headers, body: opts.body });
+
+    // MiniMax Official Video Generation Submission
+    if (urlStr === 'https://api.minimax.cn/v2/video_generation') {
+      const parsedBody = JSON.parse(opts.body);
+      assert.equal(parsedBody.model, 'MiniMax-H3');
+      assert.equal(opts.headers.Authorization, 'Bearer official-minimax-jwt-secret-key-12345');
+      assert.ok(Array.isArray(parsedBody.content), 'Content must be an array for MiniMax');
+      assert.equal(parsedBody.content[0].type, 'text');
+      assert.equal(parsedBody.content[1].role, 'reference_image');
+
+      return new Response(JSON.stringify({
+        task_id: 'minimax-task-987654321',
+        base_resp: { status_code: 0, status_msg: 'success' }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // MiniMax Official Video Status Query
+    if (urlStr === 'https://api.minimax.cn/v2/query/video_generation/minimax-task-987654321') {
+      assert.equal(opts.headers.Authorization, 'Bearer official-minimax-jwt-secret-key-12345');
+      return new Response(JSON.stringify({
+        task: {
+          id: 'minimax-task-987654321',
+          status: 'succeeded',
+          content: { url: 'https://cdn.minimax.cn/video/result-h3.mp4' }
+        },
+        file_id: 'file-123456'
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return originalFetch(url, opts);
+  };
+
+  try {
+    // 3. Submit MiniMax-H3 video generation
+    const genRes = await worker.fetch(new Request('http://localhost/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`
+      },
+      body: JSON.stringify({
+        prompt: 'A cybernetic bird soaring across a neon cityscape',
+        model: 'MiniMax-H3',
+        type: 'video',
+        duration: 5,
+        resolution: '720P',
+        ratio: '16:9',
+        references: [
+          { type: 'image/png', contentUrl: 'https://cdn.example.com/character.png', role: 'reference_image' }
+        ]
+      })
+    }), env);
+
+    assert.equal(genRes.status, 200);
+    const genData = await genRes.json();
+    assert.equal(genData.ok, true);
+    assert.equal(genData.taskId, 'minimax-task-987654321');
+    assert.equal(genData.status, 'processing');
+    assert.equal(genData.provider, 'minimax-official');
+    assert.equal(genData.cost, 100);
+    assert.equal(genData.newBalance, 100); // 200 - 100 = 100
+
+    // Verify upstream call was made to MiniMax official, NOT duoyuanx
+    assert.ok(interceptedCalls.some(c => c.url === 'https://api.minimax.cn/v2/video_generation'));
+    assert.ok(!interceptedCalls.some(c => c.url.includes('duoyuanx.com')));
+
+    // 4. Poll task status via gateway endpoint
+    const pollRes = await worker.fetch(new Request('http://localhost/api/generation-tasks/minimax-task-987654321?provider=minimax'), env);
+    assert.equal(pollRes.status, 200);
+    const pollData = await pollRes.json();
+    assert.equal(pollData.ok, true);
+    assert.equal(pollData.status, 'succeeded');
+    assert.equal(pollData.url, 'https://cdn.minimax.cn/video/result-h3.mp4');
+
+    // 5. Admin can update multi-provider configurations
+    const adminToken = await (await import('../apps/cloudflare-worker/src/auth.mjs')).signJwt({ role: 'admin' }, env.JWT_SECRET, 3600);
+    const cfgRes = await worker.fetch(new Request('http://localhost/api/admin/config', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        MINIMAX_API_KEY: 'new-runtime-official-minimax-key',
+        MINIMAX_BASE_URL: 'https://api.minimax.cn',
+        SILICONFLOW_API_KEY: 'sk-siliconflow-runtime-key',
+        DEEPSEEK_API_KEY: 'sk-deepseek-runtime-key'
+      })
+    }), env);
+    assert.equal(cfgRes.status, 200);
+
+    const getCfgRes = await worker.fetch(new Request('http://localhost/api/admin/config', {
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    }), env);
+    const getCfgData = await getCfgRes.json();
+    assert.equal(getCfgData.ok, true);
+    const minimaxCfg = getCfgData.configs.find(c => c.key === 'MINIMAX_API_KEY');
+    assert.ok(minimaxCfg.value.includes('••••'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
