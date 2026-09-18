@@ -1,17 +1,38 @@
 /**
  * Upstream API Proxying for Cloudflare Workers
- * Injects secret DUOYUANX_API_KEY without exposing it to clients
+ * Injects DUOYUANX_API_KEY dynamically from D1 system_configs or fallback Secret
  */
+import { getSystemConfig } from './billing.mjs';
+
+async function resolveUpstreamConfig(env) {
+  let apiKey = null;
+  let baseUrl = null;
+
+  if (env.DB) {
+    try {
+      apiKey = await getSystemConfig(env.DB, 'DUOYUANX_API_KEY');
+      baseUrl = await getSystemConfig(env.DB, 'DUOYUANX_BASE_URL');
+    } catch {}
+  }
+
+  // Fallback to environment secrets
+  apiKey = (apiKey && apiKey.trim()) || env.DUOYUANX_API_KEY || '';
+  baseUrl = (baseUrl && baseUrl.trim()) || env.DUOYUANX_BASE_URL || 'https://duoyuanx.com';
+
+  return {
+    apiKey,
+    baseUrl: baseUrl.replace(/\/+$/, '')
+  };
+}
 
 /**
  * Proxy generation request to Duoyuanx API
  */
 export async function proxyGeneration({ body, env }) {
-  const base = (env.DUOYUANX_BASE_URL || 'https://duoyuanx.com').replace(/\/$/, '');
-  const apiKey = env.DUOYUANX_API_KEY;
+  const { apiKey, baseUrl: base } = await resolveUpstreamConfig(env);
 
   if (!apiKey) {
-    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)'), { status: 500 });
+    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)，请在后台或环境变量中配置'), { status: 500 });
   }
 
   // Determine upstream route based on model/kind
@@ -42,11 +63,10 @@ export async function proxyGeneration({ body, env }) {
  * Proxy chat completion to upstream LLM
  */
 export async function proxyChat({ body, env }) {
-  const base = (env.DUOYUANX_BASE_URL || 'https://duoyuanx.com').replace(/\/$/, '');
-  const apiKey = env.DUOYUANX_API_KEY;
+  const { apiKey, baseUrl: base } = await resolveUpstreamConfig(env);
 
   if (!apiKey) {
-    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)'), { status: 500 });
+    throw Object.assign(new Error('服务端未配置上游 API 密钥 (DUOYUANX_API_KEY)，请在后台或环境变量中配置'), { status: 500 });
   }
 
   const endpoint = `${base}/v1/chat/completions`;

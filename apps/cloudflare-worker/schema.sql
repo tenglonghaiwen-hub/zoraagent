@@ -71,3 +71,19 @@ VALUES
   ('grok-4-2-image', 'Grok 4.2 Image', 'image', 1, 'grok', 10, 4, 1789700000000, 1789700000000),
   ('MiniMax-H3', 'MiniMax H3', 'video', 1, 'minimax', 100, 2, 1789700000000, 1789700000000),
   ('grok-video-3', 'Grok Video 3', 'video', 1, 'grok', 100, 2, 1789700000000, 1789700000000);
+
+-- 5. 系统动态运行配置表（可视化管理 API 密钥与网关参数）
+CREATE TABLE IF NOT EXISTS system_configs (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  description TEXT,
+  is_secret INTEGER DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+
+INSERT OR IGNORE INTO system_configs (key, value, description, is_secret, updated_at)
+VALUES
+  ('DUOYUANX_API_KEY', '', '多元交叉/大模型上游 API Key（留空则使用 Cloudflare Secret）', 1, 1789700000000),
+  ('DUOYUANX_BASE_URL', 'https://duoyuanx.com', '多元探索上游 API Base 地址', 0, 1789700000000),
+  ('ADMIN_PASSWORD', 'admin123456', '网关可视化后台管理密码（请登录后及时修改）', 1, 1789700000000);
+

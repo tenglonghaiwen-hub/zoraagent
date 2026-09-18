@@ -10,12 +10,23 @@ import {
   deductUserQuota,
   topupUserQuota,
   getUserUsageLogs,
-  getServerModels
+  getServerModels,
+  getAllServerModels,
+  upsertServerModel,
+  deleteServerModel,
+  getSystemConfig,
+  getAllSystemConfigs,
+  setSystemConfig,
+  getAdminStats,
+  getAdminUsers,
+  adjustUserBalance,
+  verifyAdminRequest
 } from './billing.mjs';
 import {
   proxyGeneration,
   proxyChat
 } from './proxy.mjs';
+import { renderAdminHtml } from './admin-ui.mjs';
 
 function corsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '*';
@@ -58,7 +69,20 @@ export default {
 
     try {
       // ----------------------------------------------------
-      // 1. Health / Gateway Metadata
+      // 0. Visual Admin Console Dashboard (HTML)
+      // ----------------------------------------------------
+      if (path === '/admin' || (path === '/' && request.headers.get('Accept')?.includes('text/html'))) {
+        return new Response(renderAdminHtml(), {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store'
+          }
+        });
+      }
+
+      // ----------------------------------------------------
+      // 1. Health / Gateway Metadata (JSON)
       // ----------------------------------------------------
       if (path === '/' || path === '/health') {
         return jsonResponse({
@@ -66,12 +90,119 @@ export default {
           service: 'zora-cloud-gateway',
           version: '1.0.0',
           runtime: 'cloudflare-workers',
+          adminUi: '/admin',
           timestamp: new Date().toISOString()
         }, 200, cors);
       }
 
       // ----------------------------------------------------
-      // 2. Model Catalog
+      // 2. Admin APIs (Console Backend)
+      // ----------------------------------------------------
+      if (path === '/api/admin/login' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const password = body.password;
+        if (!password) {
+          return errorResponse('请输入管理员密码', 400, cors);
+        }
+
+        const expectedPass = (await getSystemConfig(env.DB, 'ADMIN_PASSWORD')) || env.ADMIN_PASSWORD || 'admin123456';
+        if (password !== expectedPass) {
+          return errorResponse('管理员密码错误', 401, cors);
+        }
+
+        const token = await signJwt({
+          role: 'admin',
+          username: 'admin'
+        }, jwtSecret, 7 * 86400);
+
+        return jsonResponse({
+          ok: true,
+          token,
+          role: 'admin'
+        }, 200, cors);
+      }
+
+      if (path === '/api/admin/stats' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const stats = await getAdminStats(env.DB);
+        return jsonResponse({ ok: true, stats }, 200, cors);
+      }
+
+      if (path === '/api/admin/models' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const models = await getAllServerModels(env.DB);
+        return jsonResponse({ ok: true, models }, 200, cors);
+      }
+
+      if (path === '/api/admin/models' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const model = await upsertServerModel(env.DB, body);
+        return jsonResponse({ ok: true, model }, 200, cors);
+      }
+
+      if (path === '/api/admin/models' && method === 'DELETE') {
+        await verifyAdminRequest(request, env);
+        const id = url.searchParams.get('id');
+        if (!id) return errorResponse('缺少模型 ID 参数', 400, cors);
+        await deleteServerModel(env.DB, id);
+        return jsonResponse({ ok: true, id }, 200, cors);
+      }
+
+      if (path === '/api/admin/config' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const configs = await getAllSystemConfigs(env.DB);
+        // Mask secret values in response
+        const safeConfigs = configs.map(c => ({
+          ...c,
+          value: c.isSecret && c.value ? (c.value.length > 8 ? `••••••••${c.value.slice(-6)}` : '••••••••') : c.value
+        }));
+        return jsonResponse({ ok: true, configs: safeConfigs }, 200, cors);
+      }
+
+      if (path === '/api/admin/config' && method === 'PUT') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        for (const [key, val] of Object.entries(body)) {
+          if (val !== undefined && val !== null && String(val).trim() !== '') {
+            await setSystemConfig(env.DB, key, String(val).trim());
+          }
+        }
+        return jsonResponse({ ok: true, message: '配置已更新并即时生效' }, 200, cors);
+      }
+
+      if (path === '/api/admin/users' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+        const data = await getAdminUsers(env.DB, { limit, offset });
+        return jsonResponse({ ok: true, ...data }, 200, cors);
+      }
+
+      if (path === '/api/admin/users/adjust-balance' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const { userId, delta, reason } = body;
+        if (!userId) return errorResponse('缺少目标 userId', 400, cors);
+        const result = await adjustUserBalance(env.DB, userId, delta, reason);
+        return jsonResponse({ ok: true, ...result }, 200, cors);
+      }
+
+      if (path === '/api/admin/logs' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const { results: logs } = await env.DB.prepare(
+          `SELECT id, user_id as userId, resource_type as resourceType, model_id as modelId,
+                  tokens_used as tokensUsed, quota_cost as quotaCost, request_id as requestId, created_at as createdAt
+           FROM usage_logs
+           ORDER BY created_at DESC
+           LIMIT ?`
+        ).bind(limit).all();
+        return jsonResponse({ ok: true, logs: logs || [] }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // 3. Model Catalog (Client public)
       // ----------------------------------------------------
       if (path === '/api/models' && method === 'GET') {
         const models = await getServerModels(env.DB);
@@ -79,7 +210,7 @@ export default {
       }
 
       // ----------------------------------------------------
-      // 3. Authentication Endpoints
+      // 4. Authentication Endpoints
       // ----------------------------------------------------
       if (path === '/api/auth/register' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
@@ -261,7 +392,7 @@ export default {
       }
 
       // ----------------------------------------------------
-      // 4. Ledger & Consumption Audit
+      // 5. Ledger & Consumption Audit (User personal)
       // ----------------------------------------------------
       if (path === '/api/user/usage' && method === 'GET') {
         const { user } = await authenticateRequest(request, env);
@@ -303,7 +434,7 @@ export default {
       }
 
       // ----------------------------------------------------
-      // 5. Cost Preview Endpoint
+      // 6. Cost Preview Endpoint
       // ----------------------------------------------------
       if (path === '/api/preview' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
@@ -324,7 +455,7 @@ export default {
       }
 
       // ----------------------------------------------------
-      // 6. Upstream Proxy (Generate & Chat)
+      // 7. Upstream Proxy (Generate & Chat)
       // ----------------------------------------------------
       if (path === '/api/generate' && method === 'POST') {
         const { user } = await authenticateRequest(request, env);
