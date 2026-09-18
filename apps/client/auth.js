@@ -130,6 +130,32 @@ export async function logout() {
   clearAuth();
 }
 
+let isRefreshing = null;
+
+/**
+ * Refresh authentication token
+ */
+export async function refreshToken() {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (data.ok && data.token) {
+      storeToken(data.token);
+      return data;
+    }
+  } catch (err) {
+    console.warn('Token refresh failed:', err);
+  }
+  return null;
+}
+
 /**
  * Get current user info from server
  */
@@ -156,21 +182,42 @@ export async function getCurrentUser() {
 }
 
 /**
- * Fetch with automatic authentication
+ * Fetch with automatic authentication, token refresh, and balance sync
  */
-export async function authFetch(url, options = {}) {
+export async function authFetch(url, options = {}, isRetry = false) {
   const token = getToken();
 
+  const headers = {
+    ...(options.headers || {}),
+  };
   if (token) {
-    options.headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-    };
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, headers });
 
-  // Handle 401 - redirect to login
+  // Handle 401 - try refresh token once if not a retry and not already an auth endpoint
+  if (response.status === 401 && !isRetry && token && !url.includes('/api/auth/')) {
+    try {
+      if (!isRefreshing) {
+        isRefreshing = refreshToken().finally(() => {
+          isRefreshing = null;
+        });
+      }
+      const refreshed = await isRefreshing;
+      if (refreshed && refreshed.token) {
+        // Retry original request with new token
+        return authFetch(url, options, true);
+      }
+    } catch {
+      // Refresh failed, proceed to logout
+    }
+
+    clearAuth();
+    window.location.hash = '#login';
+    throw new Error('登录已过期，请重新登录');
+  }
+
   if (response.status === 401) {
     clearAuth();
     window.location.hash = '#login';
@@ -190,4 +237,32 @@ export async function authFetch(url, options = {}) {
   } catch {}
 
   return response;
+}
+
+/**
+ * Fetch user usage logs and consumption totals
+ */
+export async function fetchUsageLogs({ limit = 20, offset = 0 } = {}) {
+  const res = await authFetch(`/api/user/usage?limit=${limit}&offset=${offset}`);
+  return res.json();
+}
+
+/**
+ * Top up demo quota (prominently marked as demo in UI and server audit)
+ */
+export async function topupDemoQuota(amount = 100) {
+  const res = await authFetch('/api/user/topup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }),
+  });
+  return res.json();
+}
+
+/**
+ * Fetch server models list
+ */
+export async function fetchServerModels() {
+  const res = await fetch('/api/models');
+  return res.json();
 }

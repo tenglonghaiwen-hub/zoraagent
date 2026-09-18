@@ -6,22 +6,86 @@ import {
   loginUser,
   logoutUser,
   refreshToken,
-  requireAuth,
   getUserFromToken,
+  authenticateRequest,
+  getUserUsageLogs,
+  topupUserQuota,
+  getServerModelsList,
 } from '../../../packages/auth/index.mjs';
 import { formatErrorResponse } from '../../../packages/agent/error-handling.mjs';
 
 /**
- * Handle authentication routes
+ * Handle authentication, user account, and model catalog routes
  * Returns true if the request was handled
  */
 export async function handleAuthRoutes(req, res, url, { sendJson }) {
-  // Only handle /api/auth/* routes
-  if (!url.pathname.startsWith('/api/auth/')) {
+  const isAuthRoute = url.pathname.startsWith('/api/auth/');
+  const isUserRoute = url.pathname.startsWith('/api/user/');
+  const isModelsRoute = url.pathname === '/api/models';
+
+  if (!isAuthRoute && !isUserRoute && !isModelsRoute) {
     return false;
   }
 
   try {
+    // GET /api/models
+    if (req.method === 'GET' && isModelsRoute) {
+      let models = await getServerModelsList();
+      if (!models || models.length === 0) {
+        const { getModels } = await import('../../../packages/duoyuanx/catalog.mjs');
+        const catalogModels = getModels();
+        models = catalogModels.map((m) => ({
+          id: m.id,
+          name: m.name,
+          kind: m.kind,
+          enabled: m.enabled ? 1 : 0,
+          provider: m.family || 'duoyuanx',
+          quotaCostPerUnit: m.kind === 'agent' ? 1 : m.kind === 'image' ? 10 : 100,
+          maxConcurrency: m.maxConcurrency || 1,
+        }));
+      }
+      sendJson(res, 200, {
+        ok: true,
+        models,
+      });
+      return true;
+    }
+
+    // GET /api/user/usage
+    if (req.method === 'GET' && url.pathname === '/api/user/usage') {
+      const { user } = await authenticateRequest(req);
+      const limit = url.searchParams.get('limit') || 20;
+      const offset = url.searchParams.get('offset') || 0;
+      const result = await getUserUsageLogs(user.id, { limit, offset });
+      sendJson(res, 200, {
+        ok: true,
+        quotaBalance: user.quotaBalance,
+        total: result.total,
+        totalConsumed: result.totalConsumed,
+        logs: result.logs,
+      });
+      return true;
+    }
+
+    // POST /api/user/topup (Demo top-up channel with prominent DEMO mark)
+    if (req.method === 'POST' && url.pathname === '/api/user/topup') {
+      const { user } = await authenticateRequest(req);
+      const body = await parseBody(req);
+      const amount = Math.max(1, Number(body.amount) || 100);
+      const newBalance = await topupUserQuota(user.id, amount, {
+        channel: 'demo',
+        requestId: `topup-${Date.now()}`,
+      });
+      sendJson(res, 200, {
+        ok: true,
+        message: `[演示充值] 成功充值 ${amount} 积分`,
+        amount,
+        newBalance,
+        isDemo: true,
+      });
+      return true;
+    }
+
     // POST /api/auth/register
     if (req.method === 'POST' && url.pathname === '/api/auth/register') {
       const body = await parseBody(req);
@@ -121,7 +185,6 @@ export async function handleAuthRoutes(req, res, url, { sendJson }) {
       return true;
     }
 
-    // Unknown auth route
     return false;
   } catch (error) {
     const { status, body } = formatErrorResponse(error);
@@ -139,7 +202,7 @@ function parseBody(req) {
     req.on('data', chunk => data += chunk);
     req.on('end', () => {
       try {
-        resolve(JSON.parse(data));
+        resolve(data ? JSON.parse(data) : {});
       } catch (error) {
         reject(new Error('Invalid JSON'));
       }

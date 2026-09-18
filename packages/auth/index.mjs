@@ -357,3 +357,81 @@ export async function authenticateRequest(req) {
   return { user, token };
 }
 
+/**
+ * Retrieve user usage logs with pagination and summary stats
+ */
+export async function getUserUsageLogs(userId, { limit = 20, offset = 0 } = {}) {
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
+  const safeOffset = Math.max(0, Number(offset) || 0);
+
+  const logs = await query(
+    `SELECT id, resource_type as resourceType, model_id as modelId,
+            tokens_used as tokensUsed, quota_cost as quotaCost,
+            request_id as requestId, created_at as createdAt
+     FROM usage_logs
+     WHERE user_id = ?
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`,
+    [userId, safeLimit, safeOffset]
+  );
+
+  const totalRow = await queryOne(
+    'SELECT COUNT(*) as count, COALESCE(SUM(CASE WHEN quota_cost > 0 THEN quota_cost ELSE 0 END), 0) as totalConsumed FROM usage_logs WHERE user_id = ?',
+    [userId]
+  );
+
+  return {
+    logs,
+    total: totalRow?.count || 0,
+    totalConsumed: totalRow?.totalConsumed || 0,
+  };
+}
+
+/**
+ * Topup user quota (demo / fixed-point ledger recharge)
+ */
+export async function topupUserQuota(userId, amount, metadata = {}) {
+  const numAmount = Math.max(0, Math.floor(Number(amount) || 0));
+  if (numAmount <= 0) {
+    throw Errors.invalidInput('充值积分必须大于 0');
+  }
+
+  await execute(
+    'UPDATE users SET quota_balance = quota_balance + ?, updated_at = ? WHERE id = ?',
+    [numAmount, Date.now(), userId]
+  );
+
+  const user = await queryOne('SELECT quota_balance FROM users WHERE id = ?', [userId]);
+
+  const logId = randomUUID();
+  await execute(
+    `INSERT INTO usage_logs (id, user_id, resource_type, model_id, tokens_used, quota_cost, request_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      logId,
+      userId,
+      'topup',
+      metadata.channel || 'demo',
+      null,
+      -numAmount,
+      metadata.requestId || null,
+      Date.now(),
+    ]
+  );
+
+  return user ? user.quota_balance : numAmount;
+}
+
+/**
+ * Retrieve enabled server models and their quota costs
+ */
+export async function getServerModelsList() {
+  return await query(
+    `SELECT id, name, kind, enabled, provider, quota_cost_per_unit as quotaCostPerUnit,
+            max_concurrency as maxConcurrency, config, updated_at as updatedAt
+     FROM server_models
+     WHERE enabled = 1
+     ORDER BY kind ASC, name ASC`
+  );
+}
+
