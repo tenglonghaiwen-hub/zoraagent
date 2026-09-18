@@ -207,6 +207,7 @@ export async function getUserFromToken(token) {
     email: user.email,
     username: user.username,
     role: user.role,
+    status: user.status,
     quotaBalance: user.quota_balance,
   };
 }
@@ -329,3 +330,30 @@ export async function addUserQuota(userId, amount) {
     [amount, Date.now(), userId]
   );
 }
+
+export { calculateQuotaCost } from './pricing.mjs';
+
+/**
+ * Helper to authenticate HTTP request from Bearer token
+ * Returns user object or throws 401 error
+ */
+export async function authenticateRequest(req) {
+  const authHeader = req?.headers?.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw Errors.authenticationRequired('需要登录后使用此服务');
+  }
+
+  const token = authHeader.slice(7);
+  const user = await getUserFromToken(token);
+
+  if (!user) {
+    throw Errors.authenticationRequired('登录已过期，请重新登录');
+  }
+
+  if (user.status !== 'active') {
+    throw Errors.permissionDenied('账号已被封禁');
+  }
+
+  return { user, token };
+}
+

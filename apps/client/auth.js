@@ -177,5 +177,17 @@ export async function authFetch(url, options = {}) {
     throw new Error('需要重新登录');
   }
 
+  // Intercept and auto-update user balance if returned in JSON response
+  try {
+    const cloned = response.clone();
+    cloned.json().then((data) => {
+      if (data && typeof data.newBalance === 'number') {
+        import('./login-handler.js').then(({ updateUserBalance }) => {
+          updateUserBalance(data.newBalance);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  } catch {}
+
   return response;
 }

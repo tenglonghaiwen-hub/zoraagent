@@ -4,6 +4,12 @@ import { generateBatch } from '../../../packages/duoyuanx/generation-service.mjs
 import { agentStatus } from '../codex-agent.mjs';
 import { AGENT_TOOL_DEFS } from '../../../packages/agent/tools.mjs';
 import { listAllowedApis } from '../../../packages/agent/api.mjs';
+import {
+  authenticateRequest,
+  calculateQuotaCost,
+  checkUserBalance,
+  deductUserQuota,
+} from '../../../packages/auth/index.mjs';
 
 /**
  * Handle generation, preview, chat, and agent status routes.
@@ -36,18 +42,69 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
     try {
       packed = packGenerateRequest(result.draft, result.model);
     } catch {}
-    sendJson(res, 200, { draft: result.draft, message: result.message, packed });
+    let estimatedQuota = 1;
+    try {
+      estimatedQuota = await calculateQuotaCost({
+        modelId: result.model.id,
+        kind: result.model.kind || result.draft.kind,
+        count: result.draft.count || 1,
+      });
+    } catch {}
+    sendJson(res, 200, { draft: result.draft, message: result.message, packed, estimatedQuota });
     return true;
   }
 
   // Generate
   if (req.method === 'POST' && url.pathname === '/api/generate') {
+    let authUser = null;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      sendJson(res, 401, {
+        ok: false,
+        error: '需要登录后使用生成服务',
+        category: 'permission',
+      });
+      return true;
+    }
+
+    try {
+      const { user } = await authenticateRequest(req);
+      authUser = user;
+    } catch (err) {
+      sendJson(res, err.status || 401, {
+        ok: false,
+        error: err.message || '身份验证失败，请重新登录',
+        category: 'permission',
+      });
+      return true;
+    }
+
     const body = await readJson(req);
     const result = validateDraft(body);
     if (!result.ok) {
       sendJson(res, 400, { error: result.error });
       return true;
     }
+
+    // Calculate quota cost
+    const modelId = result.model.id;
+    const kind = result.model.kind || result.draft.kind || 'image';
+    const count = result.draft.count || 1;
+    const cost = await calculateQuotaCost({ modelId, kind, count });
+
+    // Precheck quota balance
+    const currentBalance = await checkUserBalance(authUser.id);
+    if (currentBalance < cost) {
+      sendJson(res, 402, {
+        ok: false,
+        error: `积分余额不足（本次需要 ${cost} 积分，当前余额 ${currentBalance} 积分）`,
+        category: 'resource',
+        requiredQuota: cost,
+        quotaBalance: currentBalance,
+      });
+      return true;
+    }
+
     let packed;
     try {
       packed = packGenerateRequest(result.draft, result.model);
@@ -69,7 +126,13 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
     const base = (process.env.DUOYUANX_BASE_URL || 'https://duoyuanx.com').replace(/\/$/, '');
     if (body.requestId) {
       try {
-        sendJson(res, 202, { task: taskStore().submit(body.requestId, result.draft, result.model) });
+        const task = taskStore().submit(body.requestId, result.draft, result.model);
+        const newBalance = await deductUserQuota(authUser.id, cost, {
+          resourceType: 'generation',
+          modelId,
+          requestId: body.requestId,
+        });
+        sendJson(res, 202, { task, newBalance });
       } catch (e) {
         sendJson(res, e.status || 500, { error: e.message });
       }
@@ -81,6 +144,15 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
         key: process.env.DUOYUANX_API_KEY,
       });
       const success = results.filter((r) => r.ok);
+      let newBalance = currentBalance;
+      if (success.length > 0) {
+        const actualCost = Math.round((cost / count) * success.length);
+        newBalance = await deductUserQuota(authUser.id, actualCost, {
+          resourceType: 'generation',
+          modelId,
+          requestId: body.requestId || null,
+        });
+      }
       sendJson(res, success.length ? 200 : 502, {
         draft: result.draft,
         upstream: results.length === 1 ? results[0].upstream : undefined,
@@ -88,6 +160,7 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
         queryRoute: result.model.queryRoute,
         error: success.length ? undefined : results[0]?.error,
         message: '批次已处理',
+        newBalance,
       });
     } catch (e) {
       sendJson(res, 502, { error: String(e?.message || e) });
@@ -114,11 +187,48 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
 
   // Chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
+    let authUser = null;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      sendJson(res, 401, {
+        ok: false,
+        error: '需要登录后使用 Agent 对话服务',
+        category: 'permission',
+      });
+      return true;
+    }
+
+    try {
+      const { user } = await authenticateRequest(req);
+      authUser = user;
+    } catch (err) {
+      sendJson(res, err.status || 401, {
+        ok: false,
+        error: err.message || '身份验证失败，请重新登录',
+        category: 'permission',
+      });
+      return true;
+    }
+
+    const chatCost = 1;
+    const currentBalance = await checkUserBalance(authUser.id);
+    if (currentBalance < chatCost) {
+      sendJson(res, 402, {
+        ok: false,
+        error: `积分余额不足（对话需要 ${chatCost} 积分，当前余额 ${currentBalance} 积分）`,
+        category: 'resource',
+        requiredQuota: chatCost,
+        quotaBalance: currentBalance,
+      });
+      return true;
+    }
+
     const receivedAt = Date.now();
     const requestTag = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     console.log(JSON.stringify({
       event: 'chat-request-start',
       requestTag,
+      userId: authUser.id,
       time: new Date().toISOString(),
       bytes: req.headers['content-length'] || null,
     }));
@@ -133,7 +243,15 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
     const body = await readJson(req);
     try {
       const result = await handleChat(body);
-      sendJson(res, 200, result);
+      const newBalance = await deductUserQuota(authUser.id, chatCost, {
+        resourceType: 'chat',
+        modelId: 'gpt-5.5',
+        requestId: requestTag,
+      });
+      sendJson(res, 200, {
+        ...result,
+        newBalance,
+      });
     } catch (e) {
       const status = e?.status && Number.isInteger(e.status) ? e.status : 502;
       sendJson(res, status, {
