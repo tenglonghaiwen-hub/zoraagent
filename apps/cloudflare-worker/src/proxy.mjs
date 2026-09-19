@@ -360,3 +360,82 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
   };
 }
 
+/**
+ * Test connectivity and API key validity for a given provider
+ */
+export async function testProviderConnectivity({ provider, apiKey = null, baseUrl = null, env }) {
+  const normProvider = String(provider || 'duoyuanx').toLowerCase();
+  const resolved = await resolveProviderConfig(env, normProvider);
+
+  const effectiveKey = (apiKey != null && String(apiKey).trim()) ? String(apiKey).trim() : resolved.apiKey;
+  const effectiveBase = (baseUrl != null && String(baseUrl).trim()) ? String(baseUrl).trim().replace(/\/+$/, '') : resolved.baseUrl;
+
+  if (!effectiveKey) {
+    return {
+      ok: false,
+      provider: normProvider,
+      title: resolved.title,
+      baseUrl: effectiveBase,
+      status: 400,
+      latency: 0,
+      error: `未配置或未提供 ${resolved.title} API 密钥`
+    };
+  }
+
+  let probeUrl = `${effectiveBase}/v1/models`;
+  if (normProvider === 'deepseek') {
+    probeUrl = `${effectiveBase}/models`;
+  } else if (normProvider === 'minimax') {
+    probeUrl = `${effectiveBase}/v1/models`;
+  }
+
+  const startTime = Date.now();
+  try {
+    const res = await fetch(probeUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${effectiveKey}`,
+        'Accept': 'application/json'
+      },
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+    });
+
+    const latency = Date.now() - startTime;
+    const isSuccess = res.status >= 200 && res.status < 300;
+    const body = await res.json().catch(() => ({}));
+
+    if (isSuccess) {
+      return {
+        ok: true,
+        provider: normProvider,
+        title: resolved.title,
+        baseUrl: effectiveBase,
+        status: res.status,
+        latency,
+        modelCount: Array.isArray(body.data) ? body.data.length : (Array.isArray(body.models) ? body.models.length : null)
+      };
+    } else {
+      const errMsg = body.error?.message || body.message || `上游鉴权或服务响应 HTTP ${res.status}`;
+      return {
+        ok: false,
+        provider: normProvider,
+        title: resolved.title,
+        baseUrl: effectiveBase,
+        status: res.status,
+        latency,
+        error: errMsg
+      };
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      provider: normProvider,
+      title: resolved.title,
+      baseUrl: effectiveBase,
+      status: 504,
+      latency: Date.now() - startTime,
+      error: err.message || '网络连接超时或上游未响应'
+    };
+  }
+}
+

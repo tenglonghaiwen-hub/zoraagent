@@ -367,9 +367,10 @@ export function renderAdminHtml() {
 
     <nav class="nav-tabs" id="navTabs">
       <button class="nav-btn active" data-tab="overview">概览仪表盘</button>
-      <button class="nav-btn" data-tab="models">模型与定价</button>
-      <button class="nav-btn" data-tab="config">API 密钥与配置</button>
-      <button class="nav-btn" data-tab="users">用户账本</button>
+      <button class="nav-btn" data-tab="models">模型与路由</button>
+      <button class="nav-btn" data-tab="config">API 密钥与服务商</button>
+      <button class="nav-btn" data-tab="users">用户中台 & VIP</button>
+      <button class="nav-btn" data-tab="notifications">消息与公告推送</button>
       <button class="nav-btn" data-tab="logs">审计流水</button>
     </nav>
 
@@ -493,6 +494,10 @@ export function renderAdminHtml() {
               <input type="text" id="cfg_minimax_base" placeholder="https://api.minimax.cn">
               <div class="form-desc">默认为 https://api.minimax.cn，海外用户可填写 https://api.minimaxi.com。</div>
             </div>
+            <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('minimax')">测试 MiniMax 连通性</button>
+              <span id="test_minimax_res" class="mono" style="font-size: 0.78rem;"></span>
+            </div>
           </div>
 
           <!-- 2. Duoyuanx Section -->
@@ -509,6 +514,10 @@ export function renderAdminHtml() {
             <div class="form-group" style="margin-bottom: 0;">
               <label for="cfg_duoyuanx_base">多元探索 Base 地址 (DUOYUANX_BASE_URL)</label>
               <input type="text" id="cfg_duoyuanx_base" placeholder="https://duoyuanx.com">
+            </div>
+            <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('duoyuanx')">测试多元探索连通性</button>
+              <span id="test_duoyuanx_res" class="mono" style="font-size: 0.78rem;"></span>
             </div>
           </div>
 
@@ -528,6 +537,10 @@ export function renderAdminHtml() {
                 <label for="cfg_openai_base">Base 地址</label>
                 <input type="text" id="cfg_openai_base" placeholder="https://api.openai.com">
               </div>
+              <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('openai')">测试 OpenAI</button>
+                <span id="test_openai_res" class="mono" style="font-size: 0.78rem;"></span>
+              </div>
             </div>
 
             <!-- DeepSeek -->
@@ -543,6 +556,10 @@ export function renderAdminHtml() {
               <div class="form-group" style="margin-bottom: 0;">
                 <label for="cfg_deepseek_base">Base 地址</label>
                 <input type="text" id="cfg_deepseek_base" placeholder="https://api.deepseek.com">
+              </div>
+              <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('deepseek')">测试 DeepSeek</button>
+                <span id="test_deepseek_res" class="mono" style="font-size: 0.78rem;"></span>
               </div>
             </div>
           </div>
@@ -563,6 +580,10 @@ export function renderAdminHtml() {
                 <label for="cfg_siliconflow_base">Base 地址</label>
                 <input type="text" id="cfg_siliconflow_base" placeholder="https://api.siliconflow.cn">
               </div>
+              <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('siliconflow')">测试硅基流动</button>
+                <span id="test_siliconflow_res" class="mono" style="font-size: 0.78rem;"></span>
+              </div>
             </div>
 
             <!-- Custom OneAPI -->
@@ -578,6 +599,10 @@ export function renderAdminHtml() {
               <div class="form-group" style="margin-bottom: 0;">
                 <label for="cfg_custom_base">自定义 Base 地址</label>
                 <input type="text" id="cfg_custom_base" placeholder="https://your-oneapi-domain.com">
+              </div>
+              <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('custom')">测试自定义上游</button>
+                <span id="test_custom_res" class="mono" style="font-size: 0.78rem;"></span>
               </div>
             </div>
           </div>
@@ -596,36 +621,104 @@ export function renderAdminHtml() {
       </div>
     </section>
 
-    <!-- TAB 4: USERS & BALANCE -->
+    <!-- TAB 4: USERS & VIP CENTER -->
     <section id="tab-users" class="tab-content">
       <div class="panel">
         <div class="panel-header">
           <div>
-            <div class="panel-title">注册用户账本与积分管理</div>
-            <div class="panel-desc">查看桌面端已注册账号，支持管理员手动为用户充值或调账</div>
+            <div class="panel-title">👥 全球用户运营中台 & VIP 权限</div>
+            <div class="panel-desc">集中管理桌面端注册创作者、实时积分扣补调账、VIP会员生命周期与账号封禁</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="text" id="userSearchInput" placeholder="按邮箱或昵称搜索..." style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: #fff; width: 220px;" oninput="debounceUserSearch()">
+            <button class="btn btn-secondary btn-sm" onclick="loadUsers()">刷新列表</button>
           </div>
         </div>
 
         <table>
           <thead>
             <tr>
-              <th>用户 ID</th>
-              <th>用户名</th>
-              <th>邮箱</th>
-              <th>当前可用积分</th>
-              <th>身份</th>
+              <th>用户邮箱 / 昵称</th>
+              <th>积分余额</th>
+              <th>VIP 状态</th>
+              <th>账号状态</th>
               <th>注册时间</th>
-              <th>操作</th>
+              <th>运营操作</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">正在加载用户...</td></tr>
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">正在加载用户...</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- TAB 5: AUDIT LOGS -->
+    <!-- TAB 5: NOTIFICATIONS & BROADCAST -->
+    <section id="tab-notifications" class="tab-content">
+      <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-title" style="margin-bottom: 0.5rem;">📢 发布新系统通知 / 消息推送</div>
+        <div class="panel-desc" style="margin-bottom: 1.25rem;">推送将实时同步至所有桌面端消息中心（右上角消息铃铛红点提醒）</div>
+        
+        <form id="notificationForm" onsubmit="handleSendNotification(event)">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="notif_target">推送对象</label>
+              <select id="notif_target" onchange="toggleNotifUserField()">
+                <option value="*">📢 全员系统广播（所有用户）</option>
+                <option value="single">👤 指定用户专属私信</option>
+              </select>
+            </div>
+            <div class="form-group" id="notif_user_group" style="display: none;">
+              <label for="notif_user_id">目标用户 ID 或 邮箱</label>
+              <input type="text" id="notif_user_id" placeholder="输入用户 ID 或邮箱">
+            </div>
+            <div class="form-group">
+              <label for="notif_kind">消息分类</label>
+              <select id="notif_kind">
+                <option value="official">官方系统公告</option>
+                <option value="activity">活动 / 优惠福利</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="notif_title">通知标题</label>
+            <input type="text" id="notif_title" placeholder="如：Zora 全新视频生成模型已上线！" required>
+          </div>
+          <div class="form-group">
+            <label for="notif_content">通知详细内容</label>
+            <textarea id="notif_content" rows="3" placeholder="填写公告或私信具体内容，支持 Markdown 或纯文本..." required style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: #fff;"></textarea>
+          </div>
+          <button type="submit" class="btn">🚀 立即推送给客户端</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">📜 历史推送记录</div>
+            <div class="panel-desc">查看已发布的历史广播或私信，支持随时撤回删除</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadNotifications()">刷新推送列表</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>接收目标</th>
+              <th>分类</th>
+              <th>标题</th>
+              <th>内容预览</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="notificationsTableBody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">正在加载推送记录...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 6: AUDIT LOGS -->
     <section id="tab-logs" class="tab-content">
       <div class="panel">
         <div class="panel-header">
@@ -730,9 +823,13 @@ export function renderAdminHtml() {
             <div class="form-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">支持 {task_id} 占位符，视频模型必填</div>
           </div>
         </div>
-        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
-          <input type="checkbox" id="m_enabled" checked>
-          <label for="m_enabled" style="margin-bottom: 0; cursor: pointer;">启用此模型向客户端开放</label>
+        <div class="form-group" style="display: flex; align-items: center; gap: 1.5rem; margin-top: 0.5rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0; cursor: pointer;">
+            <input type="checkbox" id="m_enabled" checked> 启用此模型向客户端开放
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0; cursor: pointer; color: #fbbf24;">
+            <input type="checkbox" id="m_vip_only"> 👑 设为 VIP 专属模型 (普通用户受限)
+          </label>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeModelModal()">取消</button>
@@ -742,10 +839,10 @@ export function renderAdminHtml() {
     </div>
   </div>
 
-  <!-- Adjust Balance Modal -->
+  <!-- Adjust Balance Modal (Recharge / Refund) -->
   <div class="modal-overlay" id="adjustModal">
     <div class="modal">
-      <div class="modal-title">💰 调整用户积分</div>
+      <div class="modal-title">💰 手动充值 / 调账退费</div>
       <form id="adjustForm">
         <input type="hidden" id="adj_user_id">
         <div class="form-group">
@@ -753,18 +850,73 @@ export function renderAdminHtml() {
           <div class="mono" id="adj_user_display" style="padding: 0.5rem 0; color: #818cf8;">-</div>
         </div>
         <div class="form-group">
-          <label for="adj_delta">积分变动量（正数为增加，负数为扣减）</label>
-          <input type="number" id="adj_delta" placeholder="如 100 或 -50" required>
+          <label for="adj_delta">积分变动量（正数为充值增加，负数为退费扣减）</label>
+          <input type="number" id="adj_delta" placeholder="例如: 100 (充值) 或 -50 (退费)" required>
         </div>
         <div class="form-group">
-          <label for="adj_reason">调账备注原因</label>
-          <input type="text" id="adj_reason" value="管理员手动调账" placeholder="调账原因">
+          <label for="adj_reason">操作原因 / 订单关联说明</label>
+          <input type="text" id="adj_reason" value="后台人工充值入账" placeholder="调账原因">
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeAdjustModal()">取消</button>
-          <button type="submit" class="btn">确认调账</button>
+          <button type="submit" class="btn">确认调账执行</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- VIP Management Modal -->
+  <div class="modal-overlay" id="vipModal">
+    <div class="modal">
+      <div class="modal-title">👑 设置用户 VIP 会员身份</div>
+      <form id="vipForm" onsubmit="handleSaveVip(event)">
+        <input type="hidden" id="vip_user_id">
+        <div class="form-group">
+          <label>目标创作者</label>
+          <div class="mono" id="vip_user_display" style="padding: 0.5rem 0; color: #fbbf24;">-</div>
+        </div>
+        <div class="form-group">
+          <label for="vip_action">VIP 身份操作</label>
+          <select id="vip_action">
+            <option value="30">赠送 / 开通 1 个月 VIP (30天)</option>
+            <option value="90">开通 季度 VIP (90天)</option>
+            <option value="365">开通 年度 VIP (365天)</option>
+            <option value="-1">升级为 终身永久 VIP (Permanent)</option>
+            <option value="0">取消 VIP (恢复普通用户)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeVipModal()">取消</button>
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 700;">确认设置 VIP</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- User Logs Modal -->
+  <div class="modal-overlay" id="userLogsModal">
+    <div class="modal" style="max-width: 800px; width: 90%;">
+      <div class="modal-title">📜 用户个人消费与充值流水</div>
+      <div class="mono" id="userLogsTitle" style="color: #93c5fd; margin-bottom: 1rem; font-size: 0.9rem;">-</div>
+      <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>业务类型</th>
+              <th>涉及模型/操作</th>
+              <th>积分变动</th>
+              <th>流水单号</th>
+            </tr>
+          </thead>
+          <tbody id="userLogsTableBody">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">正在拉取用户流水...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-actions" style="margin-top: 1.25rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeUserLogsModal()">关闭流水</button>
+      </div>
     </div>
   </div>
 
@@ -1005,6 +1157,7 @@ export function renderAdminHtml() {
         route: document.getElementById('m_route').value.trim(),
         queryRoute: document.getElementById('m_query_route').value.trim(),
         maxConcurrency: parseInt(document.getElementById('m_concurrency').value, 10),
+        vipOnly: document.getElementById('m_vip_only').checked ? 1 : 0,
         enabled: document.getElementById('m_enabled').checked ? 1 : 0
       };
       try {
@@ -1103,34 +1256,102 @@ export function renderAdminHtml() {
       }
     });
 
+    // Test Provider Connectivity
+    window.testProvider = async function(p) {
+      const resEl = document.getElementById('test_' + p + '_res');
+      if (resEl) {
+        resEl.style.color = '#818cf8';
+        resEl.textContent = '正在探测连通性...';
+      }
+      try {
+        const inputKey = document.getElementById('cfg_' + p + '_key')?.value?.trim() || null;
+        const inputBase = document.getElementById('cfg_' + p + '_base')?.value?.trim() || null;
+        const res = await adminFetch('/api/admin/providers/test', {
+          method: 'POST',
+          body: JSON.stringify({ provider: p, apiKey: inputKey, baseUrl: inputBase })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          if (resEl) {
+            resEl.style.color = '#10b981';
+            const countInfo = d.modelCount != null ? (', ' + d.modelCount + '个模型') : '';
+            resEl.textContent = '✓ 连通正常 (' + d.latency + 'ms, HTTP ' + d.status + countInfo + ')';
+          }
+          showToast(p + ' 上游连通正常 (' + d.latency + 'ms)', 'success');
+        } else {
+          if (resEl) {
+            resEl.style.color = '#ef4444';
+            resEl.textContent = '✗ ' + (d.error || '连通失败') + ' (' + d.latency + 'ms, HTTP ' + d.status + ')';
+          }
+          showToast(p + ' 探测失败: ' + (d.error || '连接异常'), 'error');
+        }
+      } catch (err) {
+        if (resEl) {
+          resEl.style.color = '#ef4444';
+          resEl.textContent = '✗ 请求错误: ' + err.message;
+        }
+        showToast('探测请求异常: ' + err.message, 'error');
+      }
+    };
+
+    // User Search Debounce
+    let searchTimer = null;
+    window.debounceUserSearch = function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        loadUsers();
+      }, 350);
+    };
+
     // Load Users
     async function loadUsers() {
       try {
-        const res = await adminFetch('/api/admin/users');
+        const search = document.getElementById('userSearchInput')?.value?.trim() || '';
+        const url = '/api/admin/users?limit=50' + (search ? '&search=' + encodeURIComponent(search) : '');
+        const res = await adminFetch(url);
         const d = await res.json();
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
         if (!d.users || d.users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">暂无注册用户</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">暂无匹配创作者</td></tr>';
           return;
         }
         d.users.forEach(u => {
           const tr = document.createElement('tr');
-          const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleString('zh-CN') : '-';
+          const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('zh-CN') : '-';
+          const isVip = u.isVip === 1;
+          const vipBadge = isVip
+            ? '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.5);">👑 VIP会员</span>'
+            : '<span class="badge" style="background: rgba(255, 255, 255, 0.06); color: #94a3b8;">普通创作者</span>';
+          
+          const isSuspended = u.status === 'suspended';
+          const statusBadge = isSuspended
+            ? '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">🚫 已冻结</span>'
+            : '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">● 正常</span>';
+
           tr.innerHTML = \`
-            <td class="mono" style="font-size: 0.75rem;">\${u.id}</td>
-            <td style="font-weight: 600;">\${u.username}</td>
-            <td>\${u.email || '-'}</td>
-            <td><strong style="color: #34d399; font-size: 1rem;">\${u.quotaBalance}</strong> 积分</td>
-            <td><span class="badge badge-primary">\${u.role}</span></td>
+            <td>
+              <div style="font-weight: 600; color: #fff;">\${u.email || u.username}</div>
+              <small class="mono" style="color: var(--text-muted); font-size: 0.72rem;">ID: \${u.id.slice(0, 8)}...</small>
+            </td>
+            <td><strong style="color: #34d399; font-size: 1.05rem;">\${u.quotaBalance}</strong> <small style="color: var(--text-muted);">分</small></td>
+            <td>\${vipBadge}</td>
+            <td>\${statusBadge}</td>
             <td style="color: var(--text-muted); font-size: 0.8rem;">\${dateStr}</td>
             <td>
-              <button class="btn btn-secondary btn-sm" onclick="openAdjustModal('\${u.id}', '\${u.username}')">调账</button>
+              <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                <button class="btn btn-secondary btn-sm" onclick="openAdjustModal('\${u.id}', '\${u.email || u.username}')">充值/退费</button>
+                <button class="btn btn-secondary btn-sm" style="color: #fbbf24;" onclick="openVipModal('\${u.id}', '\${u.email || u.username}', \${isVip}, \${u.vipExpiresAt || 0})">VIP</button>
+                <button class="btn btn-secondary btn-sm" style="\${isSuspended ? 'color: #34d399;' : 'color: #f87171;'}" onclick="toggleUserStatus('\${u.id}', '\${u.status || 'active'}')">\${isSuspended ? '解冻' : '冻结'}</button>
+                <button class="btn btn-secondary btn-sm" onclick="openUserLogsModal('\${u.id}', '\${u.email || u.username}')">流水</button>
+              </div>
             </td>
           \`;
           tbody.appendChild(tr);
         });
-      } catch {}
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     // Adjust Balance Submit
@@ -1147,7 +1368,7 @@ export function renderAdminHtml() {
         });
         const d = await res.json();
         if (!d.ok) throw new Error(d.error);
-        showToast('调账成功，用户新余额：' + d.newBalance, 'success');
+        showToast('调账成功，最新积分：' + d.newBalance, 'success');
         closeAdjustModal();
         loadUsers();
         loadStats();
@@ -1155,6 +1376,183 @@ export function renderAdminHtml() {
         showToast(err.message, 'error');
       }
     });
+
+    // VIP Modal handlers
+    window.openVipModal = function(userId, display, isVip, expiresAt) {
+      document.getElementById('vip_user_id').value = userId;
+      let info = display;
+      if (isVip) {
+        const expStr = expiresAt === -1 ? '终身永久' : (expiresAt ? new Date(expiresAt).toLocaleDateString('zh-CN') : '已生效');
+        info += ' [当前已是 VIP · 到期: ' + expStr + ']';
+      } else {
+        info += ' [当前为普通创作者]';
+      }
+      document.getElementById('vip_user_display').textContent = info;
+      document.getElementById('vipModal').classList.add('active');
+    };
+    window.closeVipModal = function() {
+      document.getElementById('vipModal').classList.remove('active');
+    };
+    window.handleSaveVip = async function(e) {
+      e.preventDefault();
+      const userId = document.getElementById('vip_user_id').value;
+      const val = parseInt(document.getElementById('vip_action').value, 10);
+      const isVip = val !== 0;
+      const days = val;
+      try {
+        const res = await adminFetch('/api/admin/users/vip', {
+          method: 'POST',
+          body: JSON.stringify({ userId, isVip, days })
+        });
+        const d = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        showToast(isVip ? '已成功开通/续期 VIP 会员！' : '已取消该用户 VIP 身份', 'success');
+        closeVipModal();
+        loadUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+
+    // User Account Status Toggle
+    window.toggleUserStatus = async function(userId, currentStatus) {
+      const nextStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+      const promptText = nextStatus === 'suspended' ? '确认冻结该用户账号吗？冻结后该用户将无法调用任何 API' : '确认解冻该用户账号吗？';
+      if (!confirm(promptText)) return;
+      try {
+        const res = await adminFetch('/api/admin/users/status', {
+          method: 'POST',
+          body: JSON.stringify({ userId, status: nextStatus })
+        });
+        const d = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        showToast(nextStatus === 'suspended' ? '账号已冻结' : '账号已恢复正常', 'success');
+        loadUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+
+    // User Single Logs Modal
+    window.openUserLogsModal = async function(userId, display) {
+      document.getElementById('userLogsTitle').textContent = '创作者: ' + display + ' (ID: ' + userId + ')';
+      const tbody = document.getElementById('userLogsTableBody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">正在拉取流水...</td></tr>';
+      document.getElementById('userLogsModal').classList.add('active');
+
+      try {
+        const res = await adminFetch('/api/admin/users/logs?userId=' + encodeURIComponent(userId));
+        const d = await res.json();
+        tbody.innerHTML = '';
+        if (!d.logs || d.logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">该用户暂无消费或充值流水</td></tr>';
+          return;
+        }
+        d.logs.forEach(l => {
+          const tr = document.createElement('tr');
+          const dateStr = l.createdAt ? new Date(l.createdAt).toLocaleString('zh-CN') : '-';
+          const isTopup = l.quotaCost < 0;
+          const costDisplay = isTopup
+            ? '<span style="color: #34d399; font-weight: 600;">+' + Math.abs(l.quotaCost) + ' (充值)</span>'
+            : '<span style="color: #f87171; font-weight: 600;">-' + l.quotaCost + ' (消耗)</span>';
+          tr.innerHTML = \`
+            <td style="color: var(--text-muted); font-size: 0.8rem;">\${dateStr}</td>
+            <td><span class="badge \${isTopup ? 'badge-success' : 'badge-primary'}">\${l.resourceType}</span></td>
+            <td>\${l.modelId || '-'}</td>
+            <td>\${costDisplay}</td>
+            <td class="mono" style="font-size: 0.75rem; color: var(--text-muted);">\${l.requestId || '-'}</td>
+          \`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171;">流水拉取失败: ' + err.message + '</td></tr>';
+      }
+    };
+    window.closeUserLogsModal = function() {
+      document.getElementById('userLogsModal').classList.remove('active');
+    };
+
+    // Notification Tab Handlers
+    window.toggleNotifUserField = function() {
+      const isSingle = document.getElementById('notif_target').value === 'single';
+      document.getElementById('notif_user_group').style.display = isSingle ? 'block' : 'none';
+    };
+
+    window.handleSendNotification = async function(e) {
+      e.preventDefault();
+      const target = document.getElementById('notif_target').value;
+      const userId = target === 'single' ? document.getElementById('notif_user_id').value.trim() : '*';
+      const kind = document.getElementById('notif_kind').value;
+      const title = document.getElementById('notif_title').value.trim();
+      const content = document.getElementById('notif_content').value.trim();
+
+      if (target === 'single' && !userId) {
+        showToast('请输入指定用户的 ID 或邮箱', 'error');
+        return;
+      }
+
+      try {
+        const res = await adminFetch('/api/admin/notifications', {
+          method: 'POST',
+          body: JSON.stringify({ userId, kind, title, content })
+        });
+        const d = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        showToast('消息已成功推送给客户端！', 'success');
+        document.getElementById('notif_title').value = '';
+        document.getElementById('notif_content').value = '';
+        loadNotifications();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+
+    async function loadNotifications() {
+      try {
+        const res = await adminFetch('/api/admin/notifications');
+        const d = await res.json();
+        const tbody = document.getElementById('notificationsTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!d.notifications || d.notifications.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">暂无历史推送</td></tr>';
+          return;
+        }
+        d.notifications.forEach(n => {
+          const tr = document.createElement('tr');
+          const dateStr = n.createdAt ? new Date(n.createdAt).toLocaleString('zh-CN') : '-';
+          const targetDisplay = n.userId === '*'
+            ? '<span class="badge badge-primary">📢 全体广播</span>'
+            : '<span class="badge" style="background: rgba(139,92,246,0.2); color: #c084fc;">👤 私信 (' + n.userId.slice(0, 8) + '...)</span>';
+          tr.innerHTML = \`
+            <td style="color: var(--text-muted); font-size: 0.8rem;">\${dateStr}</td>
+            <td>\${targetDisplay}</td>
+            <td><span class="badge badge-secondary">\${n.kind === 'official' ? '官方公告' : '活动'}</span></td>
+            <td style="font-weight: 600;">\${n.title}</td>
+            <td style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; color: var(--text-muted);">\${n.content}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" style="color: #f87171;" onclick="deleteNotificationItem('\${n.id}')">撤回</button>
+            </td>
+          \`;
+          tbody.appendChild(tr);
+        });
+      } catch {}
+    }
+
+    window.deleteNotificationItem = async function(id) {
+      if (!confirm('确认撤回此条通知消息吗？撤回后客户端将不再展示')) return;
+      try {
+        const res = await adminFetch('/api/admin/notifications?id=' + encodeURIComponent(id), {
+          method: 'DELETE'
+        });
+        const d = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        showToast('通知已撤回删除', 'success');
+        loadNotifications();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
 
     // Load Logs
     async function loadLogs() {
@@ -1172,8 +1570,8 @@ export function renderAdminHtml() {
           const dateStr = l.createdAt ? new Date(l.createdAt).toLocaleTimeString('zh-CN') : '-';
           const isTopup = l.quotaCost < 0;
           const costDisplay = isTopup
-            ? \`<span style="color: #34d399; font-weight: 600;">+\${Math.abs(l.quotaCost)} (充值)</span>\`
-            : \`<span style="color: #f87171; font-weight: 600;">-\${l.quotaCost} (消耗)</span>\`;
+            ? '<span style="color: #34d399; font-weight: 600;">+' + Math.abs(l.quotaCost) + ' (充值)</span>'
+            : '<span style="color: #f87171; font-weight: 600;">-' + l.quotaCost + ' (消耗)</span>';
           tr.innerHTML = \`
             <td style="color: var(--text-muted); font-size: 0.8rem;">\${dateStr}</td>
             <td class="mono" style="font-size: 0.75rem;">\${l.userId.slice(0, 8)}...</td>
@@ -1192,6 +1590,7 @@ export function renderAdminHtml() {
       loadModels();
       loadConfigs();
       loadUsers();
+      loadNotifications();
       loadLogs();
     }
 

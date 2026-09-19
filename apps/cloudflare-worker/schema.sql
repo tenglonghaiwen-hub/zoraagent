@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT,
   role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
   quota_balance INTEGER DEFAULT 100, -- 默认赠送 100 初始体验积分
+  is_vip INTEGER DEFAULT 0, -- 0: 普通用户, 1: VIP会员
+  vip_expires_at INTEGER DEFAULT 0, -- VIP 到期时间戳 (0 表示非 VIP, -1 表示永久)
+  concurrency_limit INTEGER DEFAULT 2, -- 该用户专属并发上限
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   status TEXT DEFAULT 'active' CHECK(status IN ('active', 'suspended'))
@@ -15,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_vip ON users(is_vip);
 
 -- 2. 会话记录表
 CREATE TABLE IF NOT EXISTS sessions (
@@ -34,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS usage_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  resource_type TEXT NOT NULL, -- chat, generation, topup
+  resource_type TEXT NOT NULL, -- chat, generation, topup, admin_topup, admin_refund
   model_id TEXT,
   tokens_used INTEGER,
   quota_cost INTEGER NOT NULL, -- 正数表示消耗，负数表示充值
@@ -52,8 +56,11 @@ CREATE TABLE IF NOT EXISTS server_models (
   kind TEXT NOT NULL CHECK(kind IN ('image', 'video', 'agent')),
   enabled INTEGER DEFAULT 1,
   provider TEXT,
+  route TEXT,
+  query_route TEXT,
   quota_cost_per_unit INTEGER NOT NULL,
   max_concurrency INTEGER DEFAULT 2,
+  vip_only INTEGER DEFAULT 0, -- 0: 全员可用, 1: 仅 VIP 会员可用
   config TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -96,4 +103,39 @@ VALUES
   ('CUSTOM_API_KEY', '', '自定义 / OneAPI 中转 API Key', 1, 1789700000000),
   ('CUSTOM_BASE_URL', '', '自定义 / OneAPI 中转 Base 地址', 0, 1789700000000),
   ('ADMIN_PASSWORD', 'admin123456', '网关可视化后台管理密码（请登录后及时修改）', 1, 1789700000000);
+
+-- 6. 模型动态分发路由表 (Route Table)
+CREATE TABLE IF NOT EXISTS model_routes (
+  model_id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  path TEXT,
+  query_path TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+-- 7. 运营通知与全员公告表
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT, -- NULL 或 '*' 表示全员广播；指定 user_id 表示专属私信
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  kind TEXT DEFAULT 'official' CHECK(kind IN ('official', 'activity')),
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+
+-- 预置全员上线公告
+INSERT OR IGNORE INTO notifications (id, user_id, title, content, kind, created_at)
+VALUES (
+  'notif-welcome',
+  '*',
+  '欢迎使用造境 Zora！',
+  '造境全新全球云端创作网关已就绪。所有官方模型与并发服务均已开启，快在工作台开启您的批量 AI 创作之旅吧！',
+  'official',
+  1789700000000
+);
+
 

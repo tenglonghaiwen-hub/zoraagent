@@ -8,7 +8,15 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute zora-db --file=./schema.sql"
+    "tail": "wrangler tail",
+    "db:create": "wrangler d1 create zora-db",
+    "db:init": "wrangler d1 execute zora-db --file=./schema.sql",
+    "db:remote:init": "wrangler d1 execute zora-db --remote --file=./schema.sql",
+    "db:local:init": "wrangler d1 execute zora-db --local --file=./schema.sql",
+    "secret:jwt": "wrangler secret put JWT_SECRET",
+    "secret:minimax": "wrangler secret put MINIMAX_API_KEY",
+    "secret:deepseek": "wrangler secret put DEEPSEEK_API_KEY",
+    "secret:openai": "wrangler secret put OPENAI_API_KEY"
   },
   "devDependencies": {
     "wrangler": "^3.114.0"

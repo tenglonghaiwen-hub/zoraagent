@@ -9,6 +9,7 @@ export function initLoginPage() {
   const emailInput = document.querySelector('#login-email');
   const passwordInput = document.querySelector('#login-password');
   const loginButton = document.querySelector('#login-submit');
+  const registerButton = document.querySelector('#login-register-btn');
   const demoButton = document.getElementById('enter-demo');
   const statusEl = document.querySelector('#login .login-status');
 
@@ -43,11 +44,12 @@ export function initLoginPage() {
 
     loginButton.disabled = true;
     loginButton.textContent = '登录中...';
-    showLoginStatus('正在登录...', 'info');
+    if (registerButton) registerButton.disabled = true;
+    showLoginStatus('正在连接造境云端网关登录...', 'info');
 
     try {
       const result = await login(email, password);
-      showLoginStatus(`登录成功！欢迎回来，${result.user.username || result.user.email}`, 'success');
+      showLoginStatus(`登录成功！欢迎回来，${result.user.username || result.user.email}（余额：${result.user.quotaBalance || result.user.balance || 0} 积分）`, 'success');
 
       // Synchronously refresh header user menu without needing full page reload
       initUserMenu();
@@ -59,8 +61,47 @@ export function initLoginPage() {
       showLoginStatus(error.message || '登录失败，请检查邮箱和密码', 'error');
       loginButton.disabled = false;
       loginButton.textContent = '登录';
+      if (registerButton) registerButton.disabled = false;
     }
   });
+
+  // Handle user registration
+  if (registerButton) {
+    registerButton.addEventListener('click', async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !email.includes('@')) {
+        showLoginStatus('注册请提供有效的电子邮箱地址', 'error');
+        emailInput.focus();
+        return;
+      }
+      if (!password || password.length < 6) {
+        showLoginStatus('注册密码长度至少为 6 个字符', 'error');
+        passwordInput.focus();
+        return;
+      }
+
+      registerButton.disabled = true;
+      registerButton.textContent = '注册中...';
+      if (loginButton) loginButton.disabled = true;
+      showLoginStatus('正在为您开通新账户并赠送初始积分...', 'info');
+
+      try {
+        const result = await register(email, password);
+        showLoginStatus(`注册成功！欢迎加入造境，赠送 ${(result.user && result.user.quotaBalance) || 100} 积分，正在进入工作台...`, 'success');
+        initUserMenu();
+        setTimeout(() => {
+          window.location.hash = '#studio';
+        }, 600);
+      } catch (error) {
+        showLoginStatus(error.message || '注册失败，请稍后重试', 'error');
+        registerButton.disabled = false;
+        registerButton.textContent = '注册账号';
+        if (loginButton) loginButton.disabled = false;
+      }
+    });
+  }
 
   // Keep demo mode
   if (demoButton) {
@@ -70,14 +111,20 @@ export function initLoginPage() {
   }
 
   // Autofill test account on clicking hint
-  const testHint = document.querySelector('#login .fine');
+  const testHint = document.querySelector('#test-account-hint') || document.querySelector('#login .fine');
   if (testHint) {
     testHint.style.cursor = 'pointer';
-    testHint.title = '点击一键填入测试账号';
+    testHint.title = '点击一键填入并直接登录';
     testHint.addEventListener('click', () => {
       emailInput.value = 'test@zora.local';
       passwordInput.value = 'test123';
-      showLoginStatus('已填入测试账号 (test@zora.local / test123)，点击登录即可', 'info');
+      showLoginStatus('已填入测试账号，正在自动登录...', 'info');
+      // Directly trigger form submit for maximum ease-of-use
+      if (typeof loginForm.requestSubmit === 'function') {
+        loginForm.requestSubmit();
+      } else {
+        loginButton.click();
+      }
     });
   }
 
@@ -325,39 +372,8 @@ export function initCreditsPanel() {
         `;
       }
 
-      // Add demo topup button if not present in #credits
-      const creditsTab = document.querySelector('#credits');
-      let topupBtn = document.querySelector('#demo-topup-btn');
-      if (!topupBtn && creditsTab) {
-        topupBtn = document.createElement('button');
-        topupBtn.id = 'demo-topup-btn';
-        topupBtn.className = 'button';
-        topupBtn.style.marginTop = '14px';
-        topupBtn.style.padding = '8px 16px';
-        topupBtn.style.cursor = 'pointer';
-        topupBtn.style.display = 'inline-block';
-        topupBtn.textContent = '【演示测试】补充 100 积分';
-        topupBtn.title = '演示环境模拟充值，用于开发测试闭环';
-        topupBtn.addEventListener('click', async () => {
-          topupBtn.disabled = true;
-          topupBtn.textContent = '充值中...';
-          try {
-            const res = await topupDemoQuota(100);
-            updateUserBalance(res.newBalance);
-            await refreshCreditsView();
-          } catch (e) {
-            alert(e.message || '充值失败');
-          } finally {
-            topupBtn.disabled = false;
-            topupBtn.textContent = '【演示测试】补充 100 积分';
-          }
-        });
-
-        const fieldset = creditsTab.querySelector('fieldset');
-        if (fieldset && fieldset.parentNode) {
-          fieldset.parentNode.insertBefore(topupBtn, fieldset.nextSibling);
-        }
-      }
+      // Initialize structured recharge tiers and checkout modal
+      initCheckoutSystem(refreshCreditsView);
     } catch (err) {
       console.warn('Failed to load usage logs:', err);
     }
@@ -369,4 +385,264 @@ export function initCreditsPanel() {
       setTimeout(refreshCreditsView, 100);
     });
   });
+
+  // Also bind checkout controls on first mount
+  initCheckoutSystem(refreshCreditsView);
+}
+
+let checkoutSystemBound = false;
+
+/**
+ * Initialize structured recharge tiers and demo checkout modal
+ */
+export function initCheckoutSystem(onRechargeSuccess = () => {}) {
+  if (checkoutSystemBound) return;
+  checkoutSystemBound = true;
+
+  let currentRecharge = {
+    amount: 10,
+    quota: 100,
+    gift: 0,
+    method: 'alipay'
+  };
+
+  let countdownInterval = null;
+
+  // 1. Recharge tier selection
+  const tierCards = document.querySelectorAll('.recharge-tier-card');
+  const customInput = document.querySelector('#recharge-custom-input');
+  const customCalc = document.querySelector('#recharge-custom-calc');
+
+  tierCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      tierCards.forEach((c) => c.classList.remove('active'));
+      card.classList.add('active');
+      if (customInput) customInput.value = '';
+
+      const amount = Number(card.dataset.amount) || 10;
+      const quota = Number(card.dataset.quota) || amount * 10;
+      const gift = Number(card.dataset.gift) || 0;
+
+      currentRecharge.amount = amount;
+      currentRecharge.quota = quota;
+      currentRecharge.gift = gift;
+
+      if (customCalc) {
+        customCalc.textContent = `预计获得：${quota + gift} 积分${gift > 0 ? ` (含赠送 ${gift} 分)` : ''}`;
+      }
+    });
+  });
+
+  // 2. Custom recharge amount input
+  if (customInput) {
+    customInput.addEventListener('input', () => {
+      const val = parseInt(customInput.value, 10);
+      if (!val || val <= 0) {
+        if (customCalc) customCalc.textContent = '预计获得：— 积分';
+        return;
+      }
+
+      tierCards.forEach((c) => c.classList.remove('active'));
+
+      const baseQuota = val * 10; // 1 元 = 10 积分
+      let gift = 0;
+      if (val >= 200) gift = 150;
+      else if (val >= 100) gift = 50;
+      else if (val >= 50) gift = 20;
+
+      currentRecharge.amount = val;
+      currentRecharge.quota = baseQuota;
+      currentRecharge.gift = gift;
+
+      if (customCalc) {
+        customCalc.textContent = `预计获得：${baseQuota + gift} 积分${gift > 0 ? ` (含赠送 ${gift} 分)` : ''}`;
+      }
+    });
+  }
+
+  // 3. Payment method radios
+  document.querySelectorAll('input[name="credit-payment"], input[name="wallet-payment"]').forEach((radio) => {
+    radio.addEventListener('change', (e) => {
+      currentRecharge.method = e.target.value;
+      // Synchronize radios across views
+      document.querySelectorAll(`input[name="credit-payment"][value="${e.target.value}"], input[name="wallet-payment"][value="${e.target.value}"]`).forEach((r) => {
+        r.checked = true;
+      });
+    });
+  });
+
+  // 4. Checkout Dialog Elements
+  const checkoutDialog = document.querySelector('#checkout-dialog');
+  const checkoutOrderId = document.querySelector('#checkout-order-id');
+  const checkoutPoints = document.querySelector('#checkout-points');
+  const checkoutMethodName = document.querySelector('#checkout-method-name');
+  const checkoutAmount = document.querySelector('#checkout-amount');
+  const checkoutTimer = document.querySelector('#checkout-timer');
+  const checkoutMainBody = document.querySelector('#checkout-main-body');
+  const checkoutSuccessView = document.querySelector('#checkout-success-view');
+  const checkoutSuccessDesc = document.querySelector('#checkout-success-desc');
+  const checkoutActionsBar = document.querySelector('#checkout-actions-bar');
+  const checkoutConfirmBtn = document.querySelector('#checkout-confirm-btn');
+  const checkoutCloseBtn = document.querySelector('#checkout-close');
+  const checkoutCancelBtn = document.querySelector('#checkout-cancel-btn');
+
+  function openCheckout() {
+    const user = getUser();
+    if (!user) {
+      alert('请先登录账户后再进行充值');
+      window.location.hash = '#login';
+      return;
+    }
+
+    if (!checkoutDialog) return;
+
+    // Reset view states
+    if (checkoutMainBody) checkoutMainBody.hidden = false;
+    if (checkoutActionsBar) checkoutActionsBar.hidden = false;
+    if (checkoutSuccessView) checkoutSuccessView.hidden = true;
+    if (checkoutConfirmBtn) {
+      checkoutConfirmBtn.disabled = false;
+      checkoutConfirmBtn.textContent = '模拟完成支付 (确认入账)';
+    }
+
+    // Populate order details
+    const orderNo = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+    if (checkoutOrderId) checkoutOrderId.textContent = orderNo;
+
+    const totalPoints = currentRecharge.quota + currentRecharge.gift;
+    if (checkoutPoints) {
+      checkoutPoints.textContent = `${totalPoints} 积分${currentRecharge.gift > 0 ? ` (含赠 ${currentRecharge.gift})` : ''}`;
+    }
+
+    const isWechat = currentRecharge.method === 'wechat';
+    if (checkoutMethodName) {
+      checkoutMethodName.textContent = isWechat ? '微信支付' : '支付宝';
+      checkoutMethodName.className = `value pay-badge ${isWechat ? 'wechat' : 'alipay'}`;
+    }
+
+    if (checkoutAmount) {
+      checkoutAmount.textContent = `￥${currentRecharge.amount.toFixed(2)}`;
+    }
+
+    // Start 5-minute mock countdown
+    let secondsLeft = 299;
+    if (countdownInterval) clearInterval(countdownInterval);
+    function updateCountdown() {
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+      const s = String(secondsLeft % 60).padStart(2, '0');
+      if (checkoutTimer) checkoutTimer.textContent = `${m}:${s}`;
+      if (secondsLeft <= 0) {
+        clearInterval(countdownInterval);
+      } else {
+        secondsLeft--;
+      }
+    }
+    updateCountdown();
+    countdownInterval = setInterval(updateCountdown, 1000);
+
+    // Open modal
+    if (typeof checkoutDialog.showModal === 'function') {
+      try {
+        checkoutDialog.showModal();
+      } catch {
+        checkoutDialog.hidden = false;
+      }
+    } else {
+      checkoutDialog.hidden = false;
+    }
+  }
+
+  function closeCheckout() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    if (!checkoutDialog) return;
+    if (typeof checkoutDialog.close === 'function') {
+      try {
+        checkoutDialog.close();
+      } catch {
+        checkoutDialog.hidden = true;
+      }
+    } else {
+      checkoutDialog.hidden = true;
+    }
+  }
+
+  // Bind Open Buttons
+  const openCheckoutBtn = document.querySelector('#btn-open-checkout');
+  if (openCheckoutBtn) {
+    openCheckoutBtn.addEventListener('click', openCheckout);
+  }
+
+  const walletQuickTopup = document.querySelector('#wallet-quick-topup');
+  if (walletQuickTopup) {
+    walletQuickTopup.addEventListener('click', () => {
+      const walletDialog = document.querySelector('#wallet');
+      if (walletDialog && typeof walletDialog.close === 'function') {
+        walletDialog.close();
+      }
+      openCheckout();
+    });
+  }
+
+  // Bind Close Buttons
+  if (checkoutCloseBtn) checkoutCloseBtn.addEventListener('click', closeCheckout);
+  if (checkoutCancelBtn) checkoutCancelBtn.addEventListener('click', closeCheckout);
+
+  // Bind Confirm Mock Payment
+  if (checkoutConfirmBtn) {
+    checkoutConfirmBtn.addEventListener('click', async () => {
+      checkoutConfirmBtn.disabled = true;
+      checkoutConfirmBtn.textContent = '入账处理中...';
+
+      try {
+        const totalPoints = currentRecharge.quota + currentRecharge.gift;
+        const res = await topupDemoQuota(totalPoints);
+
+        // Update balances everywhere
+        updateUserBalance(res.newBalance);
+
+        // Show success state
+        if (checkoutMainBody) checkoutMainBody.hidden = true;
+        if (checkoutActionsBar) checkoutActionsBar.hidden = true;
+        if (checkoutSuccessView) {
+          checkoutSuccessView.hidden = false;
+          if (checkoutSuccessDesc) {
+            checkoutSuccessDesc.textContent = `已成功充值 ${totalPoints} 积分，当前可用余额：${res.newBalance} 积分。`;
+          }
+        }
+
+        // Trigger parent ledger refresh
+        if (typeof onRechargeSuccess === 'function') {
+          onRechargeSuccess();
+        }
+
+        // Auto close after 1.6s
+        setTimeout(() => {
+          closeCheckout();
+        }, 1600);
+      } catch (err) {
+        alert(err.message || '模拟充值失败，请检查服务连接');
+        checkoutConfirmBtn.disabled = false;
+        checkoutConfirmBtn.textContent = '模拟完成支付 (确认入账)';
+      }
+    });
+  }
+
+  // Update wallet dialog status if opened
+  const walletDialog = document.querySelector('#wallet');
+  if (walletDialog) {
+    const statusEl = walletDialog.querySelector('#wallet-user-status');
+    const updateWalletStatus = () => {
+      const u = getUser();
+      if (statusEl) {
+        if (u) {
+          statusEl.textContent = `当前账户：${u.username || u.email} · 余额：${u.quotaBalance} 积分`;
+        } else {
+          statusEl.textContent = '当前未登录，暂无余额和消费记录。';
+        }
+      }
+    };
+    document.querySelectorAll('#wallet-open').forEach((wBtn) => {
+      wBtn.addEventListener('click', updateWalletStatus);
+    });
+  }
 }

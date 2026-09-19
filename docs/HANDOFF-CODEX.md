@@ -52,9 +52,23 @@
 | `D:\zora\data\` | 运行数据：`zora.db`（用户/配额/账本）、`codex-home`、`local-workflows` |
 | `D:\zora\tests\` | 自动化测试用例集（含认证、计费、原生沙箱、Worker 测试） |
 
-前端缓存戳（改动前端后务必递增）：当前 **`studio182+`**。
+前端缓存戳（改动前端后务必递增）：当前 **`studio187`**。
 
 本地 Node：`D:\zora\runtime\node-v24.21.0-win-x64\node.exe`
+
+---
+
+## 0.1 站长专属运营中台与开箱即用（2026-09-19 最新进展）
+针对“用户开箱即用、后台站长统一管控”的全球网关定位，完成 7 大模块交付与全面测试验证：
+1. **客户端零配置开箱即用**：普通用户启动即连官方全球云端网关，设置面板高亮展示「● 官方云服务畅通」，将网关选择收折为「高级开发者网关调试」折叠项；
+2. **消息中心与未读红点**：桌面端顶栏消息铃铛接入云端 `/api/messages`，支持未读红点实时提醒；
+3. **站长专属运营中台（Super Admin Console）**：
+   - **用户用量与 VIP 控制**：实时搜索过滤、VIP 期限设置（30天/90天/365天/永久/取消）、一键账号冻结与解冻；
+   - **充值与退费审计**：管理员一键增减积分，正数充值 `admin_topup`，负数退费 `admin_refund`，与服务端定点账本同构；
+   - **单人账本穿透**：弹窗穿透查询任意创作者的历史消费、充值与调用明细；
+   - **消息全员与定向推送**：支持全员公告 `*` 与个人私信实时推送，后台支持一键撤回；
+   - **VIP 专属模型控制**：支持将特定模型标记为 `👑 VIP 专属`；
+   - **服务商 API 密钥自检与动态路由映射**。
 
 ---
 
@@ -162,6 +176,10 @@
 | `zora.canvasCurrent.v1` | 当前打开的画布 ID |
 | `zora.canvasAgentSession.v1` | 画布右侧 Agent 独立会话（与主创作区会话物理隔离） |
 | `zora.canvasAgentRailCollapsed.v1` | 画布右侧 Agent 栏收起状态 |
+| `zora.gateway.mode.v1` | 服务网关模式：`local` (本地 127.0.0.1:4318) \| `cloud` (Cloudflare Worker) |
+| `zora.gateway.cloudUrl.v1` | 自定义 Cloudflare Worker 云网关地址 |
+| `zora.gateway.localUrl.v1` | 本地服务地址（默认 `http://127.0.0.1:4318`） |
+| `zora.api.base` | 当前生效的 API 请求基地址（`getApiBase()` 动态同步） |
 
 ---
 
@@ -172,19 +190,23 @@
 ```text
 [ ] 1. 验证 Node 环境与测试套件：
       & "D:\zora\runtime\node-v24.21.0-win-x64\node.exe" -v
-[ ] 2. 验证自动化测试：
+[ ] 2. 验证自动化测试（全量 37 项）：
       - tests/auth.test.mjs (用户认证与会话)
       - tests/quota-billing.test.mjs (配额预检与扣除)
       - tests/phase3-lifecycle.test.mjs (用量账本与全生命周期)
       - tests/native-runtime.test.mjs (原生工作区安全沙箱)
-      - tests/cloudflare-worker.test.mjs (Cloudflare Worker 网关与控制台)
+      - tests/cloudflare-worker.test.mjs (Cloudflare Worker 网关、连通性探测与控制台)
+      - tests/canvas-agent-node-interactivity.test.mjs (画布节点拖拽与插入联动)
+      - tests/gateway-switch.test.mjs (本地/云端网关动态切换与连通性测试)
+      - tests/demo-recharge.test.mjs (充值套餐计算、演示收银台与入账测试)
 [ ] 3. 启动本地服务并验证桌面端：
       - 执行 start-zora.cmd 或 node apps/server/server.mjs (默认端口 4318/4317)
       - 打开客户端，测试点击测试账号登录（test@zora.local / test123）
-      - 检查顶栏积分实时显示
-[ ] 4. 验证 Cloudflare Worker 控制台：
+      - 检查顶栏积分实时显示与收银台充值入账
+[ ] 4. 验证 Cloudflare Worker 控制台与网关切换：
+      - 客户端打开“设置”面板，切换至云端网关并点击“测试连接”
       - cd apps/cloudflare-worker
-      - npx wrangler dev (或者检查 admin-ui.mjs 布局)
+      - 详见部署与配置文档 docs/CLOUDFLARE-WORKER-DEPLOYMENT.md
 [ ] 5. 前端改动必须递增 studio 缓存版本号（index.html 中的 ?v=studioXXX）。
 ```
 
@@ -192,11 +214,26 @@
 
 ## 7. 下一步规划建议
 
-1. **画布 Agent 与生成结果节点化联动**：
-   - 画布 Agent 生成的图片/视频结果，支持一键“插入为画板节点”。
-2. **Cloudflare Worker 远程网关一键切换开关**：
-   - 在客户端设置面板中加入“云端远程网关 / 本地开发服务”一键切换切换开关。
-3. **微信/支付宝演示支付接入准备**：
-   - 现已提供演示充值接口，可进一步规划真实充值订单轮询逻辑（需在用户明确确认下执行）。
-4. **Electron 正式打包与签名**：
-   - 完善生产环境跨平台打包脚本与离线静态资源封装。
+1. **画布 Agent 与生成结果节点化联动**：【已完成 ✅ 2026-09-19】
+   - 支持在结果卡片上点击“⊞ 插入画板”/“⊞ 全部插入画板”。
+   - 支持从 Agent 结果拖拽（Drag & Drop）至画板精准生成 `res-image` / `res-video` 节点。
+   - 缓存戳升级至 `studio183`，新增 `tests/canvas-agent-node-interactivity.test.mjs` 全量通过。
+2. **Cloudflare Worker 远程云网关 / 本地开发服务 一键切换开关**：【已完成 ✅ 2026-09-19】
+   - 在客户端系统设置面板（`#settings`）中实现“本地服务 (127.0.0.1:4318) / 云端网关 (Cloudflare Worker)”一键切换药丸按钮。
+   - 支持自定义 Cloudflare Worker URL，支持一键连通性探测（实时统计 `/api/models` 响应延迟与可用模型数），支持打开 Admin 控制台。
+   - `auth.js` 统一接管 `getApiBase()` / `apiUrl()` 动态路由，无需重启客户端即时热生效。
+   - 静态资源版本升级至 `studio184`，新增自动化测试 `tests/gateway-switch.test.mjs`，全套 32 项自动化测试全部通过。
+3. **充值面板与演示支付全流程打通**：【已完成 ✅ 2026-09-19】
+   - 在客户端 `#credits` 和 `#wallet` 中实现阶梯充值套餐卡片（￥10、￥50、￥100、￥200及自定义金额）；
+   - 严格遵循 `1 元 = 10 积分` 定点账本；
+   - 打造高保真演示收银台模态框（`#checkout-dialog`），含订单号、动态二维码扫描动画、倒计时与合规警示横幅；
+   - 点击模拟支付即时调用 `/api/user/topup`，服务端记录 `usage_logs`，客户端广播刷新所有余额视图与明细表格；
+   - 升级缓存戳至 `studio185`，新增 `tests/demo-recharge.test.mjs`，全套 36 项测试全部通过。
+4. **Cloudflare Worker 真实多模型密钥配置与部署联调**：【已完成 ✅ 2026-09-19】
+   - 实现服务端提供商密钥连通性探测接口 `POST /api/admin/providers/test` 与代理核心方法 `testProviderConnectivity`。
+   - 支持 MiniMax 官方直连、DeepSeek、OpenAI、SiliconFlow、多元交叉及自定义反代端点的自检与网络延迟诊断。
+   - 在 Admin 可视化控制台（`admin-ui.mjs`）为各模型厂商提供一键「测试连通」按钮与毫秒级延迟指示。
+   - 编写完整的 0 成本部署与密钥配置指南 [CLOUDFLARE-WORKER-DEPLOYMENT.md](CLOUDFLARE-WORKER-DEPLOYMENT.md)。
+   - 升级 `tests/cloudflare-worker.test.mjs`，全套 37 项自动化测试全部通过。
+5. **Electron 正式打包与签名**：
+   - 完善生产环境跨平台打包脚本与离线静态资源封装（待用户下达明确打包指令）。

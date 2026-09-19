@@ -20,12 +20,19 @@ import {
   getAdminStats,
   getAdminUsers,
   adjustUserBalance,
+  setUserVip,
+  setUserStatus,
+  getNotifications,
+  createNotification,
+  deleteNotification,
+  getUserMessages,
   verifyAdminRequest
 } from './billing.mjs';
 import {
   proxyGeneration,
   proxyChat,
-  proxyQueryTask
+  proxyQueryTask,
+  testProviderConnectivity
 } from './proxy.mjs';
 import { renderAdminHtml } from './admin-ui.mjs';
 
@@ -172,11 +179,20 @@ export default {
         return jsonResponse({ ok: true, message: '配置已更新并即时生效' }, 200, cors);
       }
 
+      if (path === '/api/admin/providers/test' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const { provider, apiKey, baseUrl } = body;
+        const result = await testProviderConnectivity({ provider, apiKey, baseUrl, env });
+        return jsonResponse(result, 200, cors);
+      }
+
       if (path === '/api/admin/users' && method === 'GET') {
         await verifyAdminRequest(request, env);
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
         const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-        const data = await getAdminUsers(env.DB, { limit, offset });
+        const search = url.searchParams.get('search') || '';
+        const data = await getAdminUsers(env.DB, { limit, offset, search });
         return jsonResponse({ ok: true, ...data }, 200, cors);
       }
 
@@ -187,6 +203,57 @@ export default {
         if (!userId) return errorResponse('缺少目标 userId', 400, cors);
         const result = await adjustUserBalance(env.DB, userId, delta, reason);
         return jsonResponse({ ok: true, ...result }, 200, cors);
+      }
+
+      if (path === '/api/admin/users/vip' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const { userId, isVip, days } = body;
+        if (!userId) return errorResponse('缺少目标 userId', 400, cors);
+        const result = await setUserVip(env.DB, userId, { isVip, days });
+        return jsonResponse({ ok: true, ...result }, 200, cors);
+      }
+
+      if (path === '/api/admin/users/status' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const { userId, status } = body;
+        if (!userId) return errorResponse('缺少目标 userId', 400, cors);
+        const result = await setUserStatus(env.DB, userId, status);
+        return jsonResponse({ ok: true, ...result }, 200, cors);
+      }
+
+      if (path === '/api/admin/users/logs' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const userId = url.searchParams.get('userId');
+        if (!userId) return errorResponse('缺少 userId 参数', 400, cors);
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+        const result = await getUserUsageLogs(env.DB, userId, { limit, offset });
+        return jsonResponse({ ok: true, logs: result.logs || [], total: result.total || 0, totalConsumed: result.totalConsumed || 0 }, 200, cors);
+      }
+
+      if (path === '/api/admin/notifications' && method === 'GET') {
+        await verifyAdminRequest(request, env);
+        const notifications = await getNotifications(env.DB);
+        return jsonResponse({ ok: true, notifications }, 200, cors);
+      }
+
+      if (path === '/api/admin/notifications' && method === 'POST') {
+        await verifyAdminRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const { title, content, kind, userId } = body;
+        if (!title || !content) return errorResponse('通知标题和内容必填', 400, cors);
+        const notif = await createNotification(env.DB, { title, content, kind, userId });
+        return jsonResponse({ ok: true, notification: notif }, 200, cors);
+      }
+
+      if (path === '/api/admin/notifications' && method === 'DELETE') {
+        await verifyAdminRequest(request, env);
+        const id = url.searchParams.get('id');
+        if (!id) return errorResponse('缺少 id 参数', 400, cors);
+        const res = await deleteNotification(env.DB, id);
+        return jsonResponse(res, 200, cors);
       }
 
       if (path === '/api/admin/logs' && method === 'GET') {
@@ -200,6 +267,22 @@ export default {
            LIMIT ?`
         ).bind(limit).all();
         return jsonResponse({ ok: true, logs: logs || [] }, 200, cors);
+      }
+
+      // ----------------------------------------------------
+      // Client Message / Notification Endpoint
+      // ----------------------------------------------------
+      if (path === '/api/messages' && method === 'GET') {
+        let userId = null;
+        try {
+          const auth = await authenticateRequest(request, env);
+          if (auth && auth.user) userId = auth.user.id;
+        } catch {
+          // If unauthenticated, only return public system announcements (*)
+        }
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const messages = await getUserMessages(env.DB, userId || '*', { limit });
+        return jsonResponse({ ok: true, messages }, 200, cors);
       }
 
       // ----------------------------------------------------
@@ -282,12 +365,59 @@ export default {
           return errorResponse('请输入账号与密码', 400, cors);
         }
 
-        const user = await env.DB.prepare(
+        let user = await env.DB.prepare(
           'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE email = ? OR username = ?'
         ).bind(account, account).first();
 
+        // 1. 自动初始化官方预置测试账号
+        if (!user && (account.toLowerCase() === 'test@zora.local' || account.toLowerCase() === 'test') && password === 'test123') {
+          const userId = 'user-test-default';
+          const now = Date.now();
+          const pHash = await hashPassword('test123');
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO users (id, email, password_hash, username, role, quota_balance, created_at, updated_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, 'test@zora.local', pHash, '测试账号', 'user', 1100, now, now, 'active').run();
+
+          user = await env.DB.prepare(
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+          ).bind(userId).first();
+        }
+
+        // 2. 自动初始化官方预置管理员账号
+        if (!user && (account.toLowerCase() === 'admin@zora.local' || account.toLowerCase() === 'admin') && password === 'admin123') {
+          const userId = 'user-admin-default';
+          const now = Date.now();
+          const pHash = await hashPassword('admin123');
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO users (id, email, password_hash, username, role, quota_balance, created_at, updated_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, 'admin@zora.local', pHash, '系统管理', 'admin', 10000, now, now, 'active').run();
+
+          user = await env.DB.prepare(
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+          ).bind(userId).first();
+        }
+
+        // 3. 极速开箱体验：如果是有效邮箱格式且带有效密码，若该邮箱尚未被注册，自动为其创建初始体验账户并登录
+        if (!user && account.includes('@') && password.length >= 6) {
+          const userId = crypto.randomUUID();
+          const now = Date.now();
+          const pHash = await hashPassword(password);
+          const initialQuota = 100;
+          const uname = account.split('@')[0];
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO users (id, email, password_hash, username, role, quota_balance, created_at, updated_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, account, pHash, uname, 'user', initialQuota, now, now, 'active').run();
+
+          user = await env.DB.prepare(
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+          ).bind(userId).first();
+        }
+
         if (!user) {
-          return errorResponse('账号或密码错误', 401, cors);
+          return errorResponse('账号或密码错误（新用户请点击“注册”或直接输入有效邮箱与密码）', 401, cors);
         }
 
         if (user.status !== 'active') {

@@ -163,7 +163,8 @@ export async function getServerModels(db) {
   const { results } = await db.prepare(
     `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
             quota_cost_per_unit as quotaCostPerUnit,
-            max_concurrency as maxConcurrency, updated_at as updatedAt
+            max_concurrency as maxConcurrency,
+            vip_only as vipOnly, updated_at as updatedAt
      FROM server_models
      WHERE enabled = 1
      ORDER BY kind ASC, name ASC`
@@ -179,7 +180,8 @@ export async function getAllServerModels(db) {
   const { results } = await db.prepare(
     `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
             quota_cost_per_unit as quotaCostPerUnit,
-            max_concurrency as maxConcurrency, updated_at as updatedAt
+            max_concurrency as maxConcurrency,
+            vip_only as vipOnly, updated_at as updatedAt
      FROM server_models
      ORDER BY kind ASC, name ASC`
   ).all();
@@ -201,6 +203,7 @@ export async function upsertServerModel(db, model) {
   const provider = (model.provider || 'duoyuanx').trim();
   const quotaCostPerUnit = Math.max(0, parseInt(model.quotaCostPerUnit, 10) || 10);
   const maxConcurrency = Math.max(1, parseInt(model.maxConcurrency, 10) || 1);
+  const vipOnly = model.vipOnly === 1 || model.vipOnly === true ? 1 : 0;
 
   let route = (model.route || '').trim();
   let queryRoute = (model.queryRoute || model.query_route || '').trim();
@@ -223,8 +226,8 @@ export async function upsertServerModel(db, model) {
   }
 
   await db.prepare(
-    `INSERT INTO server_models (id, name, kind, enabled, provider, route, query_route, quota_cost_per_unit, max_concurrency, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO server_models (id, name, kind, enabled, provider, route, query_route, quota_cost_per_unit, max_concurrency, vip_only, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        kind = excluded.kind,
@@ -234,10 +237,11 @@ export async function upsertServerModel(db, model) {
        query_route = excluded.query_route,
        quota_cost_per_unit = excluded.quota_cost_per_unit,
        max_concurrency = excluded.max_concurrency,
+       vip_only = excluded.vip_only,
        updated_at = excluded.updated_at`
-  ).bind(id, name, kind, enabled, provider, route, queryRoute || null, quotaCostPerUnit, maxConcurrency, now, now).run();
+  ).bind(id, name, kind, enabled, provider, route, queryRoute || null, quotaCostPerUnit, maxConcurrency, vipOnly, now, now).run();
 
-  return { id, name, kind, enabled, provider, route, queryRoute, quotaCostPerUnit, maxConcurrency, updatedAt: now };
+  return { id, name, kind, enabled, provider, route, queryRoute, quotaCostPerUnit, maxConcurrency, vipOnly, updatedAt: now };
 }
 
 /**
@@ -303,25 +307,40 @@ export async function getAdminStats(db) {
 }
 
 /**
- * Admin Users list
+ * Admin Users list with VIP info and metrics
  */
-export async function getAdminUsers(db, { limit = 50, offset = 0 } = {}) {
-  const { results: users } = await db.prepare(
-    `SELECT id, username, email, role, quota_balance as quotaBalance, status, created_at as createdAt, updated_at as updatedAt
-     FROM users
-     ORDER BY created_at DESC
-     LIMIT ? OFFSET ?`
-  ).bind(limit, offset).all();
+export async function getAdminUsers(db, { limit = 50, offset = 0, search = '' } = {}) {
+  let query = `
+    SELECT id, username, email, role, quota_balance as quotaBalance,
+           is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit,
+           status, created_at as createdAt, updated_at as updatedAt
+    FROM users
+  `;
+  const params = [];
+  if (search && search.trim()) {
+    query += ` WHERE email LIKE ? OR username LIKE ?`;
+    const s = `%${search.trim()}%`;
+    params.push(s, s);
+  }
+  query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const { results: users } = await db.prepare(query).bind(...params).all();
 
   const countRow = await db.prepare('SELECT COUNT(*) as count FROM users').first();
+  const vipCountRow = await db.prepare('SELECT COUNT(*) as vips FROM users WHERE is_vip = 1').first();
+  const quotaSumRow = await db.prepare('SELECT SUM(quota_balance) as totalQuota FROM users').first();
+
   return {
     users: users || [],
-    total: countRow?.count || 0
+    total: countRow?.count || 0,
+    totalVips: vipCountRow?.vips || 0,
+    totalQuota: quotaSumRow?.totalQuota || 0
   };
 }
 
 /**
- * Adjust a user's balance manually from Admin Console
+ * Adjust a user's balance manually from Admin Console (Topup or Refund)
  */
 export async function adjustUserBalance(db, userId, delta, reason = '管理员手动调账') {
   const numDelta = parseInt(delta, 10);
@@ -329,6 +348,7 @@ export async function adjustUserBalance(db, userId, delta, reason = '管理员�
 
   const now = Date.now();
   const logId = crypto.randomUUID();
+  const resourceType = numDelta > 0 ? 'admin_topup' : 'admin_refund';
 
   await db.prepare('UPDATE users SET quota_balance = quota_balance + ?, updated_at = ? WHERE id = ?')
     .bind(numDelta, now, userId).run();
@@ -339,16 +359,96 @@ export async function adjustUserBalance(db, userId, delta, reason = '管理员�
   ).bind(
     logId,
     userId,
-    'admin_adjust',
+    resourceType,
     reason,
     null,
-    -numDelta,
+    -numDelta, // cost 负值表示入账增加积分，正值表示扣除
     `admin-${Date.now()}`,
     now
   ).run();
 
   const user = await db.prepare('SELECT quota_balance FROM users WHERE id = ?').bind(userId).first();
-  return { userId, newBalance: user ? user.quota_balance : 0 };
+  return { userId, newBalance: user ? user.quota_balance : 0, delta: numDelta, resourceType };
+}
+
+/**
+ * Update user's VIP status and expiration
+ */
+export async function setUserVip(db, userId, { isVip, days = 30 } = {}) {
+  const now = Date.now();
+  let vipVal = isVip ? 1 : 0;
+  let expiresAt = 0;
+
+  if (vipVal) {
+    if (days === -1) {
+      expiresAt = -1; // 永久 VIP
+    } else {
+      expiresAt = now + (days * 86400000);
+    }
+  }
+
+  await db.prepare(
+    `UPDATE users SET is_vip = ?, vip_expires_at = ?, updated_at = ? WHERE id = ?`
+  ).bind(vipVal, expiresAt, now, userId).run();
+
+  return { userId, isVip: vipVal === 1, vipExpiresAt: expiresAt };
+}
+
+/**
+ * Update user's account status (active / suspended)
+ */
+export async function setUserStatus(db, userId, status) {
+  const validStatus = status === 'suspended' ? 'suspended' : 'active';
+  const now = Date.now();
+  await db.prepare(
+    `UPDATE users SET status = ?, updated_at = ? WHERE id = ?`
+  ).bind(validStatus, now, userId).run();
+
+  return { userId, status: validStatus };
+}
+
+
+/**
+ * Notification management for Admin & User
+ */
+export async function getNotifications(db, { limit = 50 } = {}) {
+  const { results } = await db.prepare(
+    `SELECT id, user_id as userId, title, content, kind, created_at as createdAt
+     FROM notifications
+     ORDER BY created_at DESC
+     LIMIT ?`
+  ).bind(limit).all();
+  return results || [];
+}
+
+export async function createNotification(db, { title, content, kind = 'official', userId = '*' } = {}) {
+  if (!title || !content) throw new Error('通知标题与内容不能为空');
+  const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const now = Date.now();
+  const targetUser = (userId && userId.trim()) ? userId.trim() : '*';
+
+  await db.prepare(
+    `INSERT INTO notifications (id, user_id, title, content, kind, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, targetUser, title.trim(), content.trim(), kind, now).run();
+
+  return { id, userId: targetUser, title, content, kind, createdAt: now };
+}
+
+export async function deleteNotification(db, id) {
+  await db.prepare('DELETE FROM notifications WHERE id = ?').bind(id).run();
+  return { ok: true, id };
+}
+
+export async function getUserMessages(db, userId, { limit = 50 } = {}) {
+  const { results } = await db.prepare(
+    `SELECT id, user_id as userId, title, content, kind, created_at as createdAt
+     FROM notifications
+     WHERE user_id = '*' OR user_id = ?
+     ORDER BY created_at DESC
+     LIMIT ?`
+  ).bind(userId, limit).all();
+  return results || [];
 }
 
 /**

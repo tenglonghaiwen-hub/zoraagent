@@ -10,6 +10,7 @@ function createMockD1() {
   const users = new Map();
   const sessions = new Map();
   const usageLogs = [];
+  const notifications = [];
   const systemConfigs = new Map([
     ['ADMIN_PASSWORD', { key: 'ADMIN_PASSWORD', value: 'admin123456', description: 'Admin Password', isSecret: 1, updatedAt: Date.now() }],
     ['DUOYUANX_BASE_URL', { key: 'DUOYUANX_BASE_URL', value: 'https://duoyuanx.com', description: 'Base URL', isSecret: 0, updatedAt: Date.now() }],
@@ -18,10 +19,10 @@ function createMockD1() {
     ['MINIMAX_BASE_URL', { key: 'MINIMAX_BASE_URL', value: 'https://api.minimax.cn', description: 'MiniMax Base', isSecret: 0, updatedAt: Date.now() }]
   ]);
   const serverModels = [
-    { id: 'flux-schnell', name: 'Flux Schnell', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 10, max_concurrency: 4, created_at: Date.now(), updated_at: Date.now() },
-    { id: 'flux-dev', name: 'Flux Dev', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 20, max_concurrency: 2, created_at: Date.now(), updated_at: Date.now() },
-    { id: 'gpt-5.5', name: 'GPT 5.5', kind: 'agent', enabled: 1, provider: 'openai', quota_cost_per_unit: 1, max_concurrency: 1, created_at: Date.now(), updated_at: Date.now() },
-    { id: 'MiniMax-H3', name: 'MiniMax H3', kind: 'video', enabled: 1, provider: 'minimax', quota_cost_per_unit: 100, max_concurrency: 2, created_at: Date.now(), updated_at: Date.now() }
+    { id: 'flux-schnell', name: 'Flux Schnell', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 10, max_concurrency: 4, vip_only: 0, created_at: Date.now(), updated_at: Date.now() },
+    { id: 'flux-dev', name: 'Flux Dev', kind: 'image', enabled: 1, provider: 'duoyuanx', quota_cost_per_unit: 20, max_concurrency: 2, vip_only: 0, created_at: Date.now(), updated_at: Date.now() },
+    { id: 'gpt-5.5', name: 'GPT 5.5', kind: 'agent', enabled: 1, provider: 'openai', quota_cost_per_unit: 1, max_concurrency: 1, vip_only: 1, created_at: Date.now(), updated_at: Date.now() },
+    { id: 'MiniMax-H3', name: 'MiniMax H3', kind: 'video', enabled: 1, provider: 'minimax', quota_cost_per_unit: 100, max_concurrency: 2, vip_only: 0, created_at: Date.now(), updated_at: Date.now() }
   ];
 
   function createStatement(query, boundArgs = []) {
@@ -74,6 +75,9 @@ function createMockD1() {
         role: role || 'user',
         quota_balance,
         quotaBalance: quota_balance,
+        is_vip: 0,
+        vip_expires_at: 0,
+        concurrency_limit: 2,
         created_at,
         updated_at,
         status: status || 'active'
@@ -108,6 +112,31 @@ function createMockD1() {
       if (u) {
         u.quota_balance += add;
         u.quotaBalance = u.quota_balance;
+        u.updated_at = now;
+      }
+      return [];
+    }
+
+    // 6.1 UPDATE users VIP
+    if (q.includes('UPDATE users SET is_vip = ?')) {
+      const [is_vip, vip_expires_at, now, id] = args;
+      const u = users.get(id);
+      if (u) {
+        u.is_vip = is_vip;
+        u.isVip = is_vip;
+        u.vip_expires_at = vip_expires_at;
+        u.vipExpiresAt = vip_expires_at;
+        u.updated_at = now;
+      }
+      return [];
+    }
+
+    // 6.2 UPDATE users status
+    if (q.includes('UPDATE users SET status = ?')) {
+      const [status, now, id] = args;
+      const u = users.get(id);
+      if (u) {
+        u.status = status;
         u.updated_at = now;
       }
       return [];
@@ -172,7 +201,28 @@ function createMockD1() {
       return [];
     }
 
-    // 11. Server models
+    // 11. Notifications
+    if (q.startsWith('INSERT INTO notifications')) {
+      const [id, user_id, title, content, kind, created_at] = args;
+      notifications.push({ id, user_id, userId: user_id, title, content, kind, created_at, createdAt: created_at });
+      return [];
+    }
+    if (q.includes('FROM notifications') && q.includes("user_id = '*' OR user_id = ?")) {
+      const [targetUser, limit] = args;
+      return notifications.filter(n => n.user_id === '*' || n.user_id === targetUser).slice(0, limit);
+    }
+    if (q.includes('FROM notifications') && q.includes('ORDER BY created_at DESC') && q.includes('LIMIT ?')) {
+      const [limit] = args;
+      return notifications.slice(0, limit);
+    }
+    if (q.startsWith('DELETE FROM notifications WHERE id = ?')) {
+      const [id] = args;
+      const idx = notifications.findIndex(n => n.id === id);
+      if (idx >= 0) notifications.splice(idx, 1);
+      return [];
+    }
+
+    // 12. Server models
     if (q.includes('FROM server_models') && q.includes('WHERE enabled = 1')) {
       return serverModels.filter(m => m.enabled === 1).map(m => ({
         id: m.id,
@@ -182,6 +232,8 @@ function createMockD1() {
         provider: m.provider,
         quotaCostPerUnit: m.quota_cost_per_unit,
         maxConcurrency: m.max_concurrency,
+        vipOnly: m.vip_only || 0,
+        vip_only: m.vip_only || 0,
         updatedAt: m.updated_at
       }));
     }
@@ -195,14 +247,21 @@ function createMockD1() {
         provider: m.provider,
         quotaCostPerUnit: m.quota_cost_per_unit,
         maxConcurrency: m.max_concurrency,
+        vipOnly: m.vip_only || 0,
+        vip_only: m.vip_only || 0,
         updatedAt: m.updated_at
       }));
     }
 
     if (q.startsWith('INSERT INTO server_models')) {
-      const [id, name, kind, enabled, provider, quota_cost_per_unit, max_concurrency, created_at, updated_at] = args;
+      let id, name, kind, enabled, provider, route, queryRoute, quota_cost_per_unit, max_concurrency, vip_only, created_at, updated_at;
+      if (args.length >= 10) {
+        [id, name, kind, enabled, provider, route, queryRoute, quota_cost_per_unit, max_concurrency, vip_only, created_at, updated_at] = args;
+      } else {
+        [id, name, kind, enabled, provider, quota_cost_per_unit, max_concurrency, created_at, updated_at] = args;
+      }
       const existingIdx = serverModels.findIndex(m => m.id === id);
-      const model = { id, name, kind, enabled, provider, quota_cost_per_unit, max_concurrency, created_at, updated_at };
+      const model = { id, name, kind, enabled, provider, route, queryRoute, quota_cost_per_unit, max_concurrency, vip_only: vip_only || 0, created_at, updated_at };
       if (existingIdx >= 0) {
         serverModels[existingIdx] = model;
       } else {
@@ -226,11 +285,13 @@ function createMockD1() {
         provider: m.provider,
         enabled: m.enabled,
         unitCost: m.quota_cost_per_unit,
-        quota_cost_per_unit: m.quota_cost_per_unit
+        quota_cost_per_unit: m.quota_cost_per_unit,
+        vipOnly: m.vip_only || 0,
+        vip_only: m.vip_only || 0
       }] : [];
     }
 
-    // 12. System configs
+    // 13. System configs
     if (q.includes('SELECT value FROM system_configs WHERE key = ?')) {
       const c = systemConfigs.get(args[0]);
       return c ? [{ value: c.value }] : [];
@@ -246,17 +307,40 @@ function createMockD1() {
       return [];
     }
 
-    // 13. Admin stats & users
+    // 14. Admin stats & users
     if (q.includes('COUNT(*) as userCount')) {
-      return [{ userCount: users.size, totalBalance: Array.from(users.values()).reduce((a, b) => a + b.quota_balance, 0) }];
+      return [{
+        userCount: users.size,
+        totalBalance: Array.from(users.values()).reduce((a, b) => a + (b.quota_balance || 0), 0),
+        vipCount: Array.from(users.values()).filter(u => u.is_vip === 1).length
+      }];
+    }
+    if (q.includes('COUNT(*) as vips FROM users WHERE is_vip = 1')) {
+      return [{ vips: Array.from(users.values()).filter(u => u.is_vip === 1).length }];
+    }
+    if (q.includes('SUM(quota_balance) as totalQuota FROM users')) {
+      return [{ totalQuota: Array.from(users.values()).reduce((acc, u) => acc + (u.quota_balance || 0), 0) }];
     }
     if (q.includes('COUNT(*) as modelCount FROM server_models')) {
       return [{ modelCount: serverModels.filter(m => m.enabled === 1).length }];
     }
-    if (q.includes('FROM users') && q.includes('ORDER BY created_at DESC LIMIT ? OFFSET ?')) {
-      const [limit, offset] = args;
-      const allUsers = Array.from(users.values());
-      return allUsers.slice(offset, offset + limit);
+    if (q.includes('FROM users') && q.includes('LIMIT ? OFFSET ?')) {
+      const limit = args[args.length - 2];
+      const offset = args[args.length - 1];
+      let allUsers = Array.from(users.values());
+      if (args.length > 2) {
+        const s = (args[0] || '').replace(/%/g, '').toLowerCase();
+        allUsers = allUsers.filter(u => (u.email && u.email.toLowerCase().includes(s)) || (u.username && u.username.toLowerCase().includes(s)));
+      }
+      return allUsers.slice(offset, offset + limit).map(u => ({
+        ...u,
+        quotaBalance: u.quota_balance,
+        isVip: u.is_vip || 0,
+        vipExpiresAt: u.vip_expires_at || 0,
+        concurrencyLimit: u.concurrency_limit || 2,
+        createdAt: u.created_at,
+        updatedAt: u.updated_at
+      }));
     }
     if (q.includes('COUNT(*) as count FROM users')) {
       return [{ count: users.size }];
@@ -705,5 +789,346 @@ test('Cloudflare Worker - Multi-Provider & MiniMax Official Direct Routing Test'
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('Cloudflare Worker - Provider Connectivity Testing & Admin Probe API', async () => {
+  const d1 = createMockD1();
+  const env = {
+    DB: d1,
+    JWT_SECRET: 'test-connectivity-secret',
+    MINIMAX_API_KEY: 'env-fallback-key',
+    OPENAI_API_KEY: ''
+  };
+
+  const adminToken = await (await import('../apps/cloudflare-worker/src/auth.mjs')).signJwt(
+    { role: 'admin' },
+    env.JWT_SECRET,
+    3600
+  );
+
+  const originalFetch = globalThis.fetch;
+  try {
+    // Mock upstream probes
+    globalThis.fetch = async (url, options) => {
+      const urlStr = String(url);
+      const authHeader = options?.headers?.Authorization || '';
+
+      // Test 1: MiniMax upstream probe success
+      if (urlStr.includes('api.minimax.cn/v1/models')) {
+        if (authHeader.includes('valid-minimax-key')) {
+          return new Response(JSON.stringify({
+            data: [{ id: 'MiniMax-H3' }, { id: 'MiniMax-Text' }]
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({
+          error: { message: 'Invalid API Key' }
+        }), { status: 401 });
+      }
+
+      // Test 2: DeepSeek upstream probe
+      if (urlStr.includes('api.deepseek.com/models')) {
+        return new Response(JSON.stringify({
+          data: [{ id: 'deepseek-chat' }, { id: 'deepseek-coder' }]
+        }), { status: 200 });
+      }
+
+      return originalFetch(url, options);
+    };
+
+    // 1. Probe with valid key passed in payload
+    const testRes1 = await worker.fetch(new Request('http://localhost/api/admin/providers/test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        provider: 'minimax',
+        apiKey: 'valid-minimax-key'
+      })
+    }), env);
+
+    assert.equal(testRes1.status, 200);
+    const testData1 = await testRes1.json();
+    assert.equal(testData1.ok, true);
+    assert.equal(testData1.provider, 'minimax');
+    assert.equal(testData1.modelCount, 2);
+    assert.ok(testData1.latency >= 0);
+
+    // 2. Probe with invalid key (should report error with HTTP 401 status in payload)
+    const testRes2 = await worker.fetch(new Request('http://localhost/api/admin/providers/test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        provider: 'minimax',
+        apiKey: 'bad-minimax-key'
+      })
+    }), env);
+
+    assert.equal(testRes2.status, 200);
+    const testData2 = await testRes2.json();
+    assert.equal(testData2.ok, false);
+    assert.equal(testData2.status, 401);
+    assert.equal(testData2.error, 'Invalid API Key');
+
+    // 3. Probe with no key provided and none in DB or env (e.g. OpenAI)
+    const testRes3 = await worker.fetch(new Request('http://localhost/api/admin/providers/test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        provider: 'openai'
+      })
+    }), env);
+
+    assert.equal(testRes3.status, 200);
+    const testData3 = await testRes3.json();
+    assert.equal(testData3.ok, false);
+    assert.equal(testData3.status, 400);
+    assert.match(testData3.error, /未配置/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Cloudflare Worker - VIP Status, Manual Topup/Refund, Single User Ledger & Notifications Hub', async () => {
+  const mockDb = createMockD1();
+  const env = {
+    DB: mockDb,
+    JWT_SECRET: 'test-jwt-secret-vip-notifications-hub-test',
+    ADMIN_PASSWORD: 'admin123456'
+  };
+
+  // 1. Log in as admin
+  const loginRes = await worker.fetch(new Request('http://localhost/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: 'admin123456' })
+  }), env);
+  assert.equal(loginRes.status, 200);
+  const { token: adminToken } = await loginRes.json();
+  assert.ok(adminToken);
+
+  // 2. Register a standard user
+  const regRes = await worker.fetch(new Request('http://localhost/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'creator_vip@test.com',
+      password: 'StrongPassWord123!',
+      username: 'vip_creator'
+    })
+  }), env);
+  assert.equal(regRes.status, 201);
+  const regData = await regRes.json();
+  const targetUserId = regData.user.id;
+  assert.ok(targetUserId);
+
+  // 3. User initially has default quota (100) and is not VIP
+  const usersRes1 = await worker.fetch(new Request('http://localhost/api/admin/users?search=vip_creator', {
+    headers: { 'Authorization': `Bearer ${adminToken}` }
+  }), env);
+  assert.equal(usersRes1.status, 200);
+  const usersData1 = await usersRes1.json();
+  assert.equal(usersData1.users.length, 1);
+  assert.equal(usersData1.users[0].isVip, 0);
+  assert.equal(usersData1.users[0].quotaBalance, 100);
+
+  // 4. Admin grants VIP (30 days) to user
+  const vipRes = await worker.fetch(new Request('http://localhost/api/admin/users/vip', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      isVip: true,
+      days: 30
+    })
+  }), env);
+  assert.equal(vipRes.status, 200);
+  const vipData = await vipRes.json();
+  assert.equal(vipData.ok, true);
+  assert.equal(vipData.isVip, true);
+  assert.ok(vipData.vipExpiresAt > Date.now());
+
+  // 5. Admin tops up user quota (+500 points)
+  const topupRes = await worker.fetch(new Request('http://localhost/api/admin/users/adjust-balance', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      delta: 500,
+      reason: '新春创作者赠送'
+    })
+  }), env);
+  assert.equal(topupRes.status, 200);
+  const topupData = await topupRes.json();
+  assert.equal(topupData.ok, true);
+  assert.equal(topupData.newBalance, 600);
+  assert.equal(topupData.resourceType, 'admin_topup');
+
+  // 6. Admin refunds user quota (-150 points)
+  const refundRes = await worker.fetch(new Request('http://localhost/api/admin/users/adjust-balance', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      delta: -150,
+      reason: '错误扣点冲正退款'
+    })
+  }), env);
+  assert.equal(refundRes.status, 200);
+  const refundData = await refundRes.json();
+  assert.equal(refundData.ok, true);
+  assert.equal(refundData.newBalance, 450);
+  assert.equal(refundData.resourceType, 'admin_refund');
+
+  // 7. Admin queries single user ledger logs
+  const logsRes = await worker.fetch(new Request(`http://localhost/api/admin/users/logs?userId=${targetUserId}`, {
+    headers: { 'Authorization': `Bearer ${adminToken}` }
+  }), env);
+  assert.equal(logsRes.status, 200);
+  const logsData = await logsRes.json();
+  assert.equal(logsData.ok, true);
+  assert.ok(logsData.logs.length >= 2);
+  assert.ok(logsData.logs.some(l => l.resourceType === 'admin_topup'));
+  assert.ok(logsData.logs.some(l => l.resourceType === 'admin_refund'));
+
+  // 8. Admin manages user account status (Freeze & Unfreeze)
+  const suspendRes = await worker.fetch(new Request('http://localhost/api/admin/users/status', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      status: 'suspended'
+    })
+  }), env);
+  assert.equal(suspendRes.status, 200);
+  const suspendData = await suspendRes.json();
+  assert.equal(suspendData.ok, true);
+  assert.equal(suspendData.status, 'suspended');
+
+  // Unfreeze
+  const activeRes = await worker.fetch(new Request('http://localhost/api/admin/users/status', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      status: 'active'
+    })
+  }), env);
+  assert.equal(activeRes.status, 200);
+  const activeData = await activeRes.json();
+  assert.equal(activeData.status, 'active');
+
+  // 9. Notifications Hub: Broadcast & Targeted Push
+  // 9.1 Send Global Broadcast
+  const broadcastRes = await worker.fetch(new Request('http://localhost/api/admin/notifications', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: '*',
+      kind: 'official',
+      title: '造境全网服务升级公告',
+      content: '全新全球云端网关上线，支持开箱即用。'
+    })
+  }), env);
+  assert.equal(broadcastRes.status, 200);
+  const broadcastData = await broadcastRes.json();
+  assert.equal(broadcastData.ok, true);
+  const broadcastId = broadcastData.notification.id;
+  assert.ok(broadcastId);
+
+  // 9.2 Send Targeted Private Notification to targetUserId
+  const privateRes = await worker.fetch(new Request('http://localhost/api/admin/notifications', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      userId: targetUserId,
+      kind: 'activity',
+      title: '恭喜获得尊贵 VIP 体验资格',
+      content: '您的 VIP 会员特权已开通，畅享 VIP 专属模型与高并发。'
+    })
+  }), env);
+  assert.equal(privateRes.status, 200);
+  const privateData = await privateRes.json();
+  assert.equal(privateData.ok, true);
+
+  // 9.3 Client pulls messages
+  // Anonymous client should receive broadcast only
+  const anonMsgRes = await worker.fetch(new Request('http://localhost/api/messages'), env);
+  assert.equal(anonMsgRes.status, 200);
+  const anonMsgData = await anonMsgRes.json();
+  assert.equal(anonMsgData.ok, true);
+  assert.ok(anonMsgData.messages.some(m => m.id === broadcastId));
+  assert.ok(!anonMsgData.messages.some(m => m.id === privateData.notification.id));
+
+  // Logged-in user should receive both broadcast and private message
+  const userToken = regData.token;
+  const userMsgRes = await worker.fetch(new Request('http://localhost/api/messages', {
+    headers: { 'Authorization': `Bearer ${userToken}` }
+  }), env);
+  const userMsgData = await userMsgRes.json();
+  assert.equal(userMsgData.ok, true);
+  assert.ok(userMsgData.messages.some(m => m.id === broadcastId));
+  assert.ok(userMsgData.messages.some(m => m.id === privateData.notification.id));
+
+  // 9.4 Admin revokes/deletes broadcast notification
+  const deleteNotifRes = await worker.fetch(new Request(`http://localhost/api/admin/notifications?id=${broadcastId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${adminToken}` }
+  }), env);
+  assert.equal(deleteNotifRes.status, 200);
+  const deleteNotifData = await deleteNotifRes.json();
+  assert.equal(deleteNotifData.ok, true);
+
+  // Verify client no longer receives deleted notification
+  const anonMsgRes2 = await worker.fetch(new Request('http://localhost/api/messages'), env);
+  const anonMsgData2 = await anonMsgRes2.json();
+  assert.ok(!anonMsgData2.messages.some(m => m.id === broadcastId));
+});
+
+test('Client UI - Out-of-the-Box Setup & Messages Red Dot Integration', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const ROOT = path.resolve(import.meta.dirname, '..');
+
+  const html = fs.readFileSync(path.join(ROOT, 'apps/client/index.html'), 'utf8');
+  assert.match(html, /studio(18[7-9]|19\d)/, 'index.html cache buster must be studio187 or higher');
+  assert.match(html, /官方云服务畅通/, 'index.html must display official box-ready cloud status');
+  assert.match(html, /class="gateway-debug-fold"/, 'index.html must fold custom gateway configuration into developer debug fold');
+
+  const appJs = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  assert.match(appJs, /syncRemoteMessages/, 'app.js must implement syncRemoteMessages');
+  assert.match(appJs, /has-unread/, 'app.js must toggle has-unread badge for notification drawer');
+  assert.match(appJs, /fetchMessages/, 'app.js must call fetchMessages from auth module');
+
+  const authJs = fs.readFileSync(path.join(ROOT, 'apps/client/auth.js'), 'utf8');
+  assert.match(authJs, /export async function fetchMessages/, 'auth.js must export fetchMessages');
 });
 

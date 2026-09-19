@@ -5,7 +5,7 @@ import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
 import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio136';
-import {isAuthenticated, getUser, authFetch, logout, clearAuth} from './auth.js';
+import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl} from './auth.js';
 import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu} from './login-handler.js';
 function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}')||{};}catch{return {};}}
 function saveUIPref(key,value){try{localStorage.setItem('zora.uiPrefs.v1',JSON.stringify({...readUIPrefs(),[key]:value}));}catch{toast('设置保存失败，请检查本地存储空间');}}
@@ -590,18 +590,74 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
       }
       if(['res-image','t2i','i2i','res-video','t2v','i2v'].includes(n.type)){
         const videoNode=['res-video','t2v','i2v'].includes(n.type);
+        const isMediaResult=['res-image','res-video'].includes(n.type);
         el.classList.add('canvas-image-node');
         if(videoNode)el.classList.add('canvas-video-node');
+        if(isMediaResult)el.classList.add('canvas-media-result-node');
         const body=el.querySelector('.canvas-node-body');
         body.replaceChildren();
-        if(videoNode&&n.mediaData&&!n.outputUrl){const media=document.createElement(n.mediaType?.startsWith('video/')?'video':n.mediaType?.startsWith('audio/')?'audio':'img');media.src=n.mediaData;if(media.tagName!=='IMG'){media.controls=true;media.addEventListener('pointerdown',e=>{e.stopPropagation();if(!selected.has(n.id)){selected.clear();selected.add(n.id);renderNodes();}});}else media.alt='视频参考图片';body.append(media);}
-        else if(n.outputUrl||n.imageData){const img=document.createElement(n.outputUrl&&videoNode?'video':'img');img.src=n.outputUrl||n.imageData;img.alt='节点素材';if(img.tagName==='VIDEO'){img.controls=true;img.onpointerdown=e=>{e.stopPropagation();if(!selected.has(n.id)){selected.clear();selected.add(n.id);renderNodes();}};}body.append(img);}
+        if(videoNode&&n.mediaData&&!n.outputUrl){
+          const media=document.createElement(n.mediaType?.startsWith('video/')?'video':n.mediaType?.startsWith('audio/')?'audio':'img');
+          media.src=n.mediaData;
+          media.draggable=false;
+          if(media.tagName!=='IMG'){
+            media.controls=true;
+          }else{
+            media.alt='视频参考图片';
+          }
+          body.append(media);
+        }
+        else if(n.outputUrl||n.imageData){
+          const isVid = n.outputUrl && videoNode;
+          const media=document.createElement(isVid ? 'video' : 'img');
+          media.src=n.outputUrl||n.imageData;
+          media.alt=n.label||'节点素材';
+          media.draggable=false;
+          media.addEventListener('dragstart',e=>e.preventDefault());
+          if(isVid){
+            media.controls=true;
+            media.preload='metadata';
+          }
+          body.append(media);
+        }
         else body.textContent='点击展开工具栏';
+
+        // 成果素材双击直接全屏预览
+        if(isMediaResult){
+          el.addEventListener('dblclick',(e)=>{
+            if(e.target.closest('button, input, textarea, select, .canvas-node-port, a')) return;
+            const targetUrl = n.outputUrl || n.imageData || n.mediaData;
+            if(targetUrl){
+              e.stopPropagation();
+              openGeneratedPreview(targetUrl, videoNode ? 'video' : 'image');
+            }
+          });
+        }
+
         if(selected.has(n.id)){
+          // 完整工具栏与编辑器：支持详细输入输出、提示词输入与素材上传替换
           const toolbar=document.createElement('div');toolbar.className='image-node-toolbar';
-          toolbar.innerHTML='<button type="button" disabled title="资产库选择待接入">▱ 从资产库选择</button><button type="button" data-upload>↥ 上传图片</button><button type="button" data-copy>▢ 复制节点</button>';
+          const hasMedia=!!(n.outputUrl||n.imageData||n.mediaData);
+          toolbar.innerHTML=(hasMedia?'<button type="button" data-preview>🔍 预览</button><button type="button" data-download>⤓ 下载</button>':'')
+            +'<button type="button" disabled title="资产库选择待接入">▱ 从资产库选择</button>'
+            +'<button type="button" data-upload>'+(videoNode?'↥ 上传素材':'↥ 上传图片')+'</button>'
+            +'<button type="button" data-copy>▢ 复制节点</button>';
+
+          if(toolbar.querySelector('[data-preview]')){
+            toolbar.querySelector('[data-preview]').onclick=(e)=>{
+              e.stopPropagation();
+              openGeneratedPreview(n.outputUrl||n.imageData||n.mediaData, videoNode?'video':'image');
+            };
+          }
+          if(toolbar.querySelector('[data-download]')){
+            toolbar.querySelector('[data-download]').onclick=(e)=>{
+              e.stopPropagation();
+              downloadGenerated(n.outputUrl||n.imageData||n.mediaData, videoNode?'video':'image');
+            };
+          }
+
           const panel=document.createElement('div');panel.className='image-node-editor';
-          panel.innerHTML='<div class="image-node-reference"><button type="button" aria-label="上传参考图片">+</button></div><textarea placeholder="描述你想要的图片效果…" aria-label="图片节点描述"></textarea><div class="image-node-footer"><span>模型待接入</span><span>2K · 16:9</span><button type="button" disabled>生成待接入</button></div>';
+          panel.innerHTML='<div class="image-node-reference"><button type="button" aria-label="上传参考图片" title="点击上传或替换素材">+</button></div><textarea placeholder="描述你想要的图片效果…" aria-label="图片节点描述"></textarea><div class="image-node-footer"><span>模型待接入</span><span>2K · 16:9</span><button type="button" disabled>生成待接入</button></div>';
           if(videoNode){
             toolbar.querySelector('[data-upload]').textContent='↥ 上传素材';
             panel.classList.add('video-node-editor');
@@ -635,44 +691,89 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
           window.__canvasSaveNodeResult?.(projectId,updated);
         }});
       }
-      let dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0;
+
+      // 自由丝滑拖拽逻辑
+      let dragging=false, moved=false, sx=0, sy=0;
+      const startPosMap=new Map();
+
       el.addEventListener('pointerdown',(e)=>{
         if(e.button!==0)return;
+        if(e.target.closest('button, input, textarea, select, .canvas-node-port, a, .image-node-editor, .image-node-toolbar'))return;
         e.stopPropagation();
-        if(!e.shiftKey && !selected.has(n.id)){
-          selected.clear(); selected.add(n.id); renderNodes(); return;
-        }
-        if(e.shiftKey){ if(selected.has(n.id)) selected.delete(n.id); else selected.add(n.id); renderNodes(); return; }
-        dragging=true; moved=false; sx=e.clientX; sy=e.clientY;
-        ox=n.x||0; oy=n.y||0;
-        el.setPointerCapture(e.pointerId);
-      });
-      el.addEventListener('pointermove',(e)=>{
-        if(!dragging)return;
-        const dx=e.clientX-sx, dy=e.clientY-sy;
-        if(Math.hypot(dx,dy)>3) moved=true;
-        const rect=board.getBoundingClientRect();
-        const nx=Math.max(8, Math.min(rect.width/zoom-48, (ox+dx/zoom)));
-        const ny=Math.max(8, Math.min(rect.height/zoom-48, (oy+dy/zoom)));
-        // move all selected
-        const ddx=nx-(n.x||0), ddy=ny-(n.y||0);
-        for(const m of nodes){
-          if(!selected.has(m.id) && m.id!==n.id) continue;
-          if(m.id===n.id || selected.has(m.id)){
-            if(m.id===n.id){ m.x=nx; m.y=ny; }
-            else { m.x=(m.x||0)+ddx; m.y=(m.y||0)+ddy; }
+
+        if(!e.shiftKey){
+          if(!selected.has(n.id)){
+            selected.clear();
+            selected.add(n.id);
+            for(const nodeDom of nodesEl.querySelectorAll('.canvas-node')){
+              nodeDom.classList.toggle('is-selected', nodeDom.dataset.id===n.id);
+            }
+          }
+        }else{
+          if(selected.has(n.id)){
+            selected.delete(n.id);
+            el.classList.remove('is-selected');
+          }else{
+            selected.add(n.id);
+            el.classList.add('is-selected');
           }
         }
-        // simpler: only drag this node group by delta from original positions snapshot
-        n.x=nx; n.y=ny;
-        el.style.left=n.x+'px'; el.style.top=n.y+'px';drawWires();
+
+        dragging=true;
+        moved=false;
+        sx=e.clientX;
+        sy=e.clientY;
+        startPosMap.clear();
+
+        for(const m of nodes){
+          if(m.id===n.id || selected.has(m.id)){
+            startPosMap.set(m.id, {x:m.x||0, y:m.y||0});
+          }
+        }
+
+        el.classList.add('is-dragging');
+        try{ el.setPointerCapture(e.pointerId); }catch{}
       });
-      el.addEventListener('pointerup',()=>{
+
+      el.addEventListener('pointermove',(e)=>{
+        if(!dragging)return;
+        const rawDx=e.clientX-sx, rawDy=e.clientY-sy;
+        if(Math.hypot(rawDx,rawDy)>3) moved=true;
+        if(!moved)return;
+
+        const dx=rawDx/zoom;
+        const dy=rawDy/zoom;
+
+        for(const m of nodes){
+          const start=startPosMap.get(m.id);
+          if(!start)continue;
+          m.x=Math.round(start.x+dx);
+          m.y=Math.round(start.y+dy);
+          const nodeDom=nodesEl.querySelector(`.canvas-node[data-id="${m.id}"]`);
+          if(nodeDom){
+            nodeDom.style.left=m.x+'px';
+            nodeDom.style.top=m.y+'px';
+          }
+        }
+        drawWires();
+      });
+
+      const finishDrag=(e)=>{
         if(!dragging)return;
         dragging=false;
-        if(moved){ pushHistory(); persist(); renderNodes(); }
-        else { selected.clear(); selected.add(n.id); renderNodes(); }
-      });
+        el.classList.remove('is-dragging');
+        try{ if(el.hasPointerCapture(e?.pointerId)) el.releasePointerCapture(e.pointerId); }catch{}
+        if(moved){
+          pushHistory();
+          persist();
+          renderNodes();
+        }else{
+          renderNodes();
+        }
+      };
+
+      el.addEventListener('pointerup', finishDrag);
+      el.addEventListener('pointercancel', finishDrag);
       nodesEl.append(el);
       const editor=el.querySelector('.image-node-editor');
       if(editor){const br=board.getBoundingClientRect(),nr=el.getBoundingClientRect();const width=Math.min(editor.offsetWidth,(br.width-20)/zoom);editor.style.width=width+'px';editor.style.maxHeight=Math.max(180,(br.height-20)/zoom)+'px';editor.style.overflowY='auto';const er=editor.getBoundingClientRect();const left=Math.max(br.left+10,Math.min(er.left,br.right-width*zoom-10));const top=Math.max(br.top+10,Math.min(er.top,br.bottom-er.height-10));editor.style.transform='none';editor.style.left=(left-nr.left)/zoom+'px';editor.style.top=(top-nr.top)/zoom+'px';}
@@ -1064,6 +1165,110 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
   persist=function(show){ _persistCanvas(show!==false); try{window.__canvasAutosave?.();}catch{} };
 
   window.__canvasCurrentNodes=()=>nodes;
+  window.__canvasAddNode=addNode;
+  window.__canvasInsertMediaNode=function({ url, kind='image', prompt='', at=null, batchIndex=0, switchView=true } = {}){
+    if(!url) return null;
+    if(switchView && mode !== 'canvas'){
+      setWorkMode('canvas');
+      window.__canvasEnsureProject?.({forceNew:false});
+    }
+    const isVideo = kind === 'video';
+    const type = isVideo ? 'res-video' : 'res-image';
+    let targetPos = at;
+    if(!targetPos){
+      const rect = board.getBoundingClientRect();
+      const cx = (rect.width / 2 - panX) / zoom;
+      const cy = (rect.height / 2 - panY) / zoom;
+      targetPos = {
+        x: Math.round(cx - 100 + (batchIndex * 260) % 780 + (Math.random() * 20 - 10)),
+        y: Math.round(cy - 60 + Math.floor((batchIndex * 260) / 780) * 180 + (Math.random() * 20 - 10))
+      };
+    }
+    const label = isVideo ? '视频素材' : '图片素材';
+    const cleanPrompt = String(prompt || '').trim();
+    const note = cleanPrompt ? (cleanPrompt.length > 30 ? cleanPrompt.slice(0, 30) + '…' : cleanPrompt) : (isVideo ? '生成的视频' : '生成的图片');
+    const node = addNode(type, targetPos, {
+      label,
+      note,
+      prompt: cleanPrompt,
+      outputUrl: url,
+      source: 'agent-generated',
+      createdAt: Date.now()
+    });
+    return node;
+  };
+
+  // Canvas board Drag & Drop for agent media results and files
+  board.addEventListener('dragover', (e)=>{
+    const types = Array.from(e.dataTransfer?.types || []);
+    if (types.includes('application/x-zora-gen') || types.includes('Files') || types.includes('text/uri-list') || types.includes('text/plain')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      board.classList.add('is-drop-target');
+    }
+  });
+  board.addEventListener('dragleave', (e)=>{
+    if (!board.contains(e.relatedTarget)) {
+      board.classList.remove('is-drop-target');
+    }
+  });
+  board.addEventListener('drop', async (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    board.classList.remove('is-drop-target');
+    const dropPos = toContent(e);
+
+    // 1. application/x-zora-gen from Agent task result
+    const raw = e.dataTransfer.getData('application/x-zora-gen');
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        if (data && data.url) {
+          window.__canvasInsertMediaNode({
+            url: data.url,
+            kind: data.kind || 'image',
+            prompt: data.prompt || '',
+            at: dropPos
+          });
+          return;
+        }
+      } catch {}
+    }
+
+    // 2. URI list / URL text
+    const uri = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim().split('\n')[0].trim();
+    if (uri && /^https?:\/\//i.test(uri)) {
+      const isVideo = /\.(mp4|webm|mov)(\?|$)/i.test(uri);
+      window.__canvasInsertMediaNode({
+        url: uri,
+        kind: isVideo ? 'video' : 'image',
+        at: dropPos
+      });
+      return;
+    }
+
+    // 3. Local Files dropped directly onto board
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    if (files.length) {
+      files.forEach((file, idx) => {
+        const isVideo = file.type.startsWith('video/');
+        const reader = new FileReader();
+        reader.onload = () => {
+          const at = { x: dropPos.x + idx * 24, y: dropPos.y + idx * 24 };
+          addNode(isVideo ? 'res-video' : 'res-image', at, {
+            note: file.name,
+            outputUrl: '',
+            imageData: isVideo ? '' : reader.result,
+            mediaData: isVideo ? reader.result : '',
+            mediaType: file.type
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+      toast(`已放置 ${files.length} 个媒体节点`);
+    }
+  });
+
   window.__canvasApplyMedia=(projectId,nodeId,batchId,patch)=>{if(projectId!==nodeProjectId)return false;const n=nodes.find(n=>n.id===nodeId);if(!n||n.genBatchId!==batchId)return true;if(Object.entries(patch).every(([key,value])=>JSON.stringify(n[key])===JSON.stringify(value)))return true;Object.assign(n,patch);persist(false);renderNodes();return true;};
   window.__setWorkMode=setWorkMode;
 })();
@@ -1907,6 +2112,119 @@ function addGeneratedAsset(item){
   return entry;
 }
 
+function initGatewaySettings() {
+  const modePills = document.querySelectorAll('.gateway-mode-pills [data-gateway-mode]');
+  const cloudBox = document.getElementById('gateway-cloud-config');
+  const cloudInput = document.getElementById('gateway-cloud-url');
+  const testBtn = document.getElementById('gateway-test-btn');
+  const adminLink = document.getElementById('gateway-admin-link');
+  const statusText = document.getElementById('gateway-status-text');
+
+  if (!modePills.length) return;
+
+  const cfg = getGatewayConfig();
+  if (cloudInput) {
+    if (!cloudInput.value || isLegacyGatewayUrl(cloudInput.value)) {
+      cloudInput.value = DEFAULT_CLOUD_GATEWAY;
+      setGatewayConfig({ cloudUrl: DEFAULT_CLOUD_GATEWAY });
+    } else {
+      cloudInput.value = cfg.cloudUrl || DEFAULT_CLOUD_GATEWAY;
+    }
+  }
+
+  function renderMode(mode) {
+    modePills.forEach(btn => {
+      const active = btn.dataset.gatewayMode === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    if (cloudBox) cloudBox.hidden = mode !== 'cloud';
+    if (adminLink) {
+      adminLink.hidden = mode !== 'cloud';
+      const curCloud = (cloudInput?.value || cfg.cloudUrl || DEFAULT_CLOUD_GATEWAY).replace(/\/+$/, '');
+      adminLink.href = curCloud ? `${curCloud}/admin` : '#';
+    }
+  }
+
+  renderMode(cfg.mode);
+
+  modePills.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const nextMode = btn.dataset.gatewayMode;
+      let curCloud = (cloudInput?.value || DEFAULT_CLOUD_GATEWAY).trim();
+      if (isLegacyGatewayUrl(curCloud)) {
+        curCloud = DEFAULT_CLOUD_GATEWAY;
+        if (cloudInput) cloudInput.value = DEFAULT_CLOUD_GATEWAY;
+      }
+      setGatewayConfig({ mode: nextMode, cloudUrl: curCloud });
+      renderMode(nextMode);
+      toast(nextMode === 'cloud' ? '已连接 Cloudflare 全球生产网关' : '已切换为本地开发服务');
+      if (statusText) {
+        statusText.textContent = '';
+        statusText.className = 'gateway-status-text';
+      }
+      refreshModelCatalog();
+    });
+  });
+
+  cloudInput?.addEventListener('change', () => {
+    let val = cloudInput.value.trim();
+    if (isLegacyGatewayUrl(val)) {
+      val = DEFAULT_CLOUD_GATEWAY;
+      cloudInput.value = val;
+    }
+    if (val) {
+      setGatewayConfig({ cloudUrl: val });
+      if (adminLink) adminLink.href = `${val.replace(/\/+$/, '')}/admin`;
+      toast('云网关地址已保存');
+      refreshModelCatalog();
+    }
+  });
+
+  testBtn?.addEventListener('click', async () => {
+    if (!statusText) return;
+    const currentCfg = getGatewayConfig();
+    let targetUrl = currentCfg.mode === 'cloud' ? (cloudInput?.value || currentCfg.cloudUrl) : currentCfg.localUrl;
+    if (currentCfg.mode === 'cloud' && isLegacyGatewayUrl(targetUrl)) {
+      targetUrl = DEFAULT_CLOUD_GATEWAY;
+      if (cloudInput) cloudInput.value = DEFAULT_CLOUD_GATEWAY;
+      setGatewayConfig({ cloudUrl: DEFAULT_CLOUD_GATEWAY });
+    }
+    statusText.className = 'gateway-status-text is-testing';
+    statusText.textContent = '正在探测网关连通性…';
+    testBtn.disabled = true;
+
+    try {
+      const res = await testGatewayConnection(targetUrl);
+      if (res.ok) {
+        statusText.className = 'gateway-status-text is-success';
+        statusText.textContent = `● 连接正常 (${res.latency}ms) · 发现 ${res.modelCount} 个可用模型`;
+        toast('网关连通测试成功');
+      } else {
+        statusText.className = 'gateway-status-text is-error';
+        let friendlyError = res.error || '未响应';
+        if (/Failed to fetch/i.test(friendlyError)) {
+          if (/zora-api\.workers\.dev/i.test(targetUrl || '')) {
+            friendlyError = '默认示例域名未部署。本地测试请执行 npx wrangler dev 并填入 http://127.0.0.1:8787，或填入你部署的真实域名';
+          } else if (/127\.0\.0\.1:8787|localhost:8787/i.test(targetUrl || '')) {
+            friendlyError = '本地 Worker 未启动，请在 apps/cloudflare-worker 目录执行 npx wrangler dev';
+          } else {
+            friendlyError = '网络请求失败，请检查域名解析、CORS 或服务器状态';
+          }
+        }
+        statusText.textContent = `× 连接异常 (${res.latency}ms): ${friendlyError}`;
+        toast('网关连接失败，请核对地址或服务状态');
+      }
+    } catch (e) {
+      statusText.className = 'gateway-status-text is-error';
+      statusText.textContent = `× 探测错误: ${e.message}`;
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
+}
+initGatewaySettings();
+
 const automaticDownloads=new Set();try{for(const id of JSON.parse(localStorage.getItem('zora.autoDownloaded.v1')||'[]'))automaticDownloads.add(id);}catch{}
 const autoDownloadSwitch=document.getElementById('auto-download');
 if(autoDownloadSwitch){autoDownloadSwitch.checked=localStorage.getItem('zora.autoDownload.v1')==='1';autoDownloadSwitch.onchange=()=>localStorage.setItem('zora.autoDownload.v1',autoDownloadSwitch.checked?'1':'0');}
@@ -2097,12 +2415,93 @@ if(skillEditorForm){
 $('#skill-upload').onclick=()=>$('#skill-file').click();
 $('#skill-file').onchange=async()=>{const file=$('#skill-file').files?.[0];$('#skill-file').value='';if(!file)return;try{const text=await file.text();let data;if(/\.json$/i.test(file.name)||text.trim().startsWith('{')){data=JSON.parse(text);if(Array.isArray(data)){for(const item of data)addSkillFromFields(item);toast('已导入 '+data.length+' 个技能');return;} }else{data={name:file.name.replace(/\.[^.]+$/,'').slice(0,40),category:'策划',description:'上传的提示词技能',prompt:text};}const skill=addSkillFromFields(data);if(skill)toast('已上传技能「'+skill.name+'」');}catch(e){toast(e.message||'上传失败，请检查文件格式');}};
 
-// Non-modal message drawer and account popover; no real notifications fabricated.
+// Non-modal message drawer and account popover with remote cloud gateway notifications
 const messagePanel=$('#message-panel'), accountMenu=$('#account-menu');let messageKind='activity';let panelReturn=null;
+let remoteMessages = [];
+async function syncRemoteMessages() {
+  try {
+    const data = await fetchMessages();
+    if (data && data.ok && Array.isArray(data.messages)) {
+      remoteMessages = data.messages;
+      const btn = $('#messages-open');
+      if (btn && remoteMessages.length > 0) {
+        btn.classList.add('has-unread');
+      }
+    }
+  } catch {}
+}
+syncRemoteMessages();
+
 function closeAccount(){accountMenu.hidden=true;$('#account-menu-open').setAttribute('aria-expanded','false');$('#wallet-open').setAttribute('aria-expanded','false');}
 function closeMessages(){messagePanel.hidden=true;$('#messages-open').setAttribute('aria-expanded','false');}
-function renderMessages(){const feed=$('#message-feed');feed.replaceChildren();if(messageKind==='official'||!drafts.length){const empty=document.createElement('div');empty.className='message-empty';empty.textContent=messageKind==='official'?'暂无官方消息。消息服务尚未接入。':'暂无任务消息。创建任务草稿后可在这里查看本地记录。';feed.append(empty);return;}for(const draft of [...drafts].reverse()){const item=document.createElement('article');item.className='message-item';const icon=document.createElement('span');icon.className='message-icon';icon.textContent='◐';const content=document.createElement('div');const title=document.createElement('h3');title.textContent='任务草稿已整理';const p=document.createElement('p');p.textContent=draft.prompt;const meta=document.createElement('small');meta.textContent=`${draft.count} 条 · ${draft.paused?'已暂停草稿':'未提交生成'} · 本地演示`;content.append(title,p,meta);item.append(icon,content);feed.append(item);}}
-$('#messages-open').onclick=()=>{const open=messagePanel.hidden;closeAccount();if(open){renderMessages();messagePanel.hidden=false;$('#messages-open').setAttribute('aria-expanded','true');panelReturn=$('#messages-open');$('#messages-close').focus();}else closeMessages();};
+function renderMessages(){
+  const feed=$('#message-feed');
+  feed.replaceChildren();
+  if (messageKind === 'official') {
+    if (!remoteMessages.length) {
+      const empty=document.createElement('div');
+      empty.className='message-empty';
+      empty.textContent='暂无官方消息或系统公告。';
+      feed.append(empty);
+      return;
+    }
+    for (const msg of remoteMessages) {
+      const item=document.createElement('article');
+      item.className='message-item';
+      const icon=document.createElement('span');
+      icon.className='message-icon';
+      icon.textContent=msg.kind==='official'?'📢':'✦';
+      const content=document.createElement('div');
+      const title=document.createElement('h3');
+      title.textContent=msg.title || '系统通知';
+      const p=document.createElement('p');
+      p.textContent=msg.content || '';
+      const meta=document.createElement('small');
+      const dateStr = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString('zh-CN') : '最新';
+      meta.textContent=`${msg.userId === '*' ? '全员公告' : '专属私信'} · ${dateStr}`;
+      content.append(title,p,meta);
+      item.append(icon,content);
+      feed.append(item);
+    }
+    return;
+  }
+  if (!drafts.length){
+    const empty=document.createElement('div');
+    empty.className='message-empty';
+    empty.textContent='暂无任务消息。创建任务草稿后可在这里查看本地记录。';
+    feed.append(empty);
+    return;
+  }
+  for(const draft of [...drafts].reverse()){
+    const item=document.createElement('article');
+    item.className='message-item';
+    const icon=document.createElement('span');
+    icon.className='message-icon';
+    icon.textContent='◐';
+    const content=document.createElement('div');
+    const title=document.createElement('h3');
+    title.textContent='任务草稿已整理';
+    const p=document.createElement('p');
+    p.textContent=draft.prompt;
+    const meta=document.createElement('small');
+    meta.textContent=`${draft.count} 条 · ${draft.paused?'已暂停草稿':'未提交生成'} · 本地创作`;
+    content.append(title,p,meta);
+    item.append(icon,content);
+    feed.append(item);
+  }
+}
+$('#messages-open').onclick=()=>{
+  const open=messagePanel.hidden;
+  closeAccount();
+  if(open){
+    $('#messages-open')?.classList.remove('has-unread');
+    syncRemoteMessages().then(() => renderMessages());
+    messagePanel.hidden=false;
+    $('#messages-open').setAttribute('aria-expanded','true');
+    panelReturn=$('#messages-open');
+    $('#messages-close').focus();
+  } else closeMessages();
+};
 $('#messages-close').onclick=()=>{closeMessages();$('#messages-open').focus();};
 document.querySelectorAll('[data-message-kind]').forEach(b=>b.onclick=()=>{messageKind=b.dataset.messageKind;document.querySelectorAll('[data-message-kind]').forEach(x=>x.classList.toggle('active',x===b));renderMessages();});
 function toggleAccount(e){const open=accountMenu.hidden;closeMessages();closeAccount();if(open){accountMenu.hidden=false;panelReturn=e.currentTarget;e.currentTarget.setAttribute('aria-expanded','true');accountMenu.querySelector('button').focus();}}
@@ -2248,9 +2647,20 @@ function renderMediaTask(message,target=conversationLog){
  for(const a of (message.references||[]).slice(0,5)){const mime=(a.file&&a.file.type)||'';const media=document.createElement(mime.startsWith('video/')||a.kind==='video'?'video':'img');if(!a.url){reportMissing();continue;}media.src=a.url;media.onerror=()=>{media.remove();reportMissing();};media.title=(a.file&&a.file.name)||a.reference||'';if(media.tagName==='IMG')media.alt=(a.file&&a.file.name)||'参考';refs.append(media);}
  const heading=chatNode('div','media-task-heading');const prompt=chatNode('p','media-task-prompt',message.text);heading.append(prompt);if((message.text||'').length>220){prompt.classList.add('is-collapsed');const expand=chatNode('button','media-prompt-expand','展开提示词');expand.type='button';expand.setAttribute('aria-expanded','false');expand.onclick=()=>{const collapsed=prompt.classList.toggle('is-collapsed');expand.textContent=collapsed?'展开提示词':'收起提示词';expand.setAttribute('aria-expanded',String(!collapsed));};heading.append(expand);}heading.append(chatNode('span','conversation-meta',message.meta));const details=document.createElement('details');details.className='media-task-details';details.append(chatNode('summary','','详细信息'),chatNode('p','',`${message.kind==='video'?'视频':'图片'}任务 · ${message.count} 个结果 · ${message.meta} · ${message.genError||message.genStatus||'待发送'}`));{let requestLoading=false,requestLoaded=false;const loadRequest=async()=>{details.open=true;if(requestLoading||requestLoaded)return;requestLoading=true;try{if(!message.genBatchId){let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');details.append(pre);}pre.textContent='此记录没有本地生成任务编号，无法查询实际提交请求体。';return;}const r=await authFetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId));const j=await r.json();if(!r.ok)throw Error(j.error||'读取失败');let pre=details.querySelector('.request-body');if(!pre){pre=chatNode('pre','request-body');pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto';details.append(pre);}pre.textContent=j.task?.requests?.length?JSON.stringify(j.task.requests,null,2):'此任务未保存提交请求体；旧任务不能追溯还原。';requestLoaded=true;}catch(e){let note=details.querySelector('.request-error');if(!note){note=chatNode('p','request-error');details.append(note);}note.textContent=e.message;}finally{requestLoading=false;}};details.addEventListener('mouseenter',loadRequest);details.addEventListener('focusin',loadRequest);details.addEventListener('mouseleave',()=>{if(!details.contains(document.activeElement))details.open=false;});details.addEventListener('toggle',()=>{if(details.open)void loadRequest();});}heading.append(details);header.append(refs,heading);article.append(header);
  const results=chatNode('div','media-task-results');
- for(let i=0;i<message.count;i++){const resultUrl=message.genUrls?.[i]||(i===0?message.genUrl:null);const frame=chatNode('div','media-task-frame');const [w,h]=(message.ratio||'16:9').split(':').map(Number);frame.style.aspectRatio=`${w} / ${h}`;frame.style.width=`min(100%, ${Math.min(280,220*w/h)}px)`;const st=message.cancelled?'已取消':(message.genStatus||'待生成');frame.append(chatNode('span','media-task-status',st));if(message.genUrls?.[i]||(i===0&&message.genUrl)){const media=Object.assign(document.createElement(message.kind==='video'?'video':'img'),{src:message.genUrls?.[i]||message.genUrl,controls:false,className:'media-task-result',draggable:true});if(media.tagName==='IMG')media.alt='生成结果';media.title='点击放大预览，拖到输入框可当参考';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','打开生成素材预览');media.style.cursor='zoom-in';media.addEventListener('dragstart',e=>{try{e.dataTransfer.setData('application/x-zora-gen',JSON.stringify({url:resultUrl,kind:message.kind||'image'}));e.dataTransfer.setData('text/uri-list',resultUrl);e.dataTransfer.setData('text/plain',resultUrl);e.dataTransfer.effectAllowed='copy';}catch{}});media.addEventListener('click',()=>openGeneratedPreview(resultUrl,message.kind||'image'));media.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openGeneratedPreview(resultUrl,message.kind||'image');}});frame.append(media);}else{frame.append(chatNode('span','media-task-placeholder',`${message.kind==='video'?'视频':'图片'}预览${message.count>1?' '+(i+1):''}`));}results.append(frame);}article.append(results);
+ for(let i=0;i<message.count;i++){const resultUrl=message.genUrls?.[i]||(i===0?message.genUrl:null);const frame=chatNode('div','media-task-frame');const [w,h]=(message.ratio||'16:9').split(':').map(Number);frame.style.aspectRatio=`${w} / ${h}`;frame.style.width=`min(100%, ${Math.min(280,220*w/h)}px)`;const st=message.cancelled?'已取消':(message.genStatus||'待生成');frame.append(chatNode('span','media-task-status',st));if(message.genUrls?.[i]||(i===0&&message.genUrl)){const media=Object.assign(document.createElement(message.kind==='video'?'video':'img'),{src:message.genUrls?.[i]||message.genUrl,controls:false,className:'media-task-result',draggable:true});if(media.tagName==='IMG')media.alt='生成结果';media.title='点击放大预览，拖到画板可放置为节点';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','打开生成素材预览');media.style.cursor='zoom-in';media.addEventListener('dragstart',e=>{try{e.dataTransfer.setData('application/x-zora-gen',JSON.stringify({url:resultUrl,kind:message.kind||'image',prompt:message.text||''}));e.dataTransfer.setData('text/uri-list',resultUrl);e.dataTransfer.setData('text/plain',resultUrl);e.dataTransfer.effectAllowed='copy';}catch{}});media.addEventListener('click',()=>openGeneratedPreview(resultUrl,message.kind||'image'));media.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openGeneratedPreview(resultUrl,message.kind||'image');}});const insertQuick=chatNode('button','frame-insert-btn','⊞ 画板');insertQuick.type='button';insertQuick.title='将此项插入为画板节点';insertQuick.onclick=e=>{e.stopPropagation();if(typeof window.__canvasInsertMediaNode==='function'){window.__canvasInsertMediaNode({url:resultUrl,kind:message.kind||'image',prompt:message.text||'',batchIndex:i});}};frame.append(media,insertQuick);}else{frame.append(chatNode('span','media-task-placeholder',`${message.kind==='video'?'视频':'图片'}预览${message.count>1?' '+(i+1):''}`));}results.append(frame);}article.append(results);
  const actions=chatNode('div','media-task-actions');
- if(message.genUrl){const dl=chatNode('button','','下载');dl.onclick=()=>downloadGenerated(message.genUrl,message.kind||'image');const useRef=chatNode('button','','加入参考');useRef.onclick=()=>useGeneratedAsReference(message.genUrl,message.kind||'image');actions.append(dl,useRef);}
+ const validResultUrls=[...(message.genUrls||[]),message.genUrl].filter(Boolean);
+ const uniqueResultUrls=[...new Set(validResultUrls)];
+ if(uniqueResultUrls.length){
+  const toCanvas=chatNode('button','btn-insert-canvas',uniqueResultUrls.length>1?'⊞ 全部插入画板':'⊞ 插入画板');
+  toCanvas.title='将生成结果作为素材节点插入当前画布';
+  toCanvas.onclick=()=>{if(typeof window.__canvasInsertMediaNode==='function'){uniqueResultUrls.forEach((url,idx)=>{window.__canvasInsertMediaNode({url,kind:message.kind||'image',prompt:message.text||'',batchIndex:idx});});}};
+  const dl=chatNode('button','','下载');
+  dl.onclick=()=>downloadGenerated(uniqueResultUrls[0],message.kind||'image');
+  const useRef=chatNode('button','','加入参考');
+  useRef.onclick=()=>useGeneratedAsReference(uniqueResultUrls[0],message.kind||'image');
+  actions.append(toCanvas,dl,useRef);
+ }
  const edit=chatNode('button','','重新编辑');edit.onclick=()=>{$('#creation-kind').value=message.kind;kindChanged();$('#model').value=message.modelId;modelChanged();for(const id of ['ratio','resolution','duration','concurrency','video-mode']){const el=$('#'+id);if(!el)continue;const key=id==='video-mode'?'videoMode':id;if(message[key]!=null)el.value=message[key];}$('#count').value=message.count;$('#prompt').value=message.text;syncPickers();$('#prompt').focus();toast('已恢复文字和参数；参考素材请在输入栏核对');};
  const retry=chatNode('button','','再次生成');retry.disabled=!!message.cancelled||message.genUnknown||message.genPending||message.genStatus==='生成中';retry.onclick=async()=>{retry.disabled=true;const allowed=await verifyGenerationRetry(message);saveSession();redraw();if(!allowed)return;message.genUnknown=false;message.referenceError=message.genError||message.referenceError;message.genBatchId=null;message.genPending=false;message.genRevision=null;message.genTaskIds=[];message.genTaskId=null;message.genUrls=[];message.genUrl=null;message.genStatus='生成中';message.genError='';redraw();try{await submitMediaGeneration(message);}catch(e){message.genError=e.submissionUnknown?'':e.message||'生成失败';message.genPollError=e.submissionUnknown?e.message:'';message.genStatus=e.submissionUnknown?'结果待确认':'生成失败';}redraw();};
  if(message.genBatchId||message.genPending||message.genTaskIds?.length||message.genTaskId){const refresh=chatNode('button','','刷新生成结果');refresh.onclick=async()=>{refresh.disabled=true;try{await submitMediaGeneration(message);}catch(e){message.genError=e.message;}finally{saveSession();redraw();}};actions.append(refresh);}
