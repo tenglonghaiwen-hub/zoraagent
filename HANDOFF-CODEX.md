@@ -52,9 +52,56 @@
 | `D:\zora\data\` | 运行数据：`zora.db`（用户/配额/账本）、`codex-home`、`local-workflows` |
 | `D:\zora\tests\` | 自动化测试用例集（含认证、计费、原生沙箱、Worker 测试） |
 
-前端缓存戳（改动前端后务必递增）：当前 **`studio182+`**。
+前端缓存戳（改动前端后务必递增）：当前 **`studio187`**。
 
 本地 Node：`D:\zora\runtime\node-v24.21.0-win-x64\node.exe`
+
+---
+
+## 0.1 站长专属运营中台与开箱即用（2026-09-19 最新进展）
+针对“用户开箱即用、后台站长统一管控”的全球网关定位，完成 7 大模块交付与全面测试验证：
+1. **客户端零配置开箱即用**：普通用户启动即连官方全球云端网关，设置面板高亮展示「● 官方云服务畅通」，将网关选择收折为「高级开发者网关调试」折叠项；
+2. **消息中心与未读红点**：桌面端顶栏消息铃铛接入云端 `/api/messages`，支持未读红点实时提醒；
+3. **站长专属运营中台（Super Admin Console）**：
+   - **用户用量与 VIP 控制**：实时搜索过滤、VIP 期限设置（30天/90天/365天/永久/取消）、一键账号冻结与解冻；
+   - **充值与退费审计**：管理员一键增减积分，正数充值 `admin_topup`，负数退费 `admin_refund`，与服务端定点账本同构；
+   - **单人账本穿透**：弹窗穿透查询任意创作者的历史消费、充值与调用明细；
+   - **消息全员与定向推送**：支持全员公告 `*` 与个人私信实时推送，后台支持一键撤回；
+   - **VIP 专属模型控制**：支持将特定模型标记为 `👑 VIP 专属`；
+   - **服务商 API 密钥自检与动态路由映射**。
+
+---
+
+## 0.2 造境 VIP 会员体系闭环与多端即时同步（2026-09-19 下午交付）
+针对“后台修改/开通 VIP 后客户端不同步”以及会员模块原本为占位态的问题，完成了端到端全链路闭环开发与多端即时同步：
+1. **黑金轻奢视觉重构**：
+   - 重构客户端 `#membership` 模块：包含 VIP 用户状态卡片（`#membership-user-card`）、4 档精选套餐（月度/季度/年度/终身）、6 大专属特权矩阵与权益对比表；
+   - 贯通桌面收银台：支持一键模拟支付，自动调用升级接口并赠送套餐点数，实时刷新余额、会员状态及顶栏徽标。
+2. **多端即时同步机制（根治“后台添加不显示”）**：
+   - **Cloudflare Worker / D1 字段补齐**：`/api/auth/login` 与 `/api/auth/refresh` 返回完整的 `isVip`, `vipExpiresAt`, `concurrencyLimit` 属性，彻底消除字段遗漏；
+   - **本地 SQLite Schema 对齐**：`packages/database/schema.mjs` 与 `packages/auth/index.mjs` 中的 `getUserById` / `getUserByEmail` 输出规范化 VIP 属性；
+   - **客户端静默热刷新与焦点监听**：
+     - `auth.js` 导出 `refreshUserProfile()`，在登录、获取 profile 及切换时主动向 `/api/auth/me` 刷新；
+     - `login-handler.js` 与 `app.js` 监听 `window.focus` 与 `document.visibilitychange`，站长在后台调整会员状态后，用户切回客户端窗口无需重新登录即可秒级自动同步最新 VIP 身份、金色皇冠徽标与并发数。
+   - 新增自动化测试 `tests/membership.test.mjs` 覆盖完整同步链路。
+
+---
+
+## 0.3 Zora Agent 身份标准合规与第三方防泄露纵深加固（2026-09-19 晚间交付）
+根据项目核心约定 [AGENTS.md](AGENTS.md) 规定：
+> 当用户问及模型身份等相关问题时，只能回答：“我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？”，严禁泄露任何第三方厂商、模型版本或底层提供方信息。
+
+排查修复了用户提问“你是谁”出现第三方模型自述的严重违规问题，构建了“云网关-本地服务端-客户端展示”三层纵深防御防线：
+1. **云端网关层（第一道防线，已上线）**：
+   - 在 `apps/cloudflare-worker/src/proxy.mjs` 中扩展 `isIdentityQuestion` 正则，涵盖各类中英文身份提问变体及全半角标点符号；
+   - 实现 `sanitizeAgentReply`：前置拦截身份提问直接秒回标准回复；后置校验第三方泄漏（ChatGPT / OpenAI / Claude 等）并强制替换为标准回复；
+   - 已通过 Wrangler 重新部署至线上环境 `https://zora-api.tenglonghaiwen.workers.dev`（Version ID `adff5e94-33de-40a8-bbb6-ddad2ab4701b`），线上实测 `你是谁`、`你是什么模型`、`who are you` 等均 100% 返回标准话术。
+2. **本地服务端路由层（第二道防线）**：
+   - 在 `apps/server/chat-service.mjs` 入口处提取原始提问 `input.message` 进行直接拦截，避免进入主 Agent 巨型 Prompt 造成正则失配，并杜绝无谓的上游 Token 消耗；同时执行后置脱敏过滤。
+3. **客户端展现层（第三道防线，零泄漏底线）**：
+   - 在 `apps/client/app.js`（主对话框与画布 Agent 浮窗）与 `apps/client/node-workflow.js`（画布节点执行）中加入前端级脱敏清洗兜底。
+4. **全套自动化测试回归**：
+   - 全套测试套件扩充至 **239 项测试 100% 绿灯全部通过（0 failure）**。
 
 ---
 
@@ -162,6 +209,10 @@
 | `zora.canvasCurrent.v1` | 当前打开的画布 ID |
 | `zora.canvasAgentSession.v1` | 画布右侧 Agent 独立会话（与主创作区会话物理隔离） |
 | `zora.canvasAgentRailCollapsed.v1` | 画布右侧 Agent 栏收起状态 |
+| `zora.gateway.mode.v1` | 服务网关模式：`local` (本地 127.0.0.1:4318) \| `cloud` (Cloudflare Worker) |
+| `zora.gateway.cloudUrl.v1` | 自定义 Cloudflare Worker 云网关地址 |
+| `zora.gateway.localUrl.v1` | 本地服务地址（默认 `http://127.0.0.1:4318`） |
+| `zora.api.base` | 当前生效的 API 请求基地址（`getApiBase()` 动态同步） |
 
 ---
 
@@ -172,19 +223,25 @@
 ```text
 [ ] 1. 验证 Node 环境与测试套件：
       & "D:\zora\runtime\node-v24.21.0-win-x64\node.exe" -v
-[ ] 2. 验证自动化测试：
+[ ] 2. 验证自动化测试（全量 239 项）：
+      - npm test (全套 239 项测试 100% 绿灯通过)
+      - tests/membership.test.mjs (会员套餐、收银台、多端即时同步与 D1 数据库写入)
       - tests/auth.test.mjs (用户认证与会话)
       - tests/quota-billing.test.mjs (配额预检与扣除)
       - tests/phase3-lifecycle.test.mjs (用量账本与全生命周期)
       - tests/native-runtime.test.mjs (原生工作区安全沙箱)
-      - tests/cloudflare-worker.test.mjs (Cloudflare Worker 网关与控制台)
+      - tests/cloudflare-worker.test.mjs (Cloudflare Worker 网关、连通性探测与控制台)
+      - tests/canvas-agent-node-interactivity.test.mjs (画布节点拖拽与插入联动)
+      - tests/gateway-switch.test.mjs (本地/云端网关动态切换与连通性测试)
+      - tests/demo-recharge.test.mjs (充值套餐计算、演示收银台与入账测试)
 [ ] 3. 启动本地服务并验证桌面端：
       - 执行 start-zora.cmd 或 node apps/server/server.mjs (默认端口 4318/4317)
       - 打开客户端，测试点击测试账号登录（test@zora.local / test123）
-      - 检查顶栏积分实时显示
-[ ] 4. 验证 Cloudflare Worker 控制台：
+      - 检查顶栏积分实时显示与收银台充值入账
+[ ] 4. 验证 Cloudflare Worker 控制台与网关切换：
+      - 客户端打开“设置”面板，切换至云端网关并点击“测试连接”
       - cd apps/cloudflare-worker
-      - npx wrangler dev (或者检查 admin-ui.mjs 布局)
+      - 详见部署与配置文档 docs/CLOUDFLARE-WORKER-DEPLOYMENT.md
 [ ] 5. 前端改动必须递增 studio 缓存版本号（index.html 中的 ?v=studioXXX）。
 ```
 
@@ -192,11 +249,34 @@
 
 ## 7. 下一步规划建议
 
-1. **画布 Agent 与生成结果节点化联动**：
-   - 画布 Agent 生成的图片/视频结果，支持一键“插入为画板节点”。
-2. **Cloudflare Worker 远程网关一键切换开关**：
-   - 在客户端设置面板中加入“云端远程网关 / 本地开发服务”一键切换切换开关。
-3. **微信/支付宝演示支付接入准备**：
-   - 现已提供演示充值接口，可进一步规划真实充值订单轮询逻辑（需在用户明确确认下执行）。
-4. **Electron 正式打包与签名**：
-   - 完善生产环境跨平台打包脚本与离线静态资源封装。
+1. **画布 Agent 与生成结果节点化联动**：【已完成 ✅ 2026-09-19】
+   - 支持在结果卡片上点击“⊞ 插入画板”/“⊞ 全部插入画板”。
+   - 支持从 Agent 结果拖拽（Drag & Drop）至画板精准生成 `res-image` / `res-video` 节点。
+   - 缓存戳升级至 `studio183`，新增 `tests/canvas-agent-node-interactivity.test.mjs` 全量通过。
+2. **Cloudflare Worker 远程云网关 / 本地开发服务 一键切换开关**：【已完成 ✅ 2026-09-19】
+   - 在客户端系统设置面板（`#settings`）中实现“本地服务 (127.0.0.1:4318) / 云端网关 (Cloudflare Worker)”一键切换药丸按钮。
+   - 支持自定义 Cloudflare Worker URL，支持一键连通性探测（实时统计 `/api/models` 响应延迟与可用模型数），支持打开 Admin 控制台。
+   - `auth.js` 统一接管 `getApiBase()` / `apiUrl()` 动态路由，无需重启客户端即时热生效。
+   - 静态资源版本升级至 `studio184`，新增自动化测试 `tests/gateway-switch.test.mjs`，全套 32 项自动化测试全部通过。
+3. **充值面板与演示支付全流程打通**：【已完成 ✅ 2026-09-19】
+   - 在客户端 `#credits` 和 `#wallet` 中实现阶梯充值套餐卡片（￥10、￥50、￥100、￥200及自定义金额）；
+   - 严格遵循 `1 元 = 10 积分` 定点账本；
+   - 打造高保真演示收银台模态框（`#checkout-dialog`），含订单号、动态二维码扫描动画、倒计时与合规警示横幅；
+   - 点击模拟支付即时调用 `/api/user/topup`，服务端记录 `usage_logs`，客户端广播刷新所有余额视图与明细表格；
+   - 升级缓存戳至 `studio185`，新增 `tests/demo-recharge.test.mjs`，全套 36 项测试全部通过。
+4. **Cloudflare Worker 真实多模型密钥配置与部署联调**：【已完成 ✅ 2026-09-19】
+   - 实现服务端提供商密钥连通性探测接口 `POST /api/admin/providers/test` 与代理核心方法 `testProviderConnectivity`。
+   - 支持 MiniMax 官方直连、DeepSeek、OpenAI、SiliconFlow、多元交叉及自定义反代端点的自检与网络延迟诊断。
+   - 在 Admin 可视化控制台（`admin-ui.mjs`）为各模型厂商提供一键「测试连通」按钮与毫秒级延迟指示。
+   - 编写完整的 0 成本部署与密钥配置指南 [CLOUDFLARE-WORKER-DEPLOYMENT.md](docs/CLOUDFLARE-WORKER-DEPLOYMENT.md)。
+   - 升级 `tests/cloudflare-worker.test.mjs`，全套 37 项自动化测试全部通过。
+5. **VIP 会员全链路贯通与多端即时同步**：【已完成 ✅ 2026-09-19】
+   - 黑金轻奢 4 档套餐矩阵与 6 大权益对比表全面上线，无缝联动演示收银台；
+   - 彻底修复后台调整会员后客户端不同步缺陷：服务端/Worker 完整返回 VIP 字段，客户端监听窗口 focus 与可见性切换秒级自动热刷新。
+6. **Zora Agent 模型身份合规与防泄露纵深加固**：【已完成 ✅ 2026-09-19】
+   - 严格遵守 `AGENTS.md` 身份约定，构建“云端网关-本地服务端-客户端展示”三重拦截防御；
+   - 杜绝任何第三方模型名称或厂商信息泄露，提问身份统一回答标准话术；
+   - 重新部署线上 Cloudflare Worker（版本 `adff5e94-33de-40a8-bbb6-ddad2ab4701b`），线上与本地实测 100% 合规。
+7. **Electron 正式打包与签名**：
+   - 完善生产环境跨平台打包脚本与离线静态资源封装（待用户下达明确打包指令）。
+

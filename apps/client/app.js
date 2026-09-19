@@ -5,8 +5,36 @@ import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
 import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio198';
-import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl} from './auth.js';
+import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl, refreshUserProfile} from './auth.js';
 import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu, initMembershipPanel, updateUserVipUI} from './login-handler.js';
+export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
+
+export function isIdentityQuestion(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)(呢|呀|阿|啊|啦|\?|？|！|!|，|,|\.|\s)*$/i,
+    /(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型|语言模型|架构|名字|称呼)/i,
+    /(你|您)(的?(底[层座]|基[础座]|原始)?(模型|名字|称呼)(是|叫)?(什么|哪[个款]|谁))/i,
+    /(介绍|说明|讲讲)?(一下)?(你|您)(自己|的身份|是谁|的名字)/i,
+    /(你|您)?是(gpt|chatgpt|openai|claude|deepseek|minimax|文心|通义|kimi|豆包|llama)/i,
+    /(模型|身份)等?相关问题/i,
+    /^(你是谁|你叫什么|你是哪位|你是哪家|你哪位|谁开发了你|你谁啊|你是什么)/i
+  ];
+  return patterns.some(p => p.test(t));
+}
+
+export function sanitizeAgentReply(userText, reply) {
+  if (isIdentityQuestion(userText)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  if (!reply || typeof reply !== 'string') return reply;
+  if (/(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(reply)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  return reply;
+}
+
 function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}')||{};}catch{return {};}}
 function saveUIPref(key,value){try{localStorage.setItem('zora.uiPrefs.v1',JSON.stringify({...readUIPrefs(),[key]:value}));}catch{toast('设置保存失败，请检查本地存储空间');}}
 function canvasNodeIcon(type){const paths=type==='res-image'||type==='image'||type==='t2i'||type==='i2i'?'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>':type==='res-video'||type==='video'||type==='t2v'||type==='i2v'?'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4Z"/>':'<path d="M5 5h14M5 10h14M5 15h10M5 20h7"/>';return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';}
@@ -1934,7 +1962,7 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
       if(!response.ok) throw Error(result.error||'画布 Agent 请求失败');
       session.conversationId=result.conversationId||session.conversationId;
       pending.pending=false;
-      pending.text=result.reply||'(无回复)';
+      pending.text=sanitizeAgentReply(text, result.reply||'(无回复)');
       pending.tasks=result.tasks;
       pending.toolTrace=result.toolTrace;
       attachGenerationReceipts(session.messages,pending,result.generationTasks,models);
@@ -2178,6 +2206,9 @@ if (document.readyState === 'loading') {
     }
     if (isAuthenticated()) {
       initUserMenu();
+      refreshUserProfile().then(() => {
+        updateUserVipUI();
+      }).catch(() => {});
     }
     initMembershipPanel();
     updateUserVipUI();
@@ -2188,6 +2219,9 @@ if (document.readyState === 'loading') {
   }
   if (isAuthenticated()) {
     initUserMenu();
+    refreshUserProfile().then(() => {
+      updateUserVipUI();
+    }).catch(() => {});
   }
   initMembershipPanel();
   updateUserVipUI();
@@ -2225,6 +2259,10 @@ $('#enter-demo').onclick=()=>{setAuthed(true);location.hash='studio';};
 function tab(id){
   if(String(id||'')==='tasks'){try{window.__refreshOmRunPanel?.();}catch{}}
   if(String(id||'')==='canvases'){try{window.__canvasRefreshList?.();}catch{}}
+  if(['membership','account','credits'].includes(String(id||''))){
+    updateUserVipUI();
+    try{ refreshUserProfile().then(u=>{ if(u) updateUserVipUI(u); }); }catch{}
+  }
   // studio100-tab-guard: leave create/canvas editor when switching tabs
   try{
     const studio=$('#studio');
@@ -3172,7 +3210,7 @@ const sendBeforeAgent=$('#send-prompt').onclick;let agentSending=false;
 $('#send-prompt').onclick=async()=>{
  if($('#creation-kind').value!=='agent')return sendBeforeAgent();if(agentSending)return;const text=buildInstructionText();if(!text){toast('请先填写创作需求或 @ 素材');return;}
  if(!currentConversation){currentConversation={id:'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:text.slice(0,24),messages:[],projectId:currentProjectId,createdAt:Date.now(),updatedAt:Date.now()};conversations.unshift(currentConversation);}else{touchConversation(currentConversation);ensureConversationId(currentConversation);}const conversation=currentConversation;const message={id:crypto.randomUUID(),text,kind:'agent',count:0,meta:'',references:[...(mentionedAssets())],liveAgent:true,pending:true,createdAt:Date.now()};conversation.messages.push(message);$('#prompt').value='';agentSending=true;$('#send-prompt').disabled=true;saveSession();renderConversation();
- try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=result.reply;message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
+ try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=sanitizeAgentReply(text, result.reply);message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
 };
 /* directory-capsule-hooks */
 const _renderConversationForDirectory=renderConversation;

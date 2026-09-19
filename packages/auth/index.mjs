@@ -133,6 +133,9 @@ export async function loginUser({ email, password }) {
       username: user.username,
       role: user.role,
       quotaBalance: user.quota_balance,
+      isVip: user.is_vip === 1 || Boolean(user.is_vip),
+      vipExpiresAt: user.vip_expires_at || 0,
+      concurrencyLimit: user.concurrency_limit || 1,
     },
   };
 }
@@ -209,6 +212,9 @@ export async function getUserFromToken(token) {
     role: user.role,
     status: user.status,
     quotaBalance: user.quota_balance,
+    isVip: user.is_vip === 1 || Boolean(user.is_vip),
+    vipExpiresAt: user.vip_expires_at || 0,
+    concurrencyLimit: user.concurrency_limit || 1,
   };
 }
 

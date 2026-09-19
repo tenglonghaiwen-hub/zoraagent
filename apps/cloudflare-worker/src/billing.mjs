@@ -434,7 +434,20 @@ export async function adjustUserBalance(db, userId, delta, reason = '管理员�
 /**
  * Update user's VIP status and expiration
  */
-export async function setUserVip(db, userId, { isVip, days = 30 } = {}) {
+export async function setUserVip(db, userId, arg3 = {}, arg4) {
+  let isVip;
+  let days = 30;
+
+  if (typeof arg3 === 'boolean' || typeof arg3 === 'number') {
+    isVip = Boolean(arg3);
+    if (arg4 !== undefined) days = Number(arg4);
+  } else if (arg3 && typeof arg3 === 'object') {
+    isVip = Boolean(arg3.isVip);
+    if (arg3.days !== undefined) days = Number(arg3.days);
+  } else {
+    isVip = Boolean(arg3);
+  }
+
   const now = Date.now();
   let vipVal = isVip ? 1 : 0;
   let expiresAt = 0;

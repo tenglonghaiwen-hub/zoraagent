@@ -1,7 +1,7 @@
 /**
  * Login page handler
  */
-import { login, register, isAuthenticated, getUser, logout, storeUser, fetchUsageLogs, topupDemoQuota, upgradeMembership } from './auth.js';
+import { login, register, isAuthenticated, getUser, logout, storeUser, fetchUsageLogs, topupDemoQuota, upgradeMembership, refreshUserProfile } from './auth.js';
 
 // Initialize login page
 export function initLoginPage() {
@@ -53,6 +53,7 @@ export function initLoginPage() {
 
       // Synchronously refresh header user menu without needing full page reload
       initUserMenu();
+      updateUserVipUI(result.user);
 
       setTimeout(() => {
         window.location.hash = '#studio';
@@ -91,6 +92,7 @@ export function initLoginPage() {
         const result = await register(email, password);
         showLoginStatus(`注册成功！欢迎加入造境，赠送 ${(result.user && result.user.quotaBalance) || 100} 积分，正在进入工作台...`, 'success');
         initUserMenu();
+        updateUserVipUI(result.user);
         setTimeout(() => {
           window.location.hash = '#studio';
         }, 600);
@@ -847,8 +849,11 @@ export function initMembershipPanel() {
   if (membershipPanelBound) return;
   membershipPanelBound = true;
 
-  // Initial state render
+  // Initial state render and sync from backend
   updateUserVipUI();
+  refreshUserProfile().then((u) => {
+    if (u) updateUserVipUI(u);
+  }).catch(() => {});
 
   let selectedTier = {
     tier: 'yearly',
@@ -934,15 +939,30 @@ export function initMembershipPanel() {
     });
   }
 
-  // Tab and hash changes
-  document.querySelectorAll('[data-tab="membership"], .membership-link').forEach((btn) => {
+  // Tab and hash changes: actively pull latest VIP & account status from backend
+  document.querySelectorAll('[data-tab="membership"], .membership-link, [data-tab="account"], #account-vip-btn, [data-tab="credits"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      setTimeout(updateUserVipUI, 100);
+      updateUserVipUI();
+      refreshUserProfile().then((u) => {
+        if (u) updateUserVipUI(u);
+      }).catch(() => {});
     });
   });
 
-  window.addEventListener('zora:vip-updated', () => {
-    updateUserVipUI();
+  // When window regains focus (e.g. admin switched back from backend console)
+  window.addEventListener('focus', () => {
+    refreshUserProfile().then((u) => {
+      if (u) updateUserVipUI(u);
+    }).catch(() => {});
+  });
+
+  window.addEventListener('zora:vip-updated', (e) => {
+    updateUserVipUI(e?.detail || getUser());
+  });
+
+  window.addEventListener('zora:user-refreshed', (e) => {
+    updateUserVipUI(e?.detail || getUser());
+    initUserMenu();
   });
 }
 

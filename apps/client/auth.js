@@ -291,19 +291,57 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const response = await fetch(apiUrl('/api/auth/me'), {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+  try {
+    const response = await fetch(apiUrl('/api/auth/me'), {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!data.ok) {
-    clearAuth();
+    if (!data.ok) {
+      if (response.status === 401) {
+        clearAuth();
+      }
+      return null;
+    }
+
+    const prev = getUser() || {};
+    const updated = {
+      ...prev,
+      ...data.user,
+      isVip: data.user.isVip === 1 || Boolean(data.user.isVip),
+      vipExpiresAt: Number(data.user.vipExpiresAt) || 0,
+      concurrencyLimit: Number(data.user.concurrencyLimit) || 1,
+      quotaBalance: data.user.quotaBalance ?? data.user.balance ?? prev.quotaBalance ?? 0
+    };
+
+    storeUser(updated);
+    return updated;
+  } catch (err) {
+    console.warn('getCurrentUser request failed:', err);
     return null;
   }
+}
 
-  storeUser(data.user);
-  return data.user;
+/**
+ * Refresh user profile from backend and dispatch state update events
+ */
+export async function refreshUserProfile() {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const user = await getCurrentUser();
+    if (user && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('zora:vip-updated', { detail: user }));
+      window.dispatchEvent(new CustomEvent('zora:user-refreshed', { detail: user }));
+      window.dispatchEvent(new CustomEvent('zora:balance-updated', { detail: { quotaBalance: user.quotaBalance } }));
+    }
+    return user;
+  } catch (err) {
+    console.warn('Failed to refresh user profile:', err);
+    return null;
+  }
 }
 
 /**

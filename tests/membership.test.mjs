@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { upgradeUserMembership } from '../apps/cloudflare-worker/src/billing.mjs';
+import { upgradeUserMembership, setUserVip } from '../apps/cloudflare-worker/src/billing.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -176,3 +176,89 @@ test('Cloudflare Worker upgradeUserMembership correctly sets expiration, concurr
   assert.equal(usageLogs.length, 3);
   assert.match(usageLogs[0].details, /membership_upgrade/);
 });
+
+test('Admin setUserVip correctly configures VIP status, expiration, and concurrency limit', async () => {
+  const users = new Map([
+    ['u-admin-target', {
+      id: 'u-admin-target',
+      email: 'target@test.local',
+      username: '被设置用户',
+      isVip: 0,
+      vipExpiresAt: 0,
+      concurrencyLimit: 1
+    }]
+  ]);
+
+  const mockDb = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            async first() {
+              if (sql.includes('FROM users WHERE id = ?')) {
+                const u = users.get(args[0]);
+                return u ? { isVip: u.isVip, vipExpiresAt: u.vipExpiresAt } : null;
+              }
+              return null;
+            },
+            async run() {
+              if (sql.includes('UPDATE users SET is_vip = ?')) {
+                const [vipVal, expiresAt, concurrency, now, userId] = args;
+                const u = users.get(userId);
+                if (u) {
+                  u.isVip = vipVal;
+                  u.vipExpiresAt = expiresAt;
+                  u.concurrencyLimit = concurrency;
+                }
+                return { success: true };
+              }
+              return { success: true };
+            }
+          };
+        }
+      };
+    }
+  };
+
+  // 1. Admin grants 30 days VIP
+  const res1 = await setUserVip(mockDb, 'u-admin-target', true, 30);
+  assert.equal(res1.isVip, true);
+  assert.equal(res1.concurrencyLimit, 4);
+  assert.ok(res1.vipExpiresAt > Date.now());
+  assert.equal(users.get('u-admin-target').concurrencyLimit, 4);
+
+  // 2. Admin revokes VIP
+  const res2 = await setUserVip(mockDb, 'u-admin-target', false);
+  assert.equal(res2.isVip, false);
+  assert.equal(res2.concurrencyLimit, 1);
+  assert.equal(res2.vipExpiresAt, 0);
+  assert.equal(users.get('u-admin-target').concurrencyLimit, 1);
+});
+
+test('auth.js exports refreshUserProfile and normalizes VIP fields', () => {
+  const authCode = fs.readFileSync(path.join(ROOT, 'apps/client/auth.js'), 'utf8');
+  assert.match(authCode, /export\s+async\s+function\s+refreshUserProfile/);
+  assert.match(authCode, /zora:vip-updated/);
+  assert.match(authCode, /zora:user-refreshed/);
+  assert.match(authCode, /isVip:\s*data\.user\.isVip\s*===\s*1\s*\|\|\s*Boolean\(data\.user\.isVip\)/);
+});
+
+test('login-handler.js and app.js listen to focus and tab switches to auto-refresh VIP status', () => {
+  const loginHandlerCode = fs.readFileSync(path.join(ROOT, 'apps/client/login-handler.js'), 'utf8');
+  assert.match(loginHandlerCode, /refreshUserProfile/);
+  assert.match(loginHandlerCode, /window\.addEventListener\('focus'/);
+  assert.match(loginHandlerCode, /window\.addEventListener\('zora:vip-updated'/);
+
+  const appCode = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  assert.match(appCode, /refreshUserProfile/);
+  assert.match(appCode, /\['membership',\s*'account',\s*'credits'\]\.includes/);
+});
+
+test('Cloudflare Worker auth endpoints (/api/auth/login and /api/auth/refresh) return complete VIP fields', () => {
+  const workerCode = fs.readFileSync(path.join(ROOT, 'apps/cloudflare-worker/src/index.mjs'), 'utf8');
+  // Login query & response
+  assert.match(workerCode, /is_vip\s+as\s+isVip,\s*vip_expires_at\s+as\s+vipExpiresAt,\s*concurrency_limit\s+as\s+concurrencyLimit/);
+  assert.match(workerCode, /isVip:\s*user\.isVip\s*===\s*1\s*\|\|\s*Boolean\(user\.isVip\)/);
+  assert.match(workerCode, /concurrencyLimit:\s*user\.concurrencyLimit\s*\|\|\s*1/);
+});
+

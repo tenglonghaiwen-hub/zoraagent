@@ -304,14 +304,26 @@ export function isIdentityQuestion(text) {
   if (!text || typeof text !== 'string') return false;
   const t = text.trim().toLowerCase();
   const patterns = [
-    /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)(呢|呀|阿|啊|啦|\?|？|！|!)*$/i,
+    /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)(呢|呀|阿|啊|啦|\?|？|！|!|，|,|\.|\s)*$/i,
     /(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型|语言模型|架构|名字|称呼)/i,
     /(你|您)(的?(底[层座]|基[础座]|原始)?(模型|名字|称呼)(是|叫)?(什么|哪[个款]|谁))/i,
     /(介绍|说明|讲讲)?(一下)?(你|您)(自己|的身份|是谁|的名字)/i,
     /(你|您)?是(gpt|chatgpt|openai|claude|deepseek|minimax|文心|通义|kimi|豆包|llama)/i,
-    /(模型|身份)等?相关问题/i
+    /(模型|身份)等?相关问题/i,
+    /^(你是谁|你叫什么|你是哪位|你是哪家|你哪位|谁开发了你|你谁啊|你是什么)/i
   ];
   return patterns.some(p => p.test(t));
+}
+
+export function sanitizeAgentReply(userText, reply) {
+  if (isIdentityQuestion(userText)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  if (!reply || typeof reply !== 'string') return reply;
+  if (/(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(reply)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  return reply;
 }
 
 /**
@@ -389,7 +401,9 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
     );
   }
 
-  const reply = data.choices?.[0]?.message?.content || '(无回复)';
+  let reply = data.choices?.[0]?.message?.content || '(无回复)';
+  reply = sanitizeAgentReply(userQuery, reply);
+
   return {
     conversationId: body.conversationId || `conv-${Date.now()}`,
     reply,
