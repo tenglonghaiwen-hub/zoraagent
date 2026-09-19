@@ -169,89 +169,159 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
    });
  }
 
- // ----------------------------------------------------
- // 高级参数控制面板：比例、画质、时长滑杆、并发、数量
- // ----------------------------------------------------
- const controls=document.createElement('div');controls.className='node-generation-controls';
- const modelRow=document.createElement('div');modelRow.className='node-model-row';
- const select=document.createElement('select');select.setAttribute('aria-label','节点模型');
- const available=models.filter(m=>m.kind===kind&&m.enabled!==false);
- for(const m of available)select.add(new Option(m.name||m.id,m.id));
- const savedModel=available.find(m=>m.id===n.modelId||m.aliases?.includes(n.modelId));if(savedModel)select.value=savedModel.id;
- n.modelId=select.value;select.onchange=()=>{n.modelId=select.value;n.params={};n.conversationId=undefined;persist();render();};
- modelRow.append(select);controls.append(modelRow);
+  // ----------------------------------------------------
+  // 高级参数控制面板：模式选择、比例、画质、时长、并发、数量
+  // ----------------------------------------------------
+  const controls=document.createElement('div');controls.className='node-generation-controls';
 
- const model=available.find(m=>m.id===n.modelId);
- n.params||={};
+  const available=models.filter(m=>m.kind===kind&&m.enabled!==false);
+  const savedModel=available.find(m=>m.id===n.modelId||m.aliases?.includes(n.modelId))||available[0];
+  if(savedModel)n.modelId=savedModel.id;
+  const model=savedModel;
+  n.params||={};
 
- if(kind!=='agent'){
-   const paramGrid=document.createElement('div');paramGrid.className='node-param-grid';
+  // 1. 顶部胶囊工具条：类型标识 + 模型选择 + 生成模式 (文生/图生/参考生/首尾帧)
+  const pillBar=document.createElement('div');pillBar.className='node-pill-bar';
 
-   // 1. 比例 Ratio
-   const ratioCol=document.createElement('div');ratioCol.className='node-param-col';
-   ratioCol.innerHTML='<label>比例</label>';
-   const ratioSelect=document.createElement('select');ratioSelect.setAttribute('aria-label','节点比例');
-   const ratioOptions=model?.ratios?.length?model.ratios:['16:9','9:16','1:1','4:3','3:4','21:9'];
-   for(const r of ratioOptions) ratioSelect.add(new Option(r, r));
-   if(n.params.ratio && ratioOptions.includes(n.params.ratio)) ratioSelect.value=n.params.ratio;
-   else n.params.ratio=ratioSelect.value;
-   ratioSelect.onchange=()=>{n.params.ratio=ratioSelect.value;persist();};
-   ratioCol.append(ratioSelect);
-   paramGrid.append(ratioCol);
+  // 类型标识胶囊
+  const typePill=document.createElement('div');typePill.className='node-pill pill-type';
+  const typeLabel=kind==='video'?'视频生成':kind==='image'?'图片生成':'文本生成';
+  typePill.innerHTML=`<span class="pill-accent">${typeLabel}</span>`;
+  pillBar.append(typePill);
 
-   // 2. 画质 / 分辨率 Resolution
-   const resCol=document.createElement('div');resCol.className='node-param-col';
-   resCol.innerHTML='<label>画质</label>';
-   const resSelect=document.createElement('select');resSelect.setAttribute('aria-label','节点画质');
-   const resOptions=model?.resolutions?.length?model.resolutions:['720P','1080P','2K','4K'];
-   for(const r of resOptions) resSelect.add(new Option(r, r));
-   if(n.params.resolution && resOptions.includes(n.params.resolution)) resSelect.value=n.params.resolution;
-   else n.params.resolution=resSelect.value;
-   resSelect.onchange=()=>{n.params.resolution=resSelect.value;persist();};
-   resCol.append(resSelect);
-   paramGrid.append(resCol);
+  // 模型选择胶囊
+  const modelPill=document.createElement('div');modelPill.className='node-pill pill-model';
+  const select=document.createElement('select');select.setAttribute('aria-label','节点模型');
+  for(const m of available)select.add(new Option(m.name||m.id,m.id));
+  if(model)select.value=model.id;
+  select.onchange=()=>{n.modelId=select.value;n.params={};n.conversationId=undefined;persist();render();};
+  const modelText=document.createElement('span');modelText.className='pill-text';modelText.textContent=model?.name||model?.id||'选择模型';
+  const modelChevron=document.createElement('span');modelChevron.className='pill-chevron';modelChevron.textContent='⌄';
+  modelPill.append(modelText,modelChevron,select);
+  pillBar.append(modelPill);
 
-   // 3. 一次性生成数量 Count
-   const countCol=document.createElement('div');countCol.className='node-param-col';
-   countCol.innerHTML='<label>数量</label>';
-   const countSelect=document.createElement('select');countSelect.setAttribute('aria-label','生成数量');
-   const maxCount=model?.maxCount||4;
-   for(let i=1; i<=Math.min(maxCount, 4); i++) countSelect.add(new Option(`${i} 张`, i));
-   if(n.params.count) countSelect.value=String(n.params.count);
-   else n.params.count=1;
-   countSelect.onchange=()=>{n.params.count=Number(countSelect.value);persist();};
-   countCol.append(countSelect);
-   paramGrid.append(countCol);
+  // 模式选择胶囊 (文生图/图生图/参考生/文生视频/首帧/首尾帧)
+  let modeHintText='';
+  if(kind!=='agent'){
+    const modePill=document.createElement('div');modePill.className='node-pill pill-mode';
+    const defaultModes=kind==='video'?[
+      {id:'t2v',name:'文生视频'},
+      {id:'i2v',name:'首帧生视频'},
+      {id:'fl',name:'首尾帧'},
+      {id:'ref',name:'全能参考'},
+      {id:'v2v',name:'参考视频'}
+    ]:[
+      {id:'t2i',name:'文生图'},
+      {id:'i2i',name:'图生图'},
+      {id:'ref',name:'全能参考'}
+    ];
+    const rawModes=Array.isArray(model?.modes)&&model.modes.length?model.modes:defaultModes;
+    const activeModes=rawModes.filter(m=>m.enabled!==false);
+    const modeSelect=document.createElement('select');modeSelect.setAttribute('aria-label','生成模式');
+    for(const m of activeModes)modeSelect.add(new Option(m.name,m.id));
+    
+    if(n.params.videoMode&&activeModes.some(m=>m.id===n.params.videoMode)){
+      modeSelect.value=n.params.videoMode;
+    }else{
+      n.params.videoMode=modeSelect.value||activeModes[0]?.id;
+    }
+    const currentModeName=activeModes.find(m=>m.id===n.params.videoMode)?.name||'生成模式';
+    const modeText=document.createElement('span');modeText.className='pill-text';modeText.innerHTML=`<span class="pill-diamond">◇</span> ${currentModeName}`;
+    const modeChevron=document.createElement('span');modeChevron.className='pill-chevron';modeChevron.textContent='⌄';
+    modeSelect.onchange=()=>{
+      n.params.videoMode=modeSelect.value;
+      persist();
+      render();
+    };
+    modePill.append(modeText,modeChevron,modeSelect);
+    pillBar.append(modePill);
 
-   // 4. 并发上限 Concurrency
-   const concCol=document.createElement('div');concCol.className='node-param-col';
-   concCol.innerHTML='<label>并发</label>';
-   const concSelect=document.createElement('select');concSelect.setAttribute('aria-label','并发上限');
-   for(const c of [1, 2]) concSelect.add(new Option(`${c} 路`, c));
-   if(n.params.concurrency) concSelect.value=String(n.params.concurrency);
-   else n.params.concurrency=1;
-   concSelect.onchange=()=>{n.params.concurrency=Number(concSelect.value);persist();};
-   concCol.append(concSelect);
-   paramGrid.append(concCol);
+    if(n.params.videoMode==='fl')modeHintText='◇ 首尾帧：请在画板连接 2 张图片，分别作为首帧与尾帧';
+    else if(['i2v','i2i'].includes(n.params.videoMode))modeHintText='◇ 图生模式：请在画板连接 1 张图片素材';
+    else if(['ref','v2v'].includes(n.params.videoMode))modeHintText='◇ 参考模式：连接素材将作为风格或动作参考';
+  }
 
-   controls.append(paramGrid);
+  controls.append(pillBar);
 
-   // 5. 视频专属：时长滑杆 Duration Slider
-   if(kind==='video'){
-     const sliderRow=document.createElement('div');sliderRow.className='node-slider-row';
-     const durationVal=Number(n.params.duration)||5;
-     sliderRow.innerHTML=`<div class="slider-header"><label>生成时长</label><span class="slider-badge">${durationVal} 秒</span></div><input type="range" min="3" max="15" step="1" value="${durationVal}" aria-label="视频时长滑杆">`;
-     const rangeInput=sliderRow.querySelector('input[type="range"]');
-     const badge=sliderRow.querySelector('.slider-badge');
-     rangeInput.oninput=()=>{
-       const val=rangeInput.value;
-       badge.textContent=`${val} 秒`;
-       n.params.duration=Number(val);
-       persist();
-     };
-     controls.append(sliderRow);
-   }
- }
+  if(kind!=='agent'){
+    // 2. 核心规格参数网格：比例、画质、数量、并发
+    const paramGrid=document.createElement('div');paramGrid.className='node-param-grid';
+
+    // 比例 Ratio
+    const ratioCol=document.createElement('div');ratioCol.className='node-param-col';
+    ratioCol.innerHTML='<label>比例</label>';
+    const ratioSelect=document.createElement('select');ratioSelect.setAttribute('aria-label','节点比例');
+    const ratioOptions=model?.ratios?.length?model.ratios:['16:9','9:16','1:1','4:3','3:4','21:9'];
+    for(const r of ratioOptions) ratioSelect.add(new Option(r, r));
+    if(n.params.ratio && ratioOptions.includes(n.params.ratio)) ratioSelect.value=n.params.ratio;
+    else n.params.ratio=ratioSelect.value;
+    ratioSelect.onchange=()=>{n.params.ratio=ratioSelect.value;persist();};
+    ratioCol.append(ratioSelect);
+    paramGrid.append(ratioCol);
+
+    // 画质 / 分辨率 Resolution
+    const resCol=document.createElement('div');resCol.className='node-param-col';
+    resCol.innerHTML='<label>画质</label>';
+    const resSelect=document.createElement('select');resSelect.setAttribute('aria-label','节点画质');
+    const resOptions=model?.resolutions?.length?model.resolutions:['720P','1080P','1K','2K','4K'];
+    for(const r of resOptions) resSelect.add(new Option(r, r));
+    if(n.params.resolution && resOptions.includes(n.params.resolution)) resSelect.value=n.params.resolution;
+    else n.params.resolution=resSelect.value;
+    resSelect.onchange=()=>{n.params.resolution=resSelect.value;persist();};
+    resCol.append(resSelect);
+    paramGrid.append(resCol);
+
+    // 一次性生成数量 Count
+    const countCol=document.createElement('div');countCol.className='node-param-col';
+    countCol.innerHTML='<label>数量</label>';
+    const countSelect=document.createElement('select');countSelect.setAttribute('aria-label','生成数量');
+    const maxCount=model?.maxCount||4;
+    for(let i=1; i<=Math.min(maxCount, 4); i++) countSelect.add(new Option(`${i} 张`, i));
+    if(n.params.count) countSelect.value=String(n.params.count);
+    else n.params.count=1;
+    countSelect.onchange=()=>{n.params.count=Number(countSelect.value);persist();};
+    countCol.append(countSelect);
+    paramGrid.append(countCol);
+
+    // 并发上限 Concurrency
+    const concCol=document.createElement('div');concCol.className='node-param-col';
+    concCol.innerHTML='<label>并发</label>';
+    const concSelect=document.createElement('select');concSelect.setAttribute('aria-label','并发上限');
+    const maxConcurrency=model?.maxConcurrency||2;
+    for(let c=1; c<=Math.min(maxConcurrency, 4); c++) concSelect.add(new Option(`${c} 路`, c));
+    if(n.params.concurrency) concSelect.value=String(n.params.concurrency);
+    else n.params.concurrency=1;
+    concSelect.onchange=()=>{n.params.concurrency=Number(concSelect.value);persist();};
+    concCol.append(concSelect);
+    paramGrid.append(concCol);
+
+    controls.append(paramGrid);
+
+    // 3. 视频专属：时长滑杆 Duration Slider
+    if(kind==='video'){
+      const sliderRow=document.createElement('div');sliderRow.className='node-slider-row';
+      const range=model?.durationRange||{min:4,max:15,step:1};
+      const minD=range.min||3, maxD=range.max||15, stepD=range.step||1;
+      const durationVal=Number(n.params.duration)||minD||5;
+      sliderRow.innerHTML=`<div class="slider-header"><label><span class="duration-clock">⏱</span> 生成时长</label><span class="slider-badge">${durationVal} 秒</span></div><input type="range" min="${minD}" max="${maxD}" step="${stepD}" value="${durationVal}" aria-label="视频时长滑杆">`;
+      const rangeInput=sliderRow.querySelector('input[type="range"]');
+      const badge=sliderRow.querySelector('.slider-badge');
+      rangeInput.oninput=()=>{
+        const val=rangeInput.value;
+        badge.textContent=`${val} 秒`;
+        n.params.duration=Number(val);
+        persist();
+      };
+      controls.append(sliderRow);
+    }
+
+    // 4. 模式辅助提示
+    if(modeHintText){
+      const hint=document.createElement('div');hint.className='node-mode-hint';
+      hint.textContent=modeHintText;
+      controls.append(hint);
+    }
+  }
 
  const status=document.createElement('div');status.className='node-run-status';status.textContent=n.runState==='running'?'正在请求…':n.runState==='submitted'?(n.error||'生成中，将自动获取结果'):n.error||n.outputText||(n.outputUrl?'素材已生成':'');
  const button=document.createElement('button');button.className='node-run';button.textContent=kind==='agent'?'生成文字':'生成'+(kind==='image'?'图片':'视频');button.disabled=!model||['running','submitted'].includes(n.runState);

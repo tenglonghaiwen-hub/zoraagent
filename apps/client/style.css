@@ -3068,6 +3068,7 @@ html[data-theme="night"]{
 /* ==========================================================================
    Canvas Node Parameters & @-Mention Popover
    ========================================================================== */
+/* ── Optimized Node Parameter Controls ── */
 .node-generation-controls {
   display: flex;
   flex-direction: column;
@@ -3076,38 +3077,110 @@ html[data-theme="night"]{
   box-sizing: border-box;
 }
 
-/* Model selector row */
-.node-model-row {
+/* Pill Bar: Model & Mode capsule triggers */
+.node-pill-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
   width: 100%;
+  align-items: center;
 }
-.node-model-row select {
-  width: 100%;
-  padding: 7px 12px;
-  font-size: 12px;
+
+.node-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  min-height: 28px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  font-size: 11px;
   font-weight: 500;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.92);
-  color: #1e293b;
-  box-sizing: border-box;
+  color: #334155;
   cursor: pointer;
-  transition: border-color .15s, box-shadow .15s;
+  user-select: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
 }
-.node-model-row select:hover {
-  border-color: rgba(59, 130, 246, 0.4);
+.node-pill:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
 }
-.node-model-row select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-  outline: none;
+
+.node-pill.pill-type {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
 }
-html[data-theme="night"] .node-model-row select {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: #1e222b;
-  color: #f1f5f9;
+.node-pill .pill-accent {
+  color: #0284c7;
+  font-weight: 600;
 }
-html[data-theme="night"] .node-model-row select:hover {
-  border-color: rgba(99, 102, 241, 0.5);
+
+.node-pill.pill-model {
+  flex: 1;
+  min-width: 90px;
+  justify-content: space-between;
+}
+
+.node-pill.pill-mode {
+  flex: 1;
+  min-width: 90px;
+  justify-content: space-between;
+}
+
+.node-pill .pill-diamond {
+  color: #3b82f6;
+  font-size: 11px;
+}
+
+.node-pill .pill-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-pill .pill-chevron {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* Invisible overlay select on pills for native picker interactivity */
+.node-pill select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+html[data-theme="night"] .node-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+html[data-theme="night"] .node-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+html[data-theme="night"] .node-pill.pill-type {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+html[data-theme="night"] .node-pill .pill-accent {
+  color: #38bdf8;
+}
+html[data-theme="night"] .node-pill .pill-diamond {
+  color: #60a5fa;
 }
 
 /* 4-column parameter grid (ratio, quality, count, concurrency) */
@@ -3171,7 +3244,7 @@ html[data-theme="night"] .node-param-col select:hover {
   flex-direction: column;
   gap: 4px;
   width: 100%;
-  padding: 6px 0 2px;
+  padding: 4px 0 2px;
 }
 html[data-theme="night"] .node-slider-row {
   background: transparent;
@@ -3187,6 +3260,13 @@ html[data-theme="night"] .node-slider-row {
   font-size: 10px;
   font-weight: 600;
   color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.duration-clock {
+  font-size: 11px;
+  opacity: 0.8;
 }
 html[data-theme="night"] .slider-header label {
   color: #cbd5e1;
@@ -3208,6 +3288,22 @@ html[data-theme="night"] .slider-header label {
   accent-color: #3b82f6;
   cursor: pointer;
   margin: 2px 0 0;
+}
+
+/* Mode guide hint banner */
+.node-mode-hint {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px dashed rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+html[data-theme="night"] .node-mode-hint {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #93c5fd;
 }
 
 /* @-Mention Popover for Connected Nodes */
