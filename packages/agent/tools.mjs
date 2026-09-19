@@ -7,8 +7,10 @@ import { handleBrowserTool } from './tool-handlers/browser-tools.mjs';
 import { handleSkillTool } from './tool-handlers/skill-tools.mjs';
 import { handleOMTool } from './tool-handlers/om-tools.mjs';
 import { handleRuntimeTool } from './tool-handlers/runtime-tools.mjs';
+import { IMAGE_SUITE_TOOLS, planImageSuite } from './image-suite.mjs';
 
 export const AGENT_TOOL_DEFS = [
+  ...IMAGE_SUITE_TOOLS,
   {type:'function',name:'desktop_control',description:'通用 Windows 桌面操作。openApp 按 name 打开应用，无需用户提供编号；listWindows 定位窗口，focus 激活，readWindow 读取控件，captureWindow 返回窗口截图。依据真实控件或截图在窗口内 click、type、keys，每步后重新读取核验。不得用网页代替桌面应用。',parameters:{type:'object',properties:{action:{type:'string',enum:['openApp','listWindows','focus','readWindow','captureWindow','click','type','keys']},name:{type:'string'},windowId:{type:'string'},x:{type:'integer'},y:{type:'integer'},text:{type:'string'},key:{type:'string'}},required:['action'],additionalProperties:false}},
   {type:'function',name:'desktop_apps',description:'查找并启动本机已安装的桌面应用（例如微信）。先 listApps 获取真实 appId，再 launchApp。只能在 windowVerified 为 true 时声称窗口已打开；不得使用浏览器替代桌面应用。',parameters:{type:'object',properties:{action:{type:'string',enum:['listApps','launchApp']},query:{type:'string'},appId:{type:'string'}},required:['action'],additionalProperties:false}},
   {type:'function',name:'desktop_jianying',description:'查看或操作本机剪映。先listWindows再readWindow，只有确认可访问元素与坐标后才操作；操作会弹出用户确认。无法读取界面时说明受阻，不能猜坐标。',parameters:{type:'object',properties:{action:{type:'string',enum:['listWindows','launchJianying','readWindow','click','type','keys']},windowId:{type:'string'},x:{type:'number'},y:{type:'number'},text:{type:'string'},key:{type:'string'}},required:['action'],additionalProperties:false}},
@@ -224,12 +226,13 @@ function draftBody(args = {}) {
 export function createToolRunner({ skills = [], callApi, mediaModels = [], references = [], generationTasks = [], conversationId, messageId } = {}) {
   const withReferences=body=>({...body,references: references.filter(r=>r.contentUrl).map(r=>({name:r.name,type:r.type,contentUrl:r.contentUrl}))});
   const submissions=new Map();
-  async function submit(body){
+  const suites=new Map();
+  async function submit(body,suite){
     if(references.some(r=>!r||typeof r.contentUrl!=='string'||!r.contentUrl))return {ok:false,status:400,error:'参考素材未读取成功，请重新添加原始素材'};
     const checked=validateDraft(withReferences(body));
     if(!checked.ok)return {ok:false,status:400,error:checked.error};
     const {id,createdAt,...draft}=checked.draft;
-    const fingerprint=createHash('sha256').update(JSON.stringify(draft)).digest('hex');
+    const fingerprint=createHash('sha256').update(JSON.stringify([draft,suite?.id||null])).digest('hex');
     if(submissions.has(fingerprint))return submissions.get(fingerprint);
     const requestId=randomUUID();
     const pending=(async()=>{
@@ -240,12 +243,15 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
       }
       const {references:refs,...safeDraft}=draft;
       const task=result?.data?.task;
-      if(task)generationTasks.push({task,draft:safeDraft});
+      if(task)generationTasks.push({task,draft:safeDraft,...(suite?{suite}:{})});
       else if(result?.status===404 || result?.status==null || result?.status>=500){
         // The POST may have reached the gateway. Preserve its identity; never issue it again.
         const unknown={id:requestId,modelId:draft.modelId,status:'unknown',submissionUnknown:true,revision:0,upstreams:[],pollError:'生成提交结果未知，请查询原任务，勿重复提交',createdAt:Date.now()};
-        generationTasks.push({task:unknown,draft:safeDraft,submissionUnknown:true});
+        generationTasks.push({task:unknown,draft:safeDraft,submissionUnknown:true,...(suite?{suite}:{})});
         return {ok:false,data:{task:unknown},error:unknown.pollError};
+      }
+      else if(suite){
+        generationTasks.push({task:{id:requestId,modelId:draft.modelId,status:'failed',revision:0,upstreams:[],localRejection:true,pollError:result?.error||'提交被拒绝'},draft:safeDraft,suite});
       }
       return result;
     })();
@@ -256,6 +262,27 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
   const media = Array.isArray(mediaModels) ? mediaModels.map(m=>({...m,routes:m.routes||getRouteCapabilities(m)})) : [];
 
   return async function runTool(name, args = {}) {
+    if(name==='preview_image_suite'||name==='submit_image_suite'){
+      if(references.some(r=>!r?.contentUrl))return {ok:false,error:'参考素材未读取成功，请重新添加原始素材'};
+      const plan=planImageSuite(args,withReferences({}).references);
+      if(!plan.ok)return plan;
+      if(name==='preview_image_suite')return {...plan,drafts:plan.drafts.map(({references,...draft})=>draft)};
+      if(typeof callApi!=='function')return {ok:false,error:'API 层未就绪'};
+      const key=createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+      if(suites.has(key))return suites.get(key);
+      const pending=(async()=>{
+        const suite={id:randomUUID(),title:plan.title,sharedStyle:plan.sharedStyle,items:plan.items};
+        const results=[];
+        for(let index=0;index<plan.drafts.length;index++){
+          const result=await submit(plan.drafts[index],{...suite,index});
+          results.push(result);
+          if(!result?.data?.task||result.data.task.status==='unknown'||result.data.task.status==='failed')break;
+        }
+        return {ok:results.length===plan.drafts.length&&results.every(r=>r.ok!==false),suite,results,
+          message:'每张独立提交；请以任务收据为准。未提交或结果未知的页面不会自动补交。'};
+      })();
+      suites.set(key,pending);return pending;
+    }
     // Browser & Desktop tools
     const browserResult = await handleBrowserTool(name, args);
     if (browserResult !== undefined) return browserResult;

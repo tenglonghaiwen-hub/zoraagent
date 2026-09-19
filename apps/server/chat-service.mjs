@@ -307,7 +307,7 @@ export function createChatService({
         modelId: result.model || input.modelId || status.model,
       };
 
-      session.history.push(user, { role: 'assistant', reply: answer.reply, tasks: answer.tasks });
+      session.history.push(user, { role: 'assistant', reply: answer.reply, tasks: answer.tasks, generationTasks });
       const sessionPersistenceWarning = sessionStore.save(session);
 
       return {
@@ -326,7 +326,7 @@ export function createChatService({
         ? '生成提交结果待确认，Agent 后续回复未完成；正在查询原任务，请勿重复提交。'
         : '生成任务已提交，但 Agent 后续回复未完成；请以任务状态为准。';
 
-      session.history.push(user, { role: 'assistant', reply, tasks: [] });
+      session.history.push(user, { role: 'assistant', reply, tasks: [], generationTasks });
       const sessionPersistenceWarning = sessionStore.save(session);
 
       return {

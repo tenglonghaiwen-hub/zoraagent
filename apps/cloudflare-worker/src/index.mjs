@@ -1,4 +1,5 @@
 import {agentResponses} from './agent-responses.mjs';
+import {generateImages,readImageReceipt} from './image-generation.mjs';
 import {
   hashPassword,
   verifyPassword,
@@ -624,7 +625,12 @@ export default {
       // ----------------------------------------------------
       // 7. Generation Task Status Polling (MiniMax / Duoyuanx Video Tasks)
       // ----------------------------------------------------
-      if (method === 'GET' && (path.startsWith('/api/generation-tasks/') || path.startsWith('/v2/query/video_generation/') || path.startsWith('/api/tasks/'))) {
+      if(method==='GET'&&path.startsWith('/api/generation-tasks/')){
+        const {user}=await authenticateRequest(request,env);
+        const task=await readImageReceipt(env,user.id,path.split('/').pop());
+        return jsonResponse(task?{task}:{error:'未找到此账号的生成回执；旧任务未保存结果，禁止自动重提'},task?200:404,cors);
+      }
+      if (method === 'GET' && (path.startsWith('/v2/query/video_generation/') || path.startsWith('/api/tasks/'))) {
         const taskId = path.split('/').filter(Boolean).pop();
         if (!taskId) return errorResponse('缺少 taskId 参数', 400, cors);
 
@@ -643,6 +649,8 @@ export default {
         const prompt = body.prompt;
         const model = body.model || body.modelId || 'flux-schnell';
         const kind = body.type || body.kind || (body.duration ? 'video' : 'image');
+
+        if(model==='gpt-image-2')return jsonResponse(await generateImages(body,user,env),200,cors);
 
         if (!prompt || typeof prompt !== 'string') {
           return errorResponse('缺少必要的 prompt 参数', 400, cors);

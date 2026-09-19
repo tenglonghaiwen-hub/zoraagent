@@ -755,7 +755,7 @@ test('Cloudflare Worker - Multi-Provider & MiniMax Official Direct Routing Test'
     assert.ok(!interceptedCalls.some(c => c.url.includes('duoyuanx.com')));
 
     // 4. Poll task status via gateway endpoint
-    const pollRes = await worker.fetch(new Request('http://localhost/api/generation-tasks/minimax-task-987654321?provider=minimax'), env);
+    const pollRes = await worker.fetch(new Request('http://localhost/api/tasks/minimax-task-987654321?provider=minimax'), env);
     assert.equal(pollRes.status, 200);
     const pollData = await pollRes.json();
     assert.equal(pollData.ok, true);
@@ -1131,4 +1131,3 @@ test('Client UI - Out-of-the-Box Setup & Messages Red Dot Integration', async ()
   const authJs = fs.readFileSync(path.join(ROOT, 'apps/client/auth.js'), 'utf8');
   assert.match(authJs, /export async function fetchMessages/, 'auth.js must export fetchMessages');
 });
-

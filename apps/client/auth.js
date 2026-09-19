@@ -357,7 +357,9 @@ export async function authFetch(url, options = {}, isRetry = false) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const finalUrl = url === '/api/chat' && getGatewayConfig().mode === 'cloud' ? '/api/agent/chat' : apiUrl(url);
+  const cloud=getGatewayConfig().mode==='cloud';
+  const localMedia=cloud&&(url==='/api/generate'?'/api/cloud-media/generate':/^\/api\/generation-tasks\/[a-zA-Z0-9_-]{16,100}$/.test(url)?url.replace('/api/generation-tasks/','/api/cloud-media/tasks/'):null);
+  const finalUrl = localMedia || (url === '/api/chat' && cloud ? '/api/agent/chat' : apiUrl(url));
   const response = await fetch(finalUrl, { ...options, headers });
 
   // Handle 401 - try refresh token once if not a retry and not already an auth endpoint
@@ -512,4 +514,3 @@ export async function fetchMessages() {
   const res = await fetch(apiUrl('/api/messages'), { headers });
   return res.json();
 }
-

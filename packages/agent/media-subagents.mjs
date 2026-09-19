@@ -3,8 +3,8 @@ import { AGENT_TOOL_DEFS } from './tools.mjs';
 import { getRouteCapabilities } from '../duoyuanx/route-capabilities.mjs';
 import { buildMediaSubagentPrompt } from './prompts/media-subagent.mjs';
 
-const childNames = new Set(['list_media_models', 'preview_task', 'submit_generation']);
-const blockedMain = new Set(['preview_task', 'submit_generation', 'call_api']);
+const childNames = new Set(['list_media_models', 'preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite']);
+const blockedMain = new Set(['preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite', 'call_api']);
 
 export const MAIN_AGENT_TOOL_DEFS = [
   ...AGENT_TOOL_DEFS.filter((t) => !blockedMain.has(t.name)),
@@ -55,6 +55,7 @@ export function createMediaDelegator({
       if (!childNames.has(name)) {
         return { ok: false, error: '此子 Agent 无权调用该工具' };
       }
+      if(kind!=='image'&&name.endsWith('_image_suite'))return {ok:false,error:'视频 Agent 不能提交整套图片'};
       if (name === 'list_media_models') {
         return { models: allowedModels, count: allowedModels.length };
       }

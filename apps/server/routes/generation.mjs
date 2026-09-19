@@ -1,6 +1,7 @@
 import {createChatService} from '../chat-service.mjs';
 import {createLocalApiCaller} from '../../../packages/agent/api.mjs';
 import {cloudToolApi} from '../cloud-agent-api.mjs';
+import {cloudMediaTasks} from '../cloud-media-tasks.mjs';
 const cloudChats=new Map();
 let cloudChatBusy=false;
 import {cloudAgentContext,CLOUD_AGENT_GATEWAY} from '../cloud-agent-context.mjs';
@@ -26,6 +27,24 @@ import {
  * Returns true if the request was handled.
  */
 export async function handleGenerationRoutes(req, res, url, { sendJson, readJson, taskStore, handleChat }) {
+  if(url.pathname==='/api/cloud-media/generate'||/^\/api\/cloud-media\/tasks\/[a-zA-Z0-9_-]{16,100}$/.test(url.pathname)){
+    if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)||req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`){sendJson(res,403,{error:'仅允许本机同源执行'});return true;}
+    try{
+      const token=(req.headers.authorization||'').replace(/^Bearer /,'');
+      if(!token)throw Object.assign(Error('请先登录云服务'),{status:401});
+      const profile=await fetch(CLOUD_AGENT_GATEWAY+'/api/auth/me',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+      const data=await profile.json(),user=data.user||data.data?.user;
+      if(!profile.ok||!user?.id)throw Object.assign(Error(data.error||'云端身份验证失败'),{status:profile.status===200?401:profile.status});
+      const context={token,owner:createHash('sha256').update(String(user.id)).digest('hex').slice(0,24)};
+      if(req.method==='GET'&&url.pathname.includes('/tasks/'))sendJson(res,200,{task:await cloudMediaTasks.get(context,url.pathname.split('/').pop())});
+      else if(req.method==='POST'&&url.pathname.endsWith('/generate')){
+        const body=await readJson(req);
+        if((body.modelId||body.model)==='gpt-image-2')sendJson(res,202,{task:cloudMediaTasks.submit(context,body)});
+        else{const upstream=await fetch(CLOUD_AGENT_GATEWAY+'/api/generate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});sendJson(res,upstream.status,await upstream.json());}
+      }else sendJson(res,405,{error:'不支持此方法'});
+    }catch(error){sendJson(res,error.status||502,{error:error.message});}
+    return true;
+  }
   // Generation capabilities
   if (req.method === 'GET' && url.pathname === '/api/generation-capabilities') {
     sendJson(res, 200, { durableTasks: true, agentTasksVersion: 1 });

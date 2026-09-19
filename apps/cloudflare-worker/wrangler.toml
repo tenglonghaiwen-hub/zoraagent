@@ -1,7 +1,15 @@
 name = "zora-api"
-main = "src/index.mjs"
+main = "src/worker.mjs"
 compatibility_date = "2024-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "IMAGE_JOBS"
+class_name = "ImageGenerationJob"
+
+[[migrations]]
+tag = "image-jobs-v1"
+new_sqlite_classes = ["ImageGenerationJob"]
 
 [vars]
 DUOYUANX_BASE_URL = "https://duoyuanx.com"

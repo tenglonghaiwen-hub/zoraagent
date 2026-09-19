@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 runtime/
 outputs/
+.wrangler/
 *.log
 
 # OpenMontage bundled binaries / linked engine (keep placeholders)

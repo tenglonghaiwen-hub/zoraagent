@@ -1,4 +1,5 @@
 import {normalizeMediaResults} from './media-results.js?v=studio136';
+import {attachImageSuite} from './image-suite.js?v=studio200';
 
 export function applyGenerationReceipt(message,task){
  const result=normalizeMediaResults(task.upstreams||[]);
@@ -8,7 +9,7 @@ export function applyGenerationReceipt(message,task){
  message.genUrls=[...new Set([...(message.genUrls||[]),...result.urls])];
  message.genUrl=message.genUrls[0]||null;
  message.genTaskIds=message.genPending?[...new Set([...(message.genUnknown?message.genTaskIds||[]:[]),...result.taskIds])]:[];message.genTaskId=message.genTaskIds[0]||(message.genUnknown?message.genTaskId:null)||null;
- message.genError=result.errors.join('；');
+ message.genError=result.errors.join('；')||(task.status==='partial'?task.pollError||'上游返回的结果不完整':'');
  message.genStatus=message.genUnknown?'结果待确认':message.genPending?'生成中':task.status==='partial'?'部分失败':task.status==='failed'?'生成失败':message.genUrl?'已完成':'生成失败';
  if(!message.genPending&&!message.genUrl&&!message.genError)message.genError='任务已结束，但没有返回可用素材';
  return message;
@@ -37,6 +38,7 @@ export function attachGenerationReceipts(messages,source,receipts,models=[]){
  for(const receipt of receipts||[]){
   const task=receipt?.task,draft=receipt?.draft||{};
   if(!task?.id)continue;
+  if(receipt.suite){attachImageSuite(messages,source,receipt,models);linked.push(task.id);continue;}
   let message=messages.find(m=>m.genBatchId===task.id);
   if(!message){
    const model=models.find(m=>m.id===(task.modelId||draft.modelId));
