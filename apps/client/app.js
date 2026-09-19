@@ -6,7 +6,7 @@ import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
 import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio198';
 import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl} from './auth.js';
-import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu} from './login-handler.js';
+import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu, initMembershipPanel, updateUserVipUI} from './login-handler.js';
 function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}')||{};}catch{return {};}}
 function saveUIPref(key,value){try{localStorage.setItem('zora.uiPrefs.v1',JSON.stringify({...readUIPrefs(),[key]:value}));}catch{toast('设置保存失败，请检查本地存储空间');}}
 function canvasNodeIcon(type){const paths=type==='res-image'||type==='image'||type==='t2i'||type==='i2i'?'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>':type==='res-video'||type==='video'||type==='t2v'||type==='i2v'?'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4Z"/>':'<path d="M5 5h14M5 10h14M5 15h10M5 20h7"/>';return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';}
@@ -33,10 +33,43 @@ function ensureBackdrops(){
       try{ v.pause(); }catch{}
       continue;
     }
-    const tryPlay=()=>{ if(!isLowMem && !isDocHidden && !pageHidden) v.play().catch(()=>{}); };
-    v.addEventListener('error',()=>{v.dataset.failed='1';if(page)page.dataset.backdropFailed='1';}, {once:true});
+    if(v.dataset.failed){
+      delete v.dataset.failed;
+      v.removeAttribute('data-failed');
+    }
+    if(page?.dataset?.backdropFailed){
+      delete page.dataset.backdropFailed;
+      page.removeAttribute('data-backdrop-failed');
+    }
+    v.onerror=()=>{
+      if(!document.documentElement.classList.contains('low-memory-mode') && document.visibilityState!=='hidden' && !(page && (page.hidden || page.style.display==='none'))){
+        v.dataset.failed='1';
+        if(page)page.dataset.backdropFailed='1';
+      }
+    };
+    const tryPlay=()=>{
+      if(document.documentElement.classList.contains('low-memory-mode') || document.visibilityState==='hidden') return;
+      if(page && (page.hidden || page.style.display==='none')) return;
+      if(canvasOpen && v.classList.contains('studio-backdrop')) return;
+      if(v.error || v.readyState===0 || v.networkState===HTMLMediaElement.NETWORK_NO_SOURCE){
+        try{ v.load(); }catch{}
+      }
+      const p = v.play();
+      if(p && typeof p.catch==='function'){
+        p.catch(()=>{
+          requestAnimationFrame(()=>{
+            if(!document.documentElement.classList.contains('low-memory-mode') && document.visibilityState!=='hidden' && !(page && (page.hidden || page.style.display==='none'))){
+              v.play().catch(()=>{});
+            }
+          });
+        });
+      }
+    };
     if(v.readyState>=2) tryPlay();
-    else v.addEventListener('loadeddata',tryPlay,{once:true});
+    else{
+      v.addEventListener('loadeddata',tryPlay,{once:true});
+      v.addEventListener('canplay',tryPlay,{once:true});
+    }
     tryPlay();
   }
 }
@@ -2137,7 +2170,7 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
   window.__setCanvasAgentRailCollapsed=setCollapsed;
 })();
 
-// Initialize authentication
+// Initialize authentication & membership panel
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash === '#login') {
@@ -2146,6 +2179,8 @@ if (document.readyState === 'loading') {
     if (isAuthenticated()) {
       initUserMenu();
     }
+    initMembershipPanel();
+    updateUserVipUI();
   });
 } else {
   if (window.location.hash === '#login') {
@@ -2154,6 +2189,8 @@ if (document.readyState === 'loading') {
   if (isAuthenticated()) {
     initUserMenu();
   }
+  initMembershipPanel();
+  updateUserVipUI();
 }
 
 window.addEventListener('hashchange', () => {
@@ -2165,6 +2202,7 @@ window.addEventListener('hashchange', () => {
   } else {
     clearUserMenu();
   }
+  updateUserVipUI();
 });
 
 ensureBackdrops();
@@ -2176,7 +2214,7 @@ if(!page){page=isAuthed()?'studio':'welcome';if(location.hash!=='#'+page){locati
 if(!['welcome','login','studio'].includes(page))page=isAuthed()?'studio':'welcome';
 if(isAuthed()&&(page==='welcome'||page==='login')){location.replace('#studio');return;}
 if(!isAuthed()&&page==='studio'){location.replace('#login');return;}
-document.querySelectorAll('.page').forEach(el=>el.hidden=el.id!==page); try{window.__syncCanvasChrome?.();}catch{} document.querySelectorAll('video.backdrop').forEach(v=>{if(v.closest('.page').hidden||matchMedia('(prefers-reduced-motion: reduce)').matches)v.pause();else v.play().catch(()=>{});});
+document.querySelectorAll('.page').forEach(el=>el.hidden=el.id!==page); try{window.__syncCanvasChrome?.();}catch{} ensureBackdrops();
  try{window.__syncCanvasChrome?.();}catch{}
 }
 
@@ -3332,7 +3370,19 @@ if(themeBtn&&!themeBtn.dataset.wired){themeBtn.dataset.wired='1';themeBtn.onclic
    try{localStorage.setItem('zora.lowMemoryMode.v1',on?'1':'0');}catch{}
    document.documentElement.classList.toggle('low-memory-mode',on);
    ensureBackdrops();
-   toast(on?'已开启低内存模式（暂停动态背景与毛玻璃渲染）':'已关闭低内存模式');
+   if(!on){
+    requestAnimationFrame(()=>{
+     ensureBackdrops();
+     window.dispatchEvent(new Event('resize'));
+    });
+    setTimeout(()=>{
+     ensureBackdrops();
+    }, 80);
+    setTimeout(()=>{
+     ensureBackdrops();
+    }, 300);
+   }
+   toast(on?'已开启低内存模式（暂停动态背景与毛玻璃渲染）':'已关闭低内存模式（已恢复动态背景与视觉特效）');
   });
  }
  function updateStorageUsageDisplay(){

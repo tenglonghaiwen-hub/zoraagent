@@ -1,7 +1,7 @@
 /**
  * Login page handler
  */
-import { login, register, isAuthenticated, getUser, logout, storeUser, fetchUsageLogs, topupDemoQuota } from './auth.js';
+import { login, register, isAuthenticated, getUser, logout, storeUser, fetchUsageLogs, topupDemoQuota, upgradeMembership } from './auth.js';
 
 // Initialize login page
 export function initLoginPage() {
@@ -159,6 +159,8 @@ export function clearUserMenu() {
       signoutBtn.onclick = null;
     }
   }
+
+  updateUserVipUI(null);
 }
 
 // Initialize user menu in header
@@ -263,6 +265,7 @@ export function initUserMenu() {
 
   headerRight.appendChild(userMenu);
   initCreditsPanel();
+  updateUserVipUI(user);
 }
 
 // Update user balance display
@@ -474,6 +477,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
   // 4. Checkout Dialog Elements
   const checkoutDialog = document.querySelector('#checkout-dialog');
   const checkoutOrderId = document.querySelector('#checkout-order-id');
+  const checkoutItemName = document.querySelector('#checkout-item-name');
   const checkoutPoints = document.querySelector('#checkout-points');
   const checkoutMethodName = document.querySelector('#checkout-method-name');
   const checkoutAmount = document.querySelector('#checkout-amount');
@@ -486,10 +490,21 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
   const checkoutCloseBtn = document.querySelector('#checkout-close');
   const checkoutCancelBtn = document.querySelector('#checkout-cancel-btn');
 
-  function openCheckout() {
+  let activeCheckout = {
+    type: 'credits',
+    title: '造境创作积分充值',
+    amount: 10,
+    quota: 100,
+    gift: 0,
+    method: 'alipay',
+    membershipTier: 'monthly',
+    membershipDays: 30
+  };
+
+  function openCheckout(customOptions = null) {
     const user = getUser();
     if (!user) {
-      alert('请先登录账户后再进行充值');
+      alert('请先登录账户后再进行开通或充值');
       window.location.hash = '#login';
       return;
     }
@@ -505,23 +520,58 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
       checkoutConfirmBtn.textContent = '模拟完成支付 (确认入账)';
     }
 
-    // Populate order details
-    const orderNo = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
-    if (checkoutOrderId) checkoutOrderId.textContent = orderNo;
+    if (customOptions && customOptions.type === 'membership') {
+      activeCheckout = {
+        type: 'membership',
+        title: customOptions.title || '造境 VIP 会员',
+        amount: Number(customOptions.amount) || 19,
+        gift: Number(customOptions.gift) || 0,
+        method: customOptions.method || 'alipay',
+        membershipTier: customOptions.tier || 'monthly',
+        membershipDays: customOptions.days != null ? customOptions.days : 30,
+        concurrency: customOptions.concurrency || 2
+      };
 
-    const totalPoints = currentRecharge.quota + currentRecharge.gift;
-    if (checkoutPoints) {
-      checkoutPoints.textContent = `${totalPoints} 积分${currentRecharge.gift > 0 ? ` (含赠 ${currentRecharge.gift})` : ''}`;
-    }
+      const orderNo = 'ORD-VIP-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+      if (checkoutOrderId) checkoutOrderId.textContent = orderNo;
+      if (checkoutItemName) checkoutItemName.textContent = activeCheckout.title;
+      if (checkoutPoints) {
+        const periodStr = activeCheckout.membershipDays === -1 ? '终身永久' : `${activeCheckout.membershipDays}天`;
+        checkoutPoints.textContent = `赠送 ${activeCheckout.gift} 积分 · ${periodStr} VIP 特权`;
+      }
+      const isWechat = activeCheckout.method === 'wechat';
+      if (checkoutMethodName) {
+        checkoutMethodName.textContent = isWechat ? '微信支付' : '支付宝';
+        checkoutMethodName.className = `value pay-badge ${isWechat ? 'wechat' : 'alipay'}`;
+      }
+      if (checkoutAmount) {
+        checkoutAmount.textContent = `￥${activeCheckout.amount.toFixed(2)}`;
+      }
+    } else {
+      activeCheckout = {
+        type: 'credits',
+        title: '造境创作积分充值',
+        amount: currentRecharge.amount,
+        quota: currentRecharge.quota,
+        gift: currentRecharge.gift,
+        method: currentRecharge.method
+      };
 
-    const isWechat = currentRecharge.method === 'wechat';
-    if (checkoutMethodName) {
-      checkoutMethodName.textContent = isWechat ? '微信支付' : '支付宝';
-      checkoutMethodName.className = `value pay-badge ${isWechat ? 'wechat' : 'alipay'}`;
-    }
-
-    if (checkoutAmount) {
-      checkoutAmount.textContent = `￥${currentRecharge.amount.toFixed(2)}`;
+      const orderNo = 'ORD-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+      if (checkoutOrderId) checkoutOrderId.textContent = orderNo;
+      if (checkoutItemName) checkoutItemName.textContent = activeCheckout.title;
+      const totalPoints = currentRecharge.quota + currentRecharge.gift;
+      if (checkoutPoints) {
+        checkoutPoints.textContent = `${totalPoints} 积分${currentRecharge.gift > 0 ? ` (含赠 ${currentRecharge.gift})` : ''}`;
+      }
+      const isWechat = currentRecharge.method === 'wechat';
+      if (checkoutMethodName) {
+        checkoutMethodName.textContent = isWechat ? '微信支付' : '支付宝';
+        checkoutMethodName.className = `value pay-badge ${isWechat ? 'wechat' : 'alipay'}`;
+      }
+      if (checkoutAmount) {
+        checkoutAmount.textContent = `￥${currentRecharge.amount.toFixed(2)}`;
+      }
     }
 
     // Start 5-minute mock countdown
@@ -552,6 +602,9 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
     }
   }
 
+  // Export helper globally for direct invocation from test or membership
+  window.__openCheckout = openCheckout;
+
   function closeCheckout() {
     if (countdownInterval) clearInterval(countdownInterval);
     if (!checkoutDialog) return;
@@ -569,7 +622,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
   // Bind Open Buttons
   const openCheckoutBtn = document.querySelector('#btn-open-checkout');
   if (openCheckoutBtn) {
-    openCheckoutBtn.addEventListener('click', openCheckout);
+    openCheckoutBtn.addEventListener('click', () => openCheckout({ type: 'credits' }));
   }
 
   const walletQuickTopup = document.querySelector('#wallet-quick-topup');
@@ -579,7 +632,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
       if (walletDialog && typeof walletDialog.close === 'function') {
         walletDialog.close();
       }
-      openCheckout();
+      openCheckout({ type: 'credits' });
     });
   }
 
@@ -594,33 +647,68 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
       checkoutConfirmBtn.textContent = '入账处理中...';
 
       try {
-        const totalPoints = currentRecharge.quota + currentRecharge.gift;
-        const res = await topupDemoQuota(totalPoints);
+        if (activeCheckout.type === 'membership') {
+          const res = await upgradeMembership({
+            days: activeCheckout.membershipDays,
+            giftQuota: activeCheckout.gift,
+            tier: activeCheckout.membershipTier
+          });
 
-        // Update balances everywhere
-        updateUserBalance(res.newBalance);
-
-        // Show success state
-        if (checkoutMainBody) checkoutMainBody.hidden = true;
-        if (checkoutActionsBar) checkoutActionsBar.hidden = true;
-        if (checkoutSuccessView) {
-          checkoutSuccessView.hidden = false;
-          if (checkoutSuccessDesc) {
-            checkoutSuccessDesc.textContent = `已成功充值 ${totalPoints} 积分，当前可用余额：${res.newBalance} 积分。`;
+          // Update balances & VIP status
+          if (typeof res.newBalance === 'number') {
+            updateUserBalance(res.newBalance);
           }
-        }
+          updateUserVipUI();
 
-        // Trigger parent ledger refresh
-        if (typeof onRechargeSuccess === 'function') {
-          onRechargeSuccess();
-        }
+          // Show success state
+          if (checkoutMainBody) checkoutMainBody.hidden = true;
+          if (checkoutActionsBar) checkoutActionsBar.hidden = true;
+          if (checkoutSuccessView) {
+            checkoutSuccessView.hidden = false;
+            if (checkoutSuccessDesc) {
+              checkoutSuccessDesc.textContent = `🎉 恭喜！已成功开通【${activeCheckout.title}】，赠送 ${activeCheckout.gift} 积分已入账，VIP 尊享特权与满血并发已全面生效！`;
+            }
+          }
 
-        // Auto close after 1.6s
-        setTimeout(() => {
-          closeCheckout();
-        }, 1600);
+          // Dispatch event
+          window.dispatchEvent(new CustomEvent('zora:vip-updated', { detail: res }));
+
+          if (typeof onRechargeSuccess === 'function') {
+            onRechargeSuccess();
+          }
+
+          setTimeout(() => {
+            closeCheckout();
+          }, 1800);
+        } else {
+          const totalPoints = currentRecharge.quota + currentRecharge.gift;
+          const res = await topupDemoQuota(totalPoints);
+
+          // Update balances everywhere
+          updateUserBalance(res.newBalance);
+
+          // Show success state
+          if (checkoutMainBody) checkoutMainBody.hidden = true;
+          if (checkoutActionsBar) checkoutActionsBar.hidden = true;
+          if (checkoutSuccessView) {
+            checkoutSuccessView.hidden = false;
+            if (checkoutSuccessDesc) {
+              checkoutSuccessDesc.textContent = `已成功充值 ${totalPoints} 积分，当前可用余额：${res.newBalance} 积分。`;
+            }
+          }
+
+          // Trigger parent ledger refresh
+          if (typeof onRechargeSuccess === 'function') {
+            onRechargeSuccess();
+          }
+
+          // Auto close after 1.6s
+          setTimeout(() => {
+            closeCheckout();
+          }, 1600);
+        }
       } catch (err) {
-        alert(err.message || '模拟充值失败，请检查服务连接');
+        alert(err.message || '模拟支付处理失败，请检查服务连接');
         checkoutConfirmBtn.disabled = false;
         checkoutConfirmBtn.textContent = '模拟完成支付 (确认入账)';
       }
@@ -644,5 +732,227 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
     document.querySelectorAll('#wallet-open').forEach((wBtn) => {
       wBtn.addEventListener('click', updateWalletStatus);
     });
+  }
+}
+
+/**
+ * Synchronize VIP status across Membership view, Account center, and Header toolbar
+ */
+export function updateUserVipUI(user = getUser()) {
+  const isVip = Boolean(user && user.isVip);
+  const vipExpiresAt = Number(user && user.vipExpiresAt) || 0;
+  const now = Date.now();
+  const isExpired = isVip && vipExpiresAt > 0 && vipExpiresAt < now;
+  const isEffectiveVip = isVip && !isExpired;
+
+  // 1. Membership hero user card
+  const userNameEl = document.querySelector('#vip-user-name');
+  const userAvatarEl = document.querySelector('#vip-user-avatar');
+  const statusBadgeEl = document.querySelector('#vip-status-badge');
+  const expireTextEl = document.querySelector('#vip-expire-text');
+  const concurrencyTextEl = document.querySelector('#vip-concurrency-text');
+  const creditsTextEl = document.querySelector('#vip-credits-text');
+  const quickActionBtn = document.querySelector('#btn-vip-scroll-tiers');
+
+  if (userNameEl) {
+    userNameEl.textContent = user ? (user.username || user.email || '造境创作者') : '演示创作者';
+  }
+  if (userAvatarEl) {
+    const initial = (user && (user.username || user.email) || 'Z').charAt(0).toUpperCase();
+    userAvatarEl.textContent = initial;
+    userAvatarEl.classList.toggle('vip-avatar', isEffectiveVip);
+  }
+  if (creditsTextEl) {
+    creditsTextEl.textContent = user ? `${user.quotaBalance || 0} 分` : '— 分';
+  }
+
+  if (isEffectiveVip) {
+    if (statusBadgeEl) {
+      statusBadgeEl.textContent = '👑 尊贵 VIP 会员';
+      statusBadgeEl.className = 'vip-status-badge vip-active';
+    }
+    if (expireTextEl) {
+      if (vipExpiresAt === -1) {
+        expireTextEl.textContent = '终身永久 VIP · 尊享无限';
+      } else {
+        const d = new Date(vipExpiresAt);
+        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        expireTextEl.textContent = `有效期至 ${ymd}`;
+      }
+    }
+    if (concurrencyTextEl) {
+      concurrencyTextEl.textContent = `${user.concurrencyLimit || 4} 任务 (满血并发)`;
+    }
+    if (quickActionBtn) {
+      quickActionBtn.textContent = '续费 VIP';
+    }
+  } else {
+    if (statusBadgeEl) {
+      statusBadgeEl.textContent = isExpired ? 'VIP 已过期' : '普通创作者';
+      statusBadgeEl.className = 'vip-status-badge';
+    }
+    if (expireTextEl) {
+      expireTextEl.textContent = isExpired ? '会员权益已到期，请续费恢复' : '尚未开通 VIP 会员';
+    }
+    if (concurrencyTextEl) {
+      concurrencyTextEl.textContent = '1 任务 (标准并发)';
+    }
+    if (quickActionBtn) {
+      quickActionBtn.textContent = '立即升级 VIP';
+    }
+  }
+
+  // 2. Account Center (#account)
+  const accountNameEl = document.querySelector('#account-profile-name');
+  const accountEmailEl = document.querySelector('#account-profile-email');
+  const accountVipDesc = document.querySelector('#account-vip-desc');
+  const accountVipBtn = document.querySelector('#account-vip-btn');
+  const accountCreditsDesc = document.querySelector('#account-credits-desc');
+
+  if (accountNameEl && user) accountNameEl.textContent = user.username || user.email || '造境创作者';
+  if (accountEmailEl && user) accountEmailEl.textContent = user.email || '已登录真实账户';
+  if (accountCreditsDesc && user) accountCreditsDesc.textContent = `当前可用积分：${user.quotaBalance || 0} 积分`;
+
+  if (accountVipDesc) {
+    if (isEffectiveVip) {
+      const exp = vipExpiresAt === -1 ? '终身永久' : `至 ${new Date(vipExpiresAt).toISOString().slice(0, 10)}`;
+      accountVipDesc.innerHTML = `<strong style="color: #fbbf24;">👑 造境 VIP 会员</strong> (${exp})`;
+    } else {
+      accountVipDesc.textContent = isExpired ? 'VIP 会员已到期（普通权益）' : '普通创作者（未开通 VIP）';
+    }
+  }
+  if (accountVipBtn) {
+    accountVipBtn.textContent = isEffectiveVip ? '续费 / 管理会员' : '立即开通 VIP';
+  }
+
+  // 3. Header toolbar membership link
+  const memLink = document.querySelector('.membership-link');
+  if (memLink) {
+    if (isEffectiveVip) {
+      memLink.textContent = '👑 VIP 会员';
+      memLink.classList.add('is-vip');
+    } else {
+      memLink.textContent = '开会员';
+      memLink.classList.remove('is-vip');
+    }
+  }
+}
+
+let membershipPanelBound = false;
+
+/**
+ * Initialize membership section interactions and pricing tier selection
+ */
+export function initMembershipPanel() {
+  if (membershipPanelBound) return;
+  membershipPanelBound = true;
+
+  // Initial state render
+  updateUserVipUI();
+
+  let selectedTier = {
+    tier: 'yearly',
+    days: 365,
+    price: 169,
+    gift: 1000,
+    concurrency: 4,
+    title: '年度 VIP (365天)'
+  };
+
+  const tierCards = document.querySelectorAll('.membership-tier-card');
+  const titleEl = document.querySelector('#membership-selected-title');
+  const privilegesEl = document.querySelector('#membership-selected-privileges');
+  const priceAmountEl = document.querySelector('#membership-pay-amount');
+  const checkoutBtn = document.querySelector('#btn-membership-checkout');
+  const scrollTiersBtn = document.querySelector('#btn-vip-scroll-tiers');
+
+  function updateSelectedTier(card) {
+    tierCards.forEach((c) => c.classList.remove('active'));
+    card.classList.add('active');
+
+    const tier = card.dataset.tier || 'monthly';
+    const days = parseInt(card.dataset.days, 10);
+    const price = Number(card.dataset.price) || 19;
+    const gift = Number(card.dataset.gift) || 0;
+    const concurrency = Number(card.dataset.concurrency) || 2;
+    const cardTitle = card.querySelector('.tier-name')?.textContent || 'VIP 会员';
+
+    selectedTier = {
+      tier,
+      days,
+      price,
+      gift,
+      concurrency,
+      title: `${cardTitle} (${days === -1 ? '终身永久' : days + '天'})`
+    };
+
+    if (titleEl) titleEl.textContent = selectedTier.title;
+    if (privilegesEl) {
+      privilegesEl.textContent = `赠送 ${gift} 积分 · ${concurrency} 并发 · 解锁全部高阶模型`;
+    }
+    if (priceAmountEl) {
+      priceAmountEl.textContent = `￥${price.toFixed(2)}`;
+    }
+  }
+
+  tierCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      updateSelectedTier(card);
+    });
+  });
+
+  // Scroll to tiers button in hero
+  if (scrollTiersBtn) {
+    scrollTiersBtn.addEventListener('click', () => {
+      const section = document.querySelector('#membership-pricing-section');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  // Trigger Checkout
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', () => {
+      const selectedRadio = document.querySelector('input[name="membership-payment"]:checked');
+      const method = selectedRadio ? selectedRadio.value : 'alipay';
+
+      if (typeof window.__openCheckout === 'function') {
+        window.__openCheckout({
+          type: 'membership',
+          title: selectedTier.title,
+          amount: selectedTier.price,
+          gift: selectedTier.gift,
+          tier: selectedTier.tier,
+          days: selectedTier.days,
+          concurrency: selectedTier.concurrency,
+          method
+        });
+      } else {
+        alert('收银台组件正在准备中，请稍候重试');
+      }
+    });
+  }
+
+  // Tab and hash changes
+  document.querySelectorAll('[data-tab="membership"], .membership-link').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setTimeout(updateUserVipUI, 100);
+    });
+  });
+
+  window.addEventListener('zora:vip-updated', () => {
+    updateUserVipUI();
+  });
+}
+
+// Ensure membership panel interactions are initialized on client startup
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initMembershipPanel();
+    });
+  } else {
+    initMembershipPanel();
   }
 }

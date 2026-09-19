@@ -181,8 +181,229 @@
 <main id="assets" class="tab content" hidden><p class="eyebrow">素材库</p><h1>素材库</h1><p class="muted">素材分为本地上传与生成结果两类。原素材保存在本机并随会话恢复；生成素材接入后会出现在「生成」里。</p><div class="asset-filters" role="tablist" aria-label="素材来源"><button type="button" class="active" data-asset-filter="upload">本地上传</button><button type="button" data-asset-filter="generated">生成素材</button></div><div id="asset-grid" class="asset-grid" role="list"></div><section id="workspace-file-library" aria-label="工作区文件"></section></main>
 <main id="skills" class="tab content" hidden><p class="eyebrow">ZORA SKILLS</p><h1>为你的创作，选择一种能力。</h1><p class="muted">选择技能后返回创作，继续补充素材与需求。当前为提示模板，执行引擎待接入。可在此添加、上传或删除技能。</p><div class="skill-manage"><button type="button" id="skill-add">添加技能</button><button type="button" id="skill-upload" class="secondary">上传技能</button><input id="skill-file" type="file" accept="application/json,.json,.txt,.md" hidden><p class="skill-manage-note">上传 JSON（name/category/description/prompt）或文本提示词。</p></div><div class="skill-filters"><button class="active" data-skill-filter="全部">全部</button><button data-skill-filter="视频">视频</button><button data-skill-filter="图片">图片</button><button data-skill-filter="策划">策划</button><input id="skill-search" placeholder="搜索技能" aria-label="搜索技能"></div><div id="skills-grid" class="skills-grid"></div></main>
 <main id="credits" class="tab content" hidden><p class="eyebrow">ZORA CREDITS</p><h1>我的积分</h1><p class="muted">查看余额、消耗与购买记录。</p><div class="account-overview"><div><span>可用积分</span><strong>—</strong></div><div><span>处理中</span><strong>—</strong></div><div><span>已消耗</span><strong>—</strong></div></div><h2>购买积分</h2><p class="muted">1 元 = 10 积分 · 对话和生成均按上游实际费用加价 20% 计费。</p><div class="recharge-section" id="credits-recharge-section"><div class="recharge-tier-grid" role="radiogroup" aria-label="充值套餐"><button type="button" class="recharge-tier-card active" data-amount="10" data-quota="100" data-gift="0"><span class="tier-price">￥10</span><span class="tier-quota">100 积分</span><span class="tier-desc">入门尝鲜</span></button><button type="button" class="recharge-tier-card" data-amount="50" data-quota="500" data-gift="20"><span class="tier-price">￥50</span><span class="tier-quota">520 积分</span><span class="tier-badge">送 20 分</span><span class="tier-desc">进阶创作者</span></button><button type="button" class="recharge-tier-card" data-amount="100" data-quota="1000" data-gift="50"><span class="tier-price">￥100</span><span class="tier-quota">1050 积分</span><span class="tier-badge hot">送 50 分 · 热门</span><span class="tier-desc">专业工作流</span></button><button type="button" class="recharge-tier-card" data-amount="200" data-quota="2000" data-gift="150"><span class="tier-price">￥200</span><span class="tier-quota">2150 积分</span><span class="tier-badge">送 150 分</span><span class="tier-desc">极客批量</span></button></div><div class="recharge-custom-box"><label for="recharge-custom-input">自定义金额：</label><div class="recharge-input-wrap"><span class="currency-prefix">￥</span><input type="number" id="recharge-custom-input" min="1" max="10000" placeholder="其他整数金额" spellcheck="false"></div><span id="recharge-custom-calc" class="tier-custom-calc">预计获得：100 积分</span></div><fieldset class="payment-method-fieldset"><legend>支付方式</legend><label class="payment-radio"><input type="radio" name="credit-payment" value="alipay" checked> <span class="pay-tag alipay">支付宝</span></label><label class="payment-radio"><input type="radio" name="credit-payment" value="wechat"> <span class="pay-tag wechat">微信支付</span></label></fieldset><div class="recharge-action-row"><button type="button" id="btn-open-checkout" class="button primary checkout-trigger-btn">前往收银台 (演示支付) →</button><span class="recharge-demo-notice">⚠️ 演示环境：点击进入模拟收银台，不产生真实扣款</span></div></div><h2>积分明细</h2><p class="muted">积分明细由服务端统一维护入账。充值与消耗记录在此实时展示。</p></main>
-<main id="membership" class="tab content membership-page" hidden><p class="eyebrow">ZORA MEMBERSHIP</p><h1>让每一次灵感，拥有更多可能。</h1><p class="muted">造境会员中心</p><div class="membership-notice">会员方案正在配置，当前不开放购买。积分换算与已确认计费规则保持不变。</div><div class="membership-plan"><div><span class="member-mark">ZORA / MEMBER</span><h2>会员计划</h2><p>套餐、赠送积分与专属权益由后台统一发布。</p></div><div class="member-price">待配置<small>价格及周期尚未确定</small><button disabled>暂未开放</button></div></div><h2>会员权益</h2><div class="member-benefits"><section><h3>模型使用范围</h3><p>以后台对账户开放的模型为准。</p></section><section><h3>积分权益</h3><p>是否赠送积分及有效期，待会员规则确定。</p></section><section><h3>并发权益</h3><p>是否提高并发上限，待后台方案确定。</p></section></div><h2>购买与续费</h2><p class="muted">计划提供支付宝、微信支付。尚未接入商户、订单或自动续费，不会产生扣款。</p></main>
-<main id="account" class="tab content" hidden><p class="eyebrow">ZORA ACCOUNT</p><h1>账户中心</h1><div class="profile-row"><span class="profile-avatar">Z</span><div><h2>演示账户</h2><p class="muted">尚未登录真实账户</p></div></div><div class="setting-row"><div><h3>登录与安全</h3><p>真实账户服务待接入</p></div><button disabled>管理账户</button></div><div class="setting-row"><div><h3>会员状态</h3><p>尚无会员信息</p></div><button data-tab="membership">查看会员</button></div><div class="setting-row"><div><h3>积分记录</h3><p>余额、消耗与购买记录单独管理</p></div><button data-tab="credits">查看积分</button></div><a class="button secondary" href="#login">返回登录页</a></main><main id="settings" class="tab content" hidden><p class="eyebrow">PREFERENCES</p><h1>设置</h1><div class="setting-row"><div><h3>云端服务状态</h3><p>默认直连造境官方生产云服务，开箱即用，免配置极速响应</p></div><span class="gateway-status-pill online">● 官方云服务畅通</span></div><div class="setting-row"><div><h3>完成后自动下载</h3><p>生成结果就绪后保存到下载文件夹的 Zora 目录</p></div><input id="auto-download" type="checkbox" role="switch" aria-label="完成后自动下载"></div><div class="setting-row"><div><h3>减少界面动画</h3><p>同时尊重系统的减少动态效果设置</p></div><input id="reduce-motion" type="checkbox" role="switch"></div><div class="setting-row"><div><h3>低内存与性能优先模式</h3><p>暂停后台动态视频背景，禁用昂贵高斯模糊，大幅降低 GPU 显存与 CPU 占用（卡顿强烈建议开启）</p></div><input id="low-memory-mode" type="checkbox" role="switch" aria-label="低内存与性能优先模式"></div><div class="setting-row"><div><h3>释放内存与数据清理</h3><p>清空历史撤销快照与失效缓存，轻量化画布数据（当前存储占用：<span id="storage-usage-text">计算中…</span>）</p></div><button type="button" id="purge-memory-btn" class="button secondary">一键释放内存</button></div><details class="gateway-debug-fold"><summary>🛠️ 开发者高级选项：内部服务网关调试</summary><div class="setting-row gateway-setting-row" style="margin-top: 12px; border-top: none;"><div><h3>网关分发切换 (内部调试)</h3><p>在本地模拟服务与远程网关之间切换</p></div><div class="gateway-controls"><div class="gateway-mode-pills" role="radiogroup" aria-label="服务网关选择"><button type="button" class="gateway-pill" data-gateway-mode="local">本地服务 (127.0.0.1:4318)</button><button type="button" class="gateway-pill active" data-gateway-mode="cloud">云端网关 (Cloudflare Worker)</button></div><div class="gateway-url-box" id="gateway-cloud-config"><label for="gateway-cloud-url">云网关地址</label><input type="url" id="gateway-cloud-url" value="https://zora-api.tenglonghaiwen.workers.dev" placeholder="https://zora-api.tenglonghaiwen.workers.dev" spellcheck="false"><p class="gateway-url-hint">默认直连全球生产云网关（开箱即用）。本地联调测试请运行 <code>npx wrangler dev</code> 并填入 <code>http://127.0.0.1:8787</code>。</p></div><div class="gateway-status-row"><button type="button" id="gateway-test-btn" class="secondary">测试连接</button><a id="gateway-admin-link" href="https://zora-api.tenglonghaiwen.workers.dev/admin" target="_blank" class="gateway-admin-btn">打开 Admin 控制台 ↗</a><span id="gateway-status-text" class="gateway-status-text"></span></div></div></div></details></main>
+<main id="membership" class="tab content membership-page" hidden>
+<div class="membership-hero-wrap">
+  <p class="eyebrow">ZORA VIP MEMBERSHIP</p>
+  <h1>让每一次灵感，拥有尊贵与无限可能。</h1>
+  <p class="muted">造境 VIP 会员中心 · 解锁高阶模型、满血并发与专属权益</p>
+  
+  <div class="membership-user-card" id="membership-user-card">
+    <div class="user-card-left">
+      <div class="user-card-avatar" id="vip-user-avatar">Z</div>
+      <div class="user-card-meta">
+        <div class="user-card-name-row">
+          <strong id="vip-user-name">演示创作者</strong>
+          <span class="vip-status-badge" id="vip-status-badge">普通创作者</span>
+        </div>
+        <p class="vip-expiry-line" id="vip-expiry-line">会员状态：<span id="vip-expire-text">尚未开通 VIP 会员</span></p>
+      </div>
+    </div>
+    <div class="user-card-right">
+      <div class="user-stat-pill">
+        <span class="stat-label">任务并发</span>
+        <strong id="vip-concurrency-text">1 任务</strong>
+      </div>
+      <div class="user-stat-pill">
+        <span class="stat-label">账户积分</span>
+        <strong id="vip-credits-text">— 分</strong>
+      </div>
+      <button type="button" id="btn-vip-scroll-tiers" class="vip-quick-action-btn">立即升级 VIP</button>
+    </div>
+  </div>
+</div>
+
+<h2>选择会员套餐</h2>
+<p class="muted">开通即享全量 VIP 高阶模型使用权，尊贵徽章与积分赠送立即可用。</p>
+
+<div class="membership-section" id="membership-pricing-section">
+  <div class="membership-tier-grid" role="radiogroup" aria-label="会员套餐选择">
+    <button type="button" class="membership-tier-card" data-tier="monthly" data-days="30" data-price="19" data-gift="50" data-concurrency="2">
+      <div class="tier-card-header">
+        <span class="tier-name">月度 VIP</span>
+        <span class="tier-sub">轻量创作尝鲜</span>
+      </div>
+      <div class="tier-price-wrap">
+        <span class="currency-symbol">￥</span>
+        <span class="tier-price-num">19</span>
+        <span class="tier-period">/ 30天</span>
+      </div>
+      <div class="tier-features-list">
+        <div>✓ 赠送 <strong>50 积分</strong></div>
+        <div>✓ <strong>2 任务</strong>满血并发</div>
+        <div>✓ 解锁标注 VIP 专属模型</div>
+        <div>✓ VIP 专属尊贵徽章</div>
+      </div>
+    </button>
+
+    <button type="button" class="membership-tier-card" data-tier="quarterly" data-days="90" data-price="49" data-gift="200" data-concurrency="3">
+      <div class="tier-card-badge">超值推荐</div>
+      <div class="tier-card-header">
+        <span class="tier-name">季度 VIP</span>
+        <span class="tier-sub">进阶创作工作流</span>
+      </div>
+      <div class="tier-price-wrap">
+        <span class="currency-symbol">￥</span>
+        <span class="tier-price-num">49</span>
+        <span class="tier-period">/ 90天</span>
+      </div>
+      <div class="tier-features-list">
+        <div>✓ 赠送 <strong>200 积分</strong></div>
+        <div>✓ <strong>3 任务</strong>极速并发</div>
+        <div>✓ 解锁全部高阶模型</div>
+        <div>✓ 优先渲染排队通道</div>
+      </div>
+    </button>
+
+    <button type="button" class="membership-tier-card active featured" data-tier="yearly" data-days="365" data-price="169" data-gift="1000" data-concurrency="4">
+      <div class="tier-card-badge hot">🔥 热门立省 ￥59</div>
+      <div class="tier-card-header">
+        <span class="tier-name">年度 VIP</span>
+        <span class="tier-sub">专业创作者首选</span>
+      </div>
+      <div class="tier-price-wrap">
+        <span class="currency-symbol">￥</span>
+        <span class="tier-price-num">169</span>
+        <span class="tier-period">/ 365天</span>
+      </div>
+      <div class="tier-features-list">
+        <div>✓ 赠送 <strong>1000 积分</strong></div>
+        <div>✓ <strong>4 任务</strong>满血最高并发</div>
+        <div>✓ 优先保障高算力 GPU 队列</div>
+        <div>✓ 尊享全站最高特权标识</div>
+      </div>
+    </button>
+
+    <button type="button" class="membership-tier-card ultimate" data-tier="lifetime" data-days="-1" data-price="399" data-gift="3000" data-concurrency="4">
+      <div class="tier-card-badge crown">👑 终身限定</div>
+      <div class="tier-card-header">
+        <span class="tier-name">终身永久 VIP</span>
+        <span class="tier-sub">极客与至尊赞助者</span>
+      </div>
+      <div class="tier-price-wrap">
+        <span class="currency-symbol">￥</span>
+        <span class="tier-price-num">399</span>
+        <span class="tier-period">/ 永久有效</span>
+      </div>
+      <div class="tier-features-list">
+        <div>✓ 赠送 <strong>3000 积分</strong></div>
+        <div>✓ <strong>终身 4 任务</strong>最高并发</div>
+        <div>✓ 未来所有新高阶模型永久免门槛</div>
+        <div>✓ 永久专属黑金皇冠徽标</div>
+      </div>
+    </button>
+  </div>
+
+  <div class="membership-checkout-bar">
+    <div class="checkout-summary-col">
+      <div class="summary-line">
+        <span>当前选择：</span>
+        <strong id="membership-selected-title">年度 VIP (365天)</strong>
+      </div>
+      <div class="summary-sub">
+        <span>包含特权：</span>
+        <span id="membership-selected-privileges">赠送 1000 积分 · 4 并发 · 解锁全部高阶模型</span>
+      </div>
+    </div>
+
+    <div class="checkout-pay-col">
+      <fieldset class="payment-method-fieldset membership-payment-fieldset">
+        <legend class="sr-only">支付方式</legend>
+        <label class="payment-radio"><input type="radio" name="membership-payment" value="alipay" checked> <span class="pay-tag alipay">支付宝</span></label>
+        <label class="payment-radio"><input type="radio" name="membership-payment" value="wechat"> <span class="pay-tag wechat">微信支付</span></label>
+      </fieldset>
+      
+      <div class="checkout-submit-row">
+        <div class="checkout-total-price">
+          <span class="price-label">应付金额：</span>
+          <span class="price-amount" id="membership-pay-amount">￥169.00</span>
+        </div>
+        <button type="button" id="btn-membership-checkout" class="button primary membership-pay-btn">前往收银台开通 VIP (演示支付) →</button>
+      </div>
+      <p class="membership-demo-notice">⚠️ 演示环境声明：点击调起模拟收银台，体验完整开通与入账流程，不产生真实扣款。</p>
+    </div>
+  </div>
+</div>
+
+<h2>VIP 尊享 6 大专属特权</h2>
+<div class="membership-privileges-grid">
+  <div class="privilege-card">
+    <div class="privilege-icon">👑</div>
+    <h3>专属尊贵徽章</h3>
+    <p>全站顶栏、个人中心高亮金色 VIP 徽标，彰显创作者卓越身份与声誉。</p>
+  </div>
+  <div class="privilege-card">
+    <div class="privilege-icon">⚡</div>
+    <h3>满血并发上限</h3>
+    <p>并发任务上限由 1 跃升至最高 4 个并行任务，多镜头批量渲染零等待。</p>
+  </div>
+  <div class="privilege-card">
+    <div class="privilege-icon">🔮</div>
+    <h3>全量高阶模型自由使用</h3>
+    <p>无缝调用标注 VIP 专属的旗舰图像生成、超清视频模型及高算力端点。</p>
+  </div>
+  <div class="privilege-card">
+    <div class="privilege-icon">🎁</div>
+    <h3>海量积分免费赠送</h3>
+    <p>随会员套餐即刻赠送高达 3000 创作积分，充沛点数随心调用生成。</p>
+  </div>
+  <div class="privilege-card">
+    <div class="privilege-icon">🚀</div>
+    <h3>专享渲染极速通道</h3>
+    <p>生成任务优先提交至高速专用 GPU 节点，高峰期智能避开排队拥堵。</p>
+  </div>
+  <div class="privilege-card">
+    <div class="privilege-icon">🛡️</div>
+    <h3>专属项目工程保护</h3>
+    <p>无限画布节点连线与超长历史撤销步数支持，保障灵感资产绝对安全。</p>
+  </div>
+</div>
+
+<h2>普通创作者 VS 造境 VIP 会员权益对比</h2>
+<div class="membership-compare-table-wrap">
+  <table class="membership-compare-table">
+    <thead>
+      <tr>
+        <th class="feature-col">特权项目</th>
+        <th class="free-col">普通创作者</th>
+        <th class="vip-col">👑 造境 VIP 会员</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>基础生成模型</td>
+        <td>✓ 支持可用</td>
+        <td><strong class="vip-highlight">✓ 全量畅享</strong></td>
+      </tr>
+      <tr>
+        <td>VIP 专属高阶模型 (Flux Pro / 视频旗舰)</td>
+        <td>✕ 需升级解锁</td>
+        <td><strong class="vip-highlight">✓ 无门槛自由调用</strong></td>
+      </tr>
+      <tr>
+        <td>最大任务并发数</td>
+        <td>1 个并发</td>
+        <td><strong class="vip-highlight">2 ~ 4 个并发 (按套餐)</strong></td>
+      </tr>
+      <tr>
+        <td>开通赠送积分</td>
+        <td>无</td>
+        <td><strong class="vip-highlight">最高赠送 3000 积分</strong></td>
+      </tr>
+      <tr>
+        <td>生成队列调度</td>
+        <td>标准调度队列</td>
+        <td><strong class="vip-highlight">高速 VIP 优先调度通道</strong></td>
+      </tr>
+      <tr>
+        <td>专属身份徽章</td>
+        <td>普通标识</td>
+        <td><strong class="vip-highlight">👑 金色尊享 VIP 徽章</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</main>
+<main id="account" class="tab content" hidden><p class="eyebrow">ZORA ACCOUNT</p><h1>账户中心</h1><div class="profile-row"><span class="profile-avatar">Z</span><div><h2 id="account-profile-name">演示账户</h2><p class="muted" id="account-profile-email">尚未登录真实账户</p></div></div><div class="setting-row"><div><h3>登录与安全</h3><p>真实账户服务已通过云网关认证</p></div><button type="button" id="account-manage-btn" disabled>管理账户</button></div><div class="setting-row" id="account-vip-row"><div><h3>会员状态</h3><p id="account-vip-desc">普通创作者（未开通 VIP）</p></div><button type="button" id="account-vip-btn" data-tab="membership">查看会员中心</button></div><div class="setting-row"><div><h3>积分记录</h3><p id="account-credits-desc">余额、消耗与购买记录单独管理</p></div><button type="button" data-tab="credits">查看积分</button></div><a class="button secondary" href="#login">返回登录页</a></main><main id="settings" class="tab content" hidden><p class="eyebrow">PREFERENCES</p><h1>设置</h1><div class="setting-row"><div><h3>云端服务状态</h3><p>默认直连造境官方生产云服务，开箱即用，免配置极速响应</p></div><span class="gateway-status-pill online">● 官方云服务畅通</span></div><div class="setting-row"><div><h3>完成后自动下载</h3><p>生成结果就绪后保存到下载文件夹的 Zora 目录</p></div><input id="auto-download" type="checkbox" role="switch" aria-label="完成后自动下载"></div><div class="setting-row"><div><h3>减少界面动画</h3><p>同时尊重系统的减少动态效果设置</p></div><input id="reduce-motion" type="checkbox" role="switch"></div><div class="setting-row"><div><h3>低内存与性能优先模式</h3><p>暂停后台动态视频背景，禁用昂贵高斯模糊，大幅降低 GPU 显存与 CPU 占用（卡顿强烈建议开启）</p></div><input id="low-memory-mode" type="checkbox" role="switch" aria-label="低内存与性能优先模式"></div><div class="setting-row"><div><h3>释放内存与数据清理</h3><p>清空历史撤销快照与失效缓存，轻量化画布数据（当前存储占用：<span id="storage-usage-text">计算中…</span>）</p></div><button type="button" id="purge-memory-btn" class="button secondary">一键释放内存</button></div><details class="gateway-debug-fold"><summary>🛠️ 开发者高级选项：内部服务网关调试</summary><div class="setting-row gateway-setting-row" style="margin-top: 12px; border-top: none;"><div><h3>网关分发切换 (内部调试)</h3><p>在本地模拟服务与远程网关之间切换</p></div><div class="gateway-controls"><div class="gateway-mode-pills" role="radiogroup" aria-label="服务网关选择"><button type="button" class="gateway-pill" data-gateway-mode="local">本地服务 (127.0.0.1:4318)</button><button type="button" class="gateway-pill active" data-gateway-mode="cloud">云端网关 (Cloudflare Worker)</button></div><div class="gateway-url-box" id="gateway-cloud-config"><label for="gateway-cloud-url">云网关地址</label><input type="url" id="gateway-cloud-url" value="https://zora-api.tenglonghaiwen.workers.dev" placeholder="https://zora-api.tenglonghaiwen.workers.dev" spellcheck="false"><p class="gateway-url-hint">默认直连全球生产云网关（开箱即用）。本地联调测试请运行 <code>npx wrangler dev</code> 并填入 <code>http://127.0.0.1:8787</code>。</p></div><div class="gateway-status-row"><button type="button" id="gateway-test-btn" class="secondary">测试连接</button><a id="gateway-admin-link" href="https://zora-api.tenglonghaiwen.workers.dev/admin" target="_blank" class="gateway-admin-btn">打开 Admin 控制台 ↗</a><span id="gateway-status-text" class="gateway-status-text"></span></div></div></div></details></main>
 </div></section>
 
 <dialog id="skill-editor" class="skill-editor-dialog" aria-labelledby="skill-editor-title">
@@ -249,7 +470,7 @@
     <div class="checkout-body" id="checkout-main-body">
       <div class="checkout-order-info">
         <div class="info-row"><span class="label">订单号</span><span id="checkout-order-id" class="value mono">ORD-20260919-8821</span></div>
-        <div class="info-row"><span class="label">商品名称</span><span class="value">造境创作积分充值</span></div>
+        <div class="info-row"><span class="label">商品名称</span><span id="checkout-item-name" class="value">造境创作积分充值</span></div>
         <div class="info-row"><span class="label">充值点数</span><span id="checkout-points" class="value highlight">100 积分</span></div>
         <div class="info-row"><span class="label">支付方式</span><span id="checkout-method-name" class="value pay-badge alipay">支付宝</span></div>
         <div class="info-row total"><span class="label">应付金额</span><span id="checkout-amount" class="value amount">￥10.00</span></div>

@@ -386,6 +386,78 @@ export async function topupDemoQuota(amount = 100) {
 }
 
 /**
+ * Upgrade or renew membership (with demo fallback for offline / mock testing)
+ */
+export async function upgradeMembership({ days = 30, giftQuota = 0, tier = 'monthly' } = {}) {
+  try {
+    const res = await authFetch('/api/user/membership/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days, giftQuota, tier }),
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      const user = getUser();
+      if (user) {
+        user.isVip = true;
+        user.vipExpiresAt = data.vipExpiresAt;
+        user.concurrencyLimit = data.concurrencyLimit;
+        if (typeof data.newBalance === 'number') {
+          user.quotaBalance = data.newBalance;
+          user.balance = data.newBalance;
+        }
+        storeUser(user);
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Network upgrade failed, applying local fallback:', err);
+  }
+
+  // Fallback for demo mode / offline
+  const now = Date.now();
+  let user = getUser() || {
+    id: 'demo-user-' + Math.random().toString(36).slice(2, 8),
+    username: '演示创作者',
+    email: 'demo@zora.local',
+    quotaBalance: 100,
+    isVip: false
+  };
+
+  let newExpiresAt = 0;
+  if (days === -1) {
+    newExpiresAt = -1;
+  } else {
+    const currentExpiry = Number(user.vipExpiresAt) || 0;
+    const baseTime = (user.isVip && currentExpiry > now) ? currentExpiry : now;
+    newExpiresAt = baseTime + (days * 86400000);
+  }
+
+  let targetConcurrency = 2;
+  if (days === -1 || days >= 365) targetConcurrency = 4;
+  else if (days >= 90) targetConcurrency = 3;
+
+  const gift = parseInt(giftQuota, 10) || 0;
+  user.isVip = true;
+  user.vipExpiresAt = newExpiresAt;
+  user.concurrencyLimit = Math.max(Number(user.concurrencyLimit) || 1, targetConcurrency);
+  user.quotaBalance = (Number(user.quotaBalance) || 0) + gift;
+  user.balance = user.quotaBalance;
+  storeUser(user);
+
+  return {
+    ok: true,
+    message: '成功开通造境 VIP 会员 [DEMO 本地]',
+    isVip: true,
+    vipExpiresAt: newExpiresAt,
+    concurrencyLimit: user.concurrencyLimit,
+    newBalance: user.quotaBalance,
+    giftQuota: gift,
+    tier
+  };
+}
+
+/**
  * Fetch server models list
  */
 export async function fetchServerModels() {

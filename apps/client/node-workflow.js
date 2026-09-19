@@ -25,13 +25,16 @@ export function collectNodeInput(nodes,node){
     if(match && match[1]){
       roleOrConstraint = match[1].trim();
     }
-    references.push({
+    const refItem = {
       name: nodeLabel,
       type: n.outputUrl?(nodeKind(n)==='video'?'video/mp4':'image/png'):(n.mediaType||'image/png'),
       contentUrl: url,
-      constraint: roleOrConstraint || undefined,
       role: roleOrConstraint ? 'user-constraint' : 'agent-auto-infer'
-    });
+    };
+    if (roleOrConstraint) {
+      refItem.constraint = roleOrConstraint;
+    }
+    references.push(refItem);
    }
    else if(upstream)throw Error('上游素材尚未生成或上传');
   }

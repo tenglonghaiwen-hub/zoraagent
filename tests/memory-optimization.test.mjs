@@ -35,3 +35,14 @@ test('style.css guarantees crystal clear contrast in day mode', () => {
   assert.match(css, /html\[data-theme="day"\] \.studio-centered \.content/);
 });
 
+test('app.js ensures backdrop failure flags are reset and playback resumes when low-memory mode is turned off', () => {
+  const appJs = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  assert.match(appJs, /delete\s+v\.dataset\.failed/);
+  assert.match(appJs, /v\.removeAttribute\(['"]data-failed['"]\)/);
+  assert.match(appJs, /delete\s+page\.dataset\.backdropFailed/);
+  assert.match(appJs, /page\.removeAttribute\(['"]data-backdrop-failed['"]\)/);
+  assert.match(appJs, /requestAnimationFrame/);
+  assert.match(appJs, /dispatchEvent\(new Event\(['"]resize['"]\)\)/);
+});
+
+

@@ -22,7 +22,7 @@ export async function authenticateRequest(request, env) {
 
   // Query user from D1 database
   const user = await env.DB.prepare(
-    'SELECT id, email, username, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+    'SELECT id, email, username, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
   ).bind(payload.userId).first();
 
   if (!user) {
@@ -438,20 +438,99 @@ export async function setUserVip(db, userId, { isVip, days = 30 } = {}) {
   const now = Date.now();
   let vipVal = isVip ? 1 : 0;
   let expiresAt = 0;
+  let concurrency = vipVal ? 4 : 1;
 
   if (vipVal) {
     if (days === -1) {
       expiresAt = -1; // 永久 VIP
     } else {
-      expiresAt = now + (days * 86400000);
+      const existing = await db.prepare(
+        'SELECT is_vip as isVip, vip_expires_at as vipExpiresAt FROM users WHERE id = ?'
+      ).bind(userId).first();
+      const currentExpiry = Number(existing?.vipExpiresAt) || 0;
+      const baseTime = (existing?.isVip && currentExpiry > now) ? currentExpiry : now;
+      expiresAt = baseTime + (days * 86400000);
     }
   }
 
   await db.prepare(
-    `UPDATE users SET is_vip = ?, vip_expires_at = ?, updated_at = ? WHERE id = ?`
-  ).bind(vipVal, expiresAt, now, userId).run();
+    `UPDATE users SET is_vip = ?, vip_expires_at = ?, concurrency_limit = ?, updated_at = ? WHERE id = ?`
+  ).bind(vipVal, expiresAt, concurrency, now, userId).run();
 
-  return { userId, isVip: vipVal === 1, vipExpiresAt: expiresAt };
+  return { userId, isVip: vipVal === 1, vipExpiresAt: expiresAt, concurrencyLimit: concurrency };
+}
+
+/**
+ * Self-service membership upgrade for users (supporting demo/paid flows)
+ */
+export async function upgradeUserMembership(db, userId, { days = 30, giftQuota = 0, tier = 'monthly' } = {}) {
+  const now = Date.now();
+  const existing = await db.prepare(
+    'SELECT is_vip as isVip, vip_expires_at as vipExpiresAt, quota_balance as quotaBalance, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
+  ).bind(userId).first();
+
+  if (!existing) {
+    throw Object.assign(new Error('目标用户不存在'), { status: 404 });
+  }
+
+  let newExpiresAt = 0;
+  if (days === -1) {
+    newExpiresAt = -1; // 终身永久 VIP
+  } else {
+    const currentExpiry = Number(existing.vipExpiresAt) || 0;
+    const baseTime = (existing.isVip && currentExpiry > now) ? currentExpiry : now;
+    newExpiresAt = baseTime + (days * 86400000);
+  }
+
+  // Set concurrency limit according to tier
+  let targetConcurrency = 2;
+  if (days === -1 || days >= 365) {
+    targetConcurrency = 4;
+  } else if (days >= 90) {
+    targetConcurrency = 3;
+  }
+  const newConcurrency = Math.max(Number(existing.concurrencyLimit) || 1, targetConcurrency);
+
+  // Calculate new quota
+  const addPoints = Math.max(0, parseInt(giftQuota, 10) || 0);
+  const newBalance = (Number(existing.quotaBalance) || 0) + addPoints;
+
+  // Update DB
+  await db.prepare(
+    `UPDATE users SET is_vip = 1, vip_expires_at = ?, concurrency_limit = ?, quota_balance = ?, updated_at = ? WHERE id = ?`
+  ).bind(newExpiresAt, newConcurrency, newBalance, now, userId).run();
+
+  // Record audit log
+  const logId = `mem-${now}-${Math.random().toString(36).slice(2, 7)}`;
+  await db.prepare(
+    `INSERT INTO usage_logs (id, user_id, type, amount, balance_after, details, created_at)
+     VALUES (?, ?, 'topup', ?, ?, ?, ?)`
+  ).bind(
+    logId,
+    userId,
+    addPoints,
+    newBalance,
+    JSON.stringify({
+      channel: 'membership_upgrade',
+      tier,
+      days,
+      giftQuota: addPoints,
+      vipExpiresAt: newExpiresAt,
+      concurrencyLimit: newConcurrency,
+      note: '造境 VIP 会员开通/续费入账'
+    }),
+    now
+  ).run();
+
+  return {
+    userId,
+    isVip: true,
+    vipExpiresAt: newExpiresAt,
+    concurrencyLimit: newConcurrency,
+    newBalance,
+    giftQuota: addPoints,
+    tier
+  };
 }
 
 /**
