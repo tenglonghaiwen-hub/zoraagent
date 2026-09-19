@@ -53,16 +53,25 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
  panel.prepend(incoming);
 
  // ----------------------------------------------------
- // 即梦式 @素材引用 智能提示（严格限定为已连接素材）
+ // 即梦式 @素材引用 智能提示（支持已连接素材约束与自动连线）
  // ----------------------------------------------------
  const textarea = panel.querySelector('textarea');
  if(textarea){
-   let mentionPop = panel.querySelector('.node-mention-pop');
+   // 显式快捷工具栏：[@ 引用素材] 按钮（双保险）
+   let triggerBar = panel.querySelector('.node-mention-trigger-bar');
+   if(!triggerBar){
+     triggerBar = document.createElement('div');
+     triggerBar.className = 'node-mention-trigger-bar';
+     triggerBar.innerHTML = '<span class="node-mention-hint">💡 输入 <b>@</b> 或 <b>＠</b> 引用素材约束</span><button type="button" class="node-mention-trigger-btn" title="点击立即选择并引用画布素材">@ 引用素材</button>';
+     textarea.parentNode.insertBefore(triggerBar, textarea);
+   }
+
+   let mentionPop = document.querySelector('.node-mention-pop');
    if(!mentionPop){
      mentionPop = document.createElement('div');
      mentionPop.className = 'node-mention-pop';
      mentionPop.hidden = true;
-     panel.append(mentionPop);
+     document.body.append(mentionPop);
    }
 
    const hideMentionPop = () => {
@@ -72,50 +81,58 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
      }
    };
 
-   const checkMentions = () => {
+   const updatePopPosition = () => {
+     if(!mentionPop || mentionPop.hidden) return;
+     const rect = textarea.getBoundingClientRect();
+     mentionPop.style.position = 'fixed';
+     mentionPop.style.zIndex = '999999';
+     mentionPop.style.width = Math.min(420, Math.max(280, rect.width)) + 'px';
+     mentionPop.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 440)) + 'px';
+     const popHeight = 240;
+     if(rect.bottom + popHeight + 12 <= window.innerHeight){
+       mentionPop.style.top = (rect.bottom + 6) + 'px';
+       mentionPop.style.bottom = 'auto';
+     } else {
+       mentionPop.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+       mentionPop.style.top = 'auto';
+     }
+   };
+
+   const checkMentions = (forceOpen = false) => {
      const textBefore = textarea.value.slice(0, textarea.selectionStart);
-     const match = textBefore.match(/@([^@\s]*)$/);
-     if(!match){
+     const match = textBefore.match(/[@\uff20]([^@\uff20\s]*)$/);
+     if(!match && !forceOpen){
        hideMentionPop();
        return;
      }
-     const query = match[1].toLowerCase();
-     const queryLen = match[0].length;
+     const query = (match ? match[1] : '').toLowerCase();
+     const queryLen = match ? match[0].length : 0;
      const startPos = textarea.selectionStart - queryLen;
 
-     // 只能引用已连接的素材！
+     // 已连接素材与画布其他素材
      const connected = (n.inputs || []).map(id => nodes.find(x => x.id === id)).filter(Boolean);
-     mentionPop.replaceChildren();
+     const otherMedia = nodes.filter(x => x.id !== n.id && !(n.inputs || []).includes(x.id) && (x.imageData || x.mediaData || x.outputUrl || nodeKind(x)));
 
-     if(!connected.length){
-       const tip = document.createElement('div');
-       tip.className = 'mention-empty-hint';
-       tip.textContent = '💡 提示：未连接素材。请先从左侧输入端口拉线连接素材节点，再键入 @ 赋予约束。';
-       mentionPop.append(tip);
-       mentionPop.hidden = false;
-       return;
-     }
-
-     const filtered = connected.filter(c => {
+     const filterList = (list) => list.filter(c => {
        const label = c.label || c.id || '';
        return !query || label.toLowerCase().includes(query);
      });
 
-     if(!filtered.length){
+     const matchedConnected = filterList(connected);
+     const matchedOther = filterList(otherMedia);
+     mentionPop.replaceChildren();
+
+     if(!matchedConnected.length && !matchedOther.length){
        const empty = document.createElement('div');
        empty.className = 'mention-empty-hint';
-       empty.textContent = '没有匹配的已连接素材';
+       empty.textContent = '画布上暂无匹配的素材节点。可先在画布创建图片/视频素材节点。';
        mentionPop.append(empty);
        mentionPop.hidden = false;
+       updatePopPosition();
        return;
      }
 
-     const title = document.createElement('div');
-     title.className = 'mention-pop-title';
-     title.textContent = '已连接素材（选择并约束其职责）：';
-     mentionPop.append(title);
-
-     for(const item of filtered){
+     const appendItem = (item, isConn) => {
        const row = document.createElement('button');
        row.type = 'button';
        row.className = 'mention-item-row';
@@ -138,36 +155,80 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
        const name = document.createElement('strong');
        name.textContent = '@' + labelText;
        const desc = document.createElement('small');
-       desc.textContent = nodeKind(item) === 'video' ? '视频素材 · 可约束动作/运镜' : '图片素材 · 可约束面部/构图/风格';
+       desc.textContent = isConn
+         ? (nodeKind(item) === 'video' ? '已连接 · 可约束动作/运镜' : '已连接 · 可约束面部/构图/风格')
+         : '未连接 · 点击自动连线并引用该素材';
        meta.append(name, desc);
 
-       row.append(thumbEl, meta);
+       const badge = document.createElement('span');
+       badge.className = 'mention-item-badge ' + (isConn ? 'mention-badge-connected' : 'mention-badge-connectable');
+       badge.textContent = isConn ? '已连接' : '+ 自动连线';
+
+       row.append(thumbEl, meta, badge);
 
        row.onpointerdown = e => e.preventDefault();
        row.onclick = e => {
          e.stopPropagation();
+         if(!isConn){
+           try{ connectNodes(nodes, item.id, n.id); }catch{}
+         }
          const insertText = `@${labelText} `;
          textarea.setRangeText(insertText, startPos, textarea.selectionStart, 'end');
          n.prompt = textarea.value;
          persist();
          hideMentionPop();
+         render();
          textarea.focus();
        };
        mentionPop.append(row);
-     }
-     mentionPop.hidden = false;
-   };
+     };
 
-   textarea.addEventListener('input', checkMentions);
-   textarea.addEventListener('click', checkMentions);
-   textarea.addEventListener('keyup', e => {
-     if(e.key === 'Escape') hideMentionPop();
-     else checkMentions();
-   });
-   textarea.addEventListener('blur', () => {
-     setTimeout(hideMentionPop, 250);
-   });
- }
+     if(matchedConnected.length){
+       const title = document.createElement('div');
+       title.className = 'mention-pop-title';
+       title.textContent = '已连接素材（赋予约束）：';
+       mentionPop.append(title);
+       matchedConnected.forEach(item => appendItem(item, true));
+     }
+
+     if(matchedOther.length){
+       const title = document.createElement('div');
+       title.className = 'mention-pop-title';
+       title.textContent = matchedConnected.length ? '其他画布素材（点击自动连线并引用）：' : '画布素材（点击自动连接到本节点）：';
+       mentionPop.append(title);
+       matchedOther.forEach(item => appendItem(item, false));
+      }
+      mentionPop.hidden = false;
+      updatePopPosition();
+    };
+
+    const triggerBtn = triggerBar.querySelector('.node-mention-trigger-btn');
+    if(triggerBtn){
+      triggerBtn.onclick = (e) => {
+        e.stopPropagation();
+        textarea.focus();
+        checkMentions(true);
+      };
+    }
+
+    const onInputOrComp = () => checkMentions(false);
+    textarea.addEventListener('input', onInputOrComp);
+    textarea.addEventListener('compositionend', onInputOrComp);
+    textarea.addEventListener('click', onInputOrComp);
+    textarea.addEventListener('keyup', e => {
+      if(e.key === 'Escape') hideMentionPop();
+      else checkMentions(false);
+    });
+
+    const docPointerHandler = (e) => {
+      if(!mentionPop.contains(e.target) && e.target !== textarea && !e.target.closest('.node-mention-trigger-btn')){
+        hideMentionPop();
+      }
+    };
+    document.addEventListener('pointerdown', docPointerHandler);
+    window.addEventListener('resize', updatePopPosition);
+    window.addEventListener('scroll', updatePopPosition, true);
+  }
 
   // ----------------------------------------------------
   // 高级参数控制面板：模式选择、比例、画质、时长、并发、数量

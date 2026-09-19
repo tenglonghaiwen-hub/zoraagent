@@ -2197,7 +2197,7 @@ html[data-theme="day"] #canvas-workspace.is-agent-rail-collapsed .canvas-agent-s
 .studio .image-node-toolbar button{padding:6px 10px;background:transparent;border:0;color:#484852;font-size:11px;border-radius:8px;cursor:pointer}
 .studio .image-node-toolbar button:hover{background:#ededf3}
 .studio .image-node-toolbar button:disabled{color:#9696a0;opacity:1}
-.image-node-editor{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);width:600px;background:#fafafc;border:1px solid #dddde4;border-radius:18px;box-shadow:0 8px 30px #20203018;cursor:default;overflow:hidden;color:#85858e}
+.image-node-editor{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);width:600px;background:#fafafc;border:1px solid #dddde4;border-radius:18px;box-shadow:0 8px 30px #20203018;cursor:default;overflow:visible;z-index:50;color:#85858e}
 .image-node-reference{height:104px;padding:10px 12px;border-bottom:1px solid #e3e3e8}
 .studio .image-node-reference button{width:82px;height:82px;background:transparent;border:1px dashed #dddde4;border-radius:12px;color:#777783;font-size:26px;padding:0}
 .studio .image-node-editor textarea{display:block;width:100%;height:190px;min-height:100px;margin:0;padding:10px 12px;border:0;border-radius:0;background:transparent;color:#444450;box-shadow:none;font-size:13px;resize:vertical;outline:none}
@@ -3306,28 +3306,71 @@ html[data-theme="night"] .node-mode-hint {
   color: #93c5fd;
 }
 
-/* @-Mention Popover for Connected Nodes */
+/* @-Mention Popover for Connected Nodes & Canvas Assets */
 .node-mention-pop {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: calc(100% + 8px);
-  max-height: 220px;
+  position: fixed;
+  max-height: 250px;
   overflow-y: auto;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
-  z-index: 50;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.08);
+  z-index: 999999;
   padding: 6px;
+  box-sizing: border-box;
   animation: mention-pop-in 0.15s ease-out;
 }
 html[data-theme="night"] .node-mention-pop {
-  background: rgba(24, 28, 36, 0.95);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+  background: rgba(24, 28, 36, 0.98);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
+}
+
+.node-mention-trigger-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 6px;
+  gap: 8px;
+}
+.node-mention-hint {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-theme="night"] .node-mention-hint {
+  color: #9ca3af;
+}
+.node-mention-trigger-btn, .canvas-agent-mention-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+.node-mention-trigger-btn:hover, .canvas-agent-mention-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+html[data-theme="night"] .node-mention-trigger-btn,
+html[data-theme="night"] .canvas-agent-mention-btn {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #a5b4fc;
 }
 
 @keyframes mention-pop-in {
@@ -3432,4 +3475,186 @@ html[data-theme="night"] .mention-meta strong {
 html[data-theme="night"] .mention-meta small {
   color: #94a3b8;
 }
+
+.mention-item-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.mention-badge-connected {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.mention-badge-connectable {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+html[data-theme="night"] .mention-badge-connected {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+html[data-theme="night"] .mention-badge-connectable {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+/* Canvas Media Hover Actions (Replace & Delete) */
+.canvas-node-body {
+  position: relative;
+}
+.canvas-media-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  border-radius: 8px;
+  z-index: 10;
+}
+.canvas-node-body:hover .canvas-media-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cmo-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+.cmo-btn:active {
+  transform: scale(0.95);
+}
+.cmo-replace {
+  background: #2563eb;
+  color: #ffffff;
+}
+.cmo-replace:hover {
+  background: #1d4ed8;
+}
+.cmo-del {
+  background: #ef4444;
+  color: #ffffff;
+}
+.cmo-del:hover {
+  background: #dc2626;
+}
+
+/* Reference Thumbnail in Node Editor */
+.ref-thumb-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+html[data-theme="night"] .ref-thumb-wrap {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.ref-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ref-btn-del {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  line-height: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 2;
+}
+.ref-btn-del:hover {
+  background: #dc2626;
+}
+.ref-btn-replace {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: none;
+  font-size: 9px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+}
+.ref-btn-replace:hover {
+  background: rgba(37, 99, 235, 0.85);
+}
+
+/* Node Toolbar Delete Media Button */
+.image-node-toolbar button[data-remove-media] {
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.image-node-toolbar button[data-remove-media]:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Canvas Agent Composer @-Mention Popover */
+.canvas-agent-input-row {
+  position: relative;
+}
+.canvas-agent-mention-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), 0 3px 10px rgba(0, 0, 0, 0.08);
+  z-index: 99999;
+  padding: 6px;
+  box-sizing: border-box;
+  animation: mention-pop-in 0.15s ease-out;
+}
+html[data-theme="night"] .canvas-agent-mention-pop {
+  background: rgba(24, 28, 36, 0.98);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
+}
+
 
