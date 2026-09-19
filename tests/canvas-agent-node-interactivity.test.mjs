@@ -215,3 +215,11 @@ test('canvas card and canvas agent support full-width ＠, IME composition, and 
   assert.match(cssCode, /\.node-mention-trigger-btn/, 'CSS must style node mention trigger button');
   assert.match(cssCode, /\.canvas-agent-mention-btn/, 'CSS must style canvas agent mention button');
 });
+
+test('canvas card upload has no 2MB limit and safely handles large files via IndexedDB', () => {
+  const appCode = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  assert.doesNotMatch(appCode, /本地节点图片暂限 2 MB/, 'Must not have 2MB image upload restriction');
+  assert.doesNotMatch(appCode, /本地参考素材暂限 2 MB/, 'Must not have 2MB media upload restriction');
+  assert.match(appCode, /saveReference\(\{file,\s*storageId:\s*n\.storageId\}\)/, 'Must safely persist large files to IndexedDB');
+});
+
