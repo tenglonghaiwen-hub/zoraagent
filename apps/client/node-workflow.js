@@ -393,7 +393,7 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
  button.onclick=async()=>{
   if(n.runState==='running')return;
   try{
-   const input=collectNodeInput(nodes,n);if(!input.prompt.trim())throw Error('请输入指令或连接文本节点');if(input.references.length>6)throw Error('一个节点最多接入 6 个参考素材，请断开多余输入');
+   if(n.genUnknown)throw Error('上次提交结果尚未确认，请先核对云端生成记录，避免重复扣费。');const input=collectNodeInput(nodes,n);if(!input.prompt.trim())throw Error('请输入指令或连接文本节点');if(input.references.length>6)throw Error('一个节点最多接入 6 个参考素材，请断开多余输入');
    if(kind==='agent'&&input.references.some(r=>!r.type.startsWith('image/')))throw Error('文字节点当前只支持文字与图片输入');
    n.runState='running';activeRequests.add(n.id);n.error='';n.outputText='';n.outputUrl='';persist();render();
     if(kind==='agent'){
@@ -403,7 +403,7 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
      n.outputText = (isIdQ) ? '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？' : result.reply;
      n.runState='complete';
     }else{
-    n.genBatchId=crypto.randomUUID();persist();const message={kind,modelId:n.modelId,text:input.prompt,...n.params,references:input.references,genBatchId:n.genBatchId};await runMedia(message);n.genBatchId=message.genBatchId;n.genPending=message.genPending;n.outputUrls=message.genUrls;n.outputUrl=message.genUrl||'';n.taskIds=message.genTaskIds;n.taskId=message.genTaskId;n.error=message.genError;n.runState=message.genPending||n.taskIds?.length?'submitted':n.outputUrl?'complete':'failed';
+    n.genBatchId=crypto.randomUUID();persist();const message={kind,modelId:n.modelId,text:input.prompt,...n.params,references:input.references,genRequestId:n.genBatchId};try{await runMedia(message);}finally{n.genBatchId=message.genBatchId;n.genPending=message.genPending;n.genUnknown=message.genUnknown;}n.genBatchId=message.genBatchId;n.genPending=message.genPending;n.outputUrls=message.genUrls;n.outputUrl=message.genUrl||'';n.taskIds=message.genTaskIds;n.taskId=message.genTaskId;n.error=message.genError;n.runState=message.genPending||n.taskIds?.length?'submitted':n.outputUrl?'complete':'failed';
    }
   }catch(e){n.runState=e.submissionUnknown?'submitted':'failed';n.genPending=!!e.submissionUnknown;n.error=e.message||'生成失败';}
   finally{activeRequests.delete(n.id);saveResult(n);render();}

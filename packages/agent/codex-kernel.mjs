@@ -1,4 +1,5 @@
 import { rpcError } from './codex-errors.mjs';
+import { desktopToolContent } from './desktop-tool-content.mjs';
 import { disabledTools } from './tool-preferences.mjs';
 import { approvalModes, readApprovalMode, saveApprovalMode } from './approval-policy.mjs';
 import { interactionMethods, interactionReply } from './codex-interactions.mjs';
@@ -278,10 +279,11 @@ export class CodexKernel {
         if (activity) {
           activity.tools[String(m.id)].status = result?.ok === false ? 'failed' : 'completed';
         }
+        const toolContent = desktopToolContent(p.tool, result);
         turn?.toolTrace.push({
           name: p.tool,
           args: p.arguments,
-          result,
+          result: toolContent.trace,
           startedAt,
           durationMs: Date.now() - startedAt,
         });
@@ -289,7 +291,7 @@ export class CodexKernel {
           id: m.id,
           result: {
             success: result?.ok !== false,
-            contentItems: [{ type: 'inputText', text: JSON.stringify(result ?? null) }],
+            contentItems: toolContent.contentItems,
           },
         });
         return;

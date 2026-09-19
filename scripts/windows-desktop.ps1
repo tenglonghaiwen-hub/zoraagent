@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 Add-Type -AssemblyName UIAutomationClient
@@ -19,6 +19,7 @@ public static class ZoraDesktopNative {
  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback,IntPtr parameter);
  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
+ [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hwnd,int command);
  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd,StringBuilder text,int max);
  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint processId);
@@ -66,7 +67,7 @@ function Find-JianyingExecutable {
 function Get-JianyingWindow([IntPtr]$WindowHandle) {
  if (-not [ZoraDesktopNative]::IsWindow($WindowHandle) -or -not [ZoraDesktopNative]::IsWindowVisible($WindowHandle)) { throw 'Target window does not exist or is not visible' }
  $targetProcess = Get-Process -Id ([ZoraDesktopNative]::ProcessId($WindowHandle)) -ErrorAction Stop
- if ($targetProcess.ProcessName -ne 'JianyingPro') { throw 'Only JianyingPro.exe windows are allowed' }
+ if ($request.scope -ne 'desktop' -and $targetProcess.ProcessName -ne 'JianyingPro') { throw 'Only JianyingPro.exe windows are allowed in this tool' }
  $bounds = New-Object ZoraDesktopNative+RECT
  if (-not [ZoraDesktopNative]::GetWindowRect($WindowHandle,[ref]$bounds)) { throw 'Cannot read target window bounds' }
  return @{windowId=$WindowHandle.ToInt64().ToString();title=[ZoraDesktopNative]::Title($WindowHandle);pid=$targetProcess.Id;rect=@{x=$bounds.Left;y=$bounds.Top;width=($bounds.Right-$bounds.Left);height=($bounds.Bottom-$bounds.Top)}}
@@ -81,7 +82,41 @@ function Set-VerifiedForeground([IntPtr]$WindowHandle) {
 try {
  $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
  $action = [string]$request.action
- if ($action -eq 'listWindows') {
+ if ($action -in @('openApp','listApps','launchApp')) {
+  $apps = @(Get-StartApps | Sort-Object Name)
+  if ($action -eq 'openApp') {
+   $name = [string]$request.name
+   if (-not $name.Trim()) { throw 'Application name is required' }
+   $matches = @($apps | Where-Object { $_.Name -eq $name })
+   if ($matches.Count -eq 0) { $matches = @($apps | Where-Object { $_.Name.IndexOf($name,[StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
+   if ($matches.Count -ne 1) { throw 'Application not found or ambiguous; specify a more exact name' }
+   $request | Add-Member -NotePropertyName appId -NotePropertyValue $matches[0].AppID -Force
+  }
+  if ($action -eq 'listApps') {
+   $query = [string]$request.query
+   if ($query) { $apps = @($apps | Where-Object { $_.Name.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $_.AppID.IndexOf($query,[StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
+   $result = @{ok=$true;apps=@($apps | Select-Object -First 100 | ForEach-Object { @{name=$_.Name;appId=$_.AppID} });truncated=($apps.Count -gt 100)}
+  } else {
+   $app = @($apps | Where-Object { $_.AppID -ceq [string]$request.appId }) | Select-Object -First 1
+   if (-not $app) { throw 'App ID is not in the installed application catalog; listApps first' }
+   if ($app.AppID -match '["\r\n]') { throw 'Unsupported application identifier' }
+   if ([IO.Path]::IsPathRooted($app.AppID)) {
+    if ([IO.Path]::GetExtension($app.AppID) -ne '.exe' -or -not (Test-Path -LiteralPath $app.AppID -PathType Leaf)) { throw 'Installed executable is unavailable' }
+    Start-Process -FilePath $app.AppID -WindowStyle Normal
+   } else {
+    Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList ('"shell:AppsFolder\'+$app.AppID+'"') -WindowStyle Normal
+   }
+   $pattern = [regex]::Escape($app.Name)
+   if ($app.Name -match 'WeChat|Weixin|微信') { $pattern = 'WeChat|Weixin|微信' }
+   $windows = @()
+   for ($attempt=0; $attempt -lt 12; $attempt++) {
+    Start-Sleep -Milliseconds 300
+    $windows = @(Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and ($_.ProcessName -match $pattern -or $_.MainWindowTitle -match $pattern) } | ForEach-Object { @{windowId=$_.MainWindowHandle.ToInt64().ToString();title=$_.MainWindowTitle;pid=$_.Id;process=$_.ProcessName} })
+    if ($windows.Count -gt 0) { break }
+   }
+   $result = @{ok=$true;launchRequested=$true;app=@{name=$app.Name;appId=$app.AppID};windowVerified=($windows.Count -gt 0);windows=$windows}
+  }
+ } elseif ($action -eq 'listWindows') {
   $windows = @([ZoraDesktopNative]::VisibleWindows() | ForEach-Object { try { Get-JianyingWindow $_ } catch {} })
   $result = @{ok=$true;windows=$windows;installedPath=(Find-JianyingExecutable)}
  } elseif ($action -eq 'launchJianying') {
@@ -90,11 +125,27 @@ try {
   # This is the explicitly requested interactive application, not a background helper.
   $launched = Start-Process -FilePath $candidate -WindowStyle Normal -PassThru
   $result = @{ok=$true;pid=$launched.Id;launched=$true}
- } elseif ($action -in @('readWindow','click','type','keys')) {
+ } elseif ($action -in @('focus','captureWindow','readWindow','click','type','keys')) {
   if ([string]$request.windowId -notmatch '^\d{1,20}$') { throw 'Invalid target window identifier' }
   $handle = [IntPtr]([Int64]::Parse([string]$request.windowId))
   $window = Get-JianyingWindow $handle
-  if ($action -eq 'readWindow') {
+  if ($action -eq 'focus') {
+   [void][ZoraDesktopNative]::ShowWindowAsync($handle,9)
+   Set-VerifiedForeground $handle
+   $result=@{ok=$true;window=$window;focused=$true}
+  } elseif ($action -eq 'captureWindow') {
+   if ([ZoraDesktopNative]::IsIconic($handle)) { throw 'Target is minimized; screenshot unavailable' }
+   if ([ZoraDesktopNative]::GetForegroundWindow() -ne $handle) { throw 'Target must be foreground for an unobstructed screenshot' }
+   Add-Type -AssemblyName System.Drawing
+   $bitmap = New-Object System.Drawing.Bitmap($window.rect.width,$window.rect.height)
+   $graphics = [Drawing.Graphics]::FromImage($bitmap)
+   $stream = New-Object IO.MemoryStream
+   try {
+    $graphics.CopyFromScreen($window.rect.x,$window.rect.y,0,0,$bitmap.Size)
+    $bitmap.Save($stream,[Drawing.Imaging.ImageFormat]::Png)
+    $result = @{ok=$true;window=$window;imageUrl=('data:image/png;base64,'+[Convert]::ToBase64String($stream.ToArray()));coordinateSpace='window';width=$bitmap.Width;height=$bitmap.Height}
+   } finally { $graphics.Dispose();$bitmap.Dispose();$stream.Dispose() }
+  } elseif ($action -eq 'readWindow') {
    $element = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
    if ($null -eq $element) { throw 'UI Automation could not access this window' }
    $nodes = $element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
@@ -134,7 +185,7 @@ try {
     $text=[string]$request.text;if (-not $text -or $text.Length -gt 8000 -or $text.Contains([char]0)) { throw 'Invalid input text' }
     [ZoraDesktopNative]::Text($text)
    } else {
-    $mapping=@{Enter=13;Escape=27;Tab=9;Backspace=8;Delete=46;Space=32;Up=38;Down=40;Left=37;Right=39;Home=36;End=35;PageUp=33;PageDown=34;'Ctrl+A'=65;'Ctrl+Z'=90;'Ctrl+Y'=89;'Ctrl+S'=83}
+    $mapping=@{Win=91;'Ctrl+Escape'=27;Enter=13;Escape=27;Tab=9;Backspace=8;Delete=46;Space=32;Up=38;Down=40;Left=37;Right=39;Home=36;End=35;PageUp=33;PageDown=34;'Ctrl+A'=65;'Ctrl+Z'=90;'Ctrl+Y'=89;'Ctrl+S'=83}
     $key=[string]$request.key;if (-not $mapping.ContainsKey($key)) { throw 'Unsupported key combination' }
     [ZoraDesktopNative]::Keys([UInt16]$mapping[$key],$key.StartsWith('Ctrl+'))
    }

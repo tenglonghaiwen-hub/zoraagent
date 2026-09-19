@@ -1,10 +1,11 @@
+import {bindExecutionDisclosure} from './execution-disclosure.js';
 import {attachGenerationReceipts,applyGenerationReceipt,verifyGenerationRetry} from './agent-generation-tasks.js?v=studio151';
 import {recoverTaskReferences} from './task-references.js?v=studio142';
 import {prepareMediaReference} from './media-reference.js?v=studio148';
 import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
-import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio199';
+import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio199.1';
 import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl, refreshUserProfile} from './auth.js';
 import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu, initMembershipPanel, updateUserVipUI} from './login-handler.js';
 export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
@@ -3164,7 +3165,8 @@ async function prepareAgentReferences(references=[]){
  }));
 }
 async function submitMediaGeneration(message){
- if(!message.genBatchId&&!message.genTaskId&&!message.genTaskIds?.length){
+ const cloudGeneration=getGatewayConfig().mode==='cloud';
+ if(!cloudGeneration&&!message.genBatchId&&!message.genTaskId&&!message.genTaskIds?.length){
   const capability=await authFetch('/api/generation-capabilities',{cache:'no-store'});
   const supported=capability.ok&&await capability.json().catch(()=>null);
   if(!supported?.durableTasks)throw Error('后端版本过旧，尚未支持生成结果恢复。请重启后端服务后再提交；本次未调用生成模型。');
@@ -3172,14 +3174,14 @@ async function submitMediaGeneration(message){
  const model=models.find(m=>m.id===message.modelId||m.aliases?.includes(message.modelId)),queryIds=message.genTaskIds||(message.genTaskId?[message.genTaskId]:[]);
  let result;
  if(message.genBatchId){const response=await authFetch('/api/generation-tasks/'+encodeURIComponent(message.genBatchId),{signal:AbortSignal.timeout(15000)});result=await response.json();if(!response.ok){if(response.status===404){message.genPending=false;message.genUnknown=true;message.genStatus='结果待确认';}throw Object.assign(Error(result.error||'任务查询暂不可用'),{terminal:response.status===404});}}
- else if(queryIds.length){if(!model?.queryRoute)throw Error('当前模型未提供查询接口');const upstreams=[];for(const id of queryIds){const r=await authFetch('/api/duoyuanx'+model.queryRoute.replace('{task_id}',encodeURIComponent(id)),{signal:AbortSignal.timeout(30000)});const data=await r.json();if(!r.ok)throw Error(data.error?.message||data.error||'任务查询失败');if(!data.id&&!data.task_id&&!data.url&&!data.video_url)data.id=id;upstreams.push(data);}result={upstreams};}
+ else if(queryIds.length){if(!cloudGeneration&&!model?.queryRoute)throw Error('当前模型未提供查询接口');const upstreams=[];for(const id of queryIds){const r=await authFetch(cloudGeneration?'/api/tasks/'+encodeURIComponent(id)+'?provider='+encodeURIComponent(model?.provider||'minimax')+(model?.queryRoute?'&queryRoute='+encodeURIComponent(model.queryRoute):''):'/api/duoyuanx'+model.queryRoute.replace('{task_id}',encodeURIComponent(id)),{signal:AbortSignal.timeout(30000)});const data=await r.json();if(!r.ok)throw Error(data.error?.message||data.error||'任务查询失败');if(!data.id&&!data.task_id&&!data.url&&!data.video_url)data.id=id;upstreams.push(data);}result={upstreams};}
  else{
  message.references=recoverTaskReferences(message,currentConversation?.messages||[]);
  if(!message.references.length&&(/请上传.*(?:图片|参考)|ask_user_files/.test(message.genError||message.referenceError||'')||message.videoMode==='i2i'))throw Error('此旧任务没有保存原图。请重新编辑并重新添加原图，再发送新任务；本次未调用上游。');
-  message.genBatchId||=crypto.randomUUID();message.genStartedAt=Date.now();saveSession();
+  message.genBatchId||=message.genRequestId||crypto.randomUUID();message.genStartedAt=Date.now();saveSession();
   const body={requestId:message.genBatchId,modelId:model?.id||message.modelId,prompt:message.text,count:Number(message.count)||1,concurrency:Number(message.concurrency)||1,ratio:message.ratio,resolution:message.resolution,duration:message.duration?Number(message.duration):undefined,videoMode:message.videoMode||undefined,operation:message.operation,apiRoute:message.apiRoute};
   body.references=await Promise.all((message.references||[]).map(async r=>{let ref=await prepareMediaReference(r,fileToDataUrl);if(/^https?:/.test(ref.contentUrl)&&['grok-video','gemini-image','gpt-image','grok-image','seedream'].includes(model?.family)){const response=await fetch(ref.contentUrl);if(!response.ok)throw Error('参考素材读取失败');const blob=await response.blob();ref={...ref,type:blob.type||ref.type,contentUrl:await fileToDataUrl(blob)};}return ref;}));
-  message.genPending=true;saveSession();let response;try{response=await authFetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});result=await response.json();}catch(e){throw Object.assign(Error('提交回执暂未取得，正在查询原任务'),{submissionUnknown:true});}if(!response.ok){message.genPending=false;message.genBatchId=null;throw Error(result.error||'生成提交失败');}
+  message.genPending=true;saveSession();let response;try{response=await authFetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});result=await response.json();}catch(e){if(cloudGeneration){message.genBatchId=null;message.genUnknown=true;message.genPending=false;throw Error('提交回执未取得，请先核对云端生成记录，避免重复提交扣费。');}throw Object.assign(Error('提交回执暂未取得，正在查询原任务'),{submissionUnknown:true});}if(!response.ok){message.genPending=false;message.genBatchId=null;throw Error(result.error||'生成提交失败');}
  }
  if(result.stub||result.ok===false)throw Error(result.error||'生成未接入');
  if(result.task){applyGenerationReceipt(message,result.task);saveSession();for(const url of message.genUrls){try{addGeneratedAsset({kind:message.kind,url,meta:message.modelId});}catch{}await autoDownloadGenerated({...message,genTaskId:null,genUrl:url});}return result;}else{message.genPending=false;message.genBatchId=null;}
@@ -3506,6 +3508,7 @@ function renderAgentProcess(reply,message){
  const trace=message.toolTrace||[],summaries=message.reasoningSummary||[];
  if(!trace.length&&!summaries.length&&!message.pending)return;
  const panel=chatNode('details','agent-execution-process');
+ bindExecutionDisclosure(panel,'message:'+(message.id||message.createdAt),!!message.pending);
  panel.append(chatNode('summary','',message.pending?'正在处理请求…':`执行过程 · ${trace.length} 次工具调用`));
  if(message.pending)panel.append(chatNode('p','','等待模型回复；工具记录将在本次回复完成后显示。'));
  if(summaries.length){panel.append(chatNode('strong','','思路摘要'));for(const text of summaries)panel.append(chatNode('p','',text));}
@@ -3522,6 +3525,7 @@ function renderAgentProcess(reply,message){
   item.append(chatNode('summary','',`${index+1}. ${entry.name} · ${failed?'返回错误':'已返回'}${Number.isFinite(entry.durationMs)?' · '+(entry.durationMs/1000).toFixed(1)+' 秒':''}`));
   const pre=chatNode('pre','',JSON.stringify(safe({parameters:entry.args,result:entry.result}),null,2));pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto';item.append(pre);panel.append(item);
  }
+ panel.querySelectorAll('details').forEach((detail,index)=>bindExecutionDisclosure(detail,'message-child:'+(message.id||message.createdAt)+':'+index));
  reply.append(panel);
 }
 
