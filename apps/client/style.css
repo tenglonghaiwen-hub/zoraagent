@@ -2524,38 +2524,59 @@ html[data-theme="night"]{
   width:100%;
   display:flex;
   flex-direction:column;
+  align-items:flex-start;
   gap:12px;
 }
 .gateway-mode-pills{
   display:inline-flex;
+  align-self:flex-start;
+  width:fit-content;
   background:rgba(0,0,0,.35);
   border:1px solid rgba(255,255,255,.14);
-  border-radius:12px;
-  padding:4px;
-  gap:4px;
-  max-width:100%;
+  border-radius:10px;
+  padding:3px;
+  gap:3px;
+  box-sizing:border-box;
+}
+html[data-theme="day"] .gateway-mode-pills{
+  background:rgba(0,0,0,.06);
+  border-color:rgba(0,0,0,.12);
 }
 .gateway-pill{
-  padding:8px 16px;
+  padding:6px 14px;
   font-size:12px;
   font-weight:500;
-  border-radius:9px;
+  border-radius:7px;
   border:0;
   background:transparent;
   color:#9ca3af;
   cursor:pointer;
-  transition:all .2s ease;
+  transition:all .18s ease;
   white-space:nowrap;
+  line-height:1.4;
+}
+html[data-theme="day"] .gateway-pill{
+  color:#4b5563;
 }
 .gateway-pill:hover{
   color:#f3f4f6;
   background:rgba(255,255,255,.06);
 }
+html[data-theme="day"] .gateway-pill:hover{
+  color:#111827;
+  background:rgba(0,0,0,.05);
+}
 .gateway-pill.active{
-  background:linear-gradient(135deg, rgba(59,130,246,.3), rgba(139,92,246,.3))!important;
+  background:linear-gradient(135deg, rgba(59,130,246,.32), rgba(139,92,246,.32))!important;
   color:#fff!important;
   border:1px solid rgba(147,197,253,.35);
   box-shadow:0 2px 8px rgba(59,130,246,.2);
+}
+html[data-theme="day"] .gateway-pill.active{
+  background:#2563eb!important;
+  color:#fff!important;
+  border-color:#1d4ed8;
+  box-shadow:0 2px 6px rgba(37,99,235,.25);
 }
 .gateway-url-box{
   display:flex;
@@ -3656,5 +3677,338 @@ html[data-theme="night"] .canvas-agent-mention-pop {
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
 }
+
+/* ==========================================================================
+   Low Memory & High Performance Mode Styles
+   ========================================================================== */
+html.low-memory-mode video.backdrop {
+  display: none !important;
+}
+html.low-memory-mode .welcome {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%) !important;
+}
+html.low-memory-mode .studio {
+  background: #0f172a !important;
+}
+html.low-memory-mode[data-theme="day"] .studio {
+  background: #eef2f6 !important;
+  color: #0f172a !important;
+}
+html.low-memory-mode * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Day Mode & Low Memory Day Mode: High Contrast Typography & Clean Light Theme */
+html[data-theme="day"] .studio,
+html[data-theme="day"] .workspace,
+html[data-theme="day"] .creation {
+  color: #0f172a;
+}
+
+html[data-theme="day"] #agent-workspace h1,
+html[data-theme="day"] .creation h1,
+html[data-theme="day"] .welcome h1 {
+  color: #0f172a !important;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+}
+
+html[data-theme="day"] #agent-workspace h1 span {
+  color: #1e40af !important;
+}
+
+html[data-theme="day"] .creation > .muted,
+html[data-theme="day"] #agent-workspace > .muted,
+html[data-theme="day"] .center-demo {
+  color: #334155 !important;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Day Mode Composer Card & Controls */
+html[data-theme="day"] .studio-centered .prompt-card {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .compact-composer #prompt,
+html[data-theme="day"] .prompt-line #prompt,
+html[data-theme="day"] #prompt {
+  color: #0f172a !important;
+  color-scheme: light !important;
+}
+
+html[data-theme="day"] .studio-centered .compact-composer #prompt::placeholder,
+html[data-theme="day"] .prompt-line #prompt::placeholder,
+html[data-theme="day"] #prompt::placeholder {
+  color: #64748b !important;
+}
+
+html[data-theme="day"] .studio-centered .compact-composer .control-pill {
+  color: #334155 !important;
+}
+
+html[data-theme="day"] .control-pill .control-caption {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+html[data-theme="day"] .studio-centered .compact-composer .control-pill select,
+html[data-theme="day"] .studio-centered .compact-composer .control-pill input,
+html[data-theme="day"] .control-pill select,
+html[data-theme="day"] .control-pill input {
+  color: #0f172a !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  color-scheme: light !important;
+}
+
+html[data-theme="day"] .studio-centered .compact-composer .control-pill select option,
+html[data-theme="day"] .control-pill select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .composer-send .quote-status {
+  color: #475569 !important;
+}
+
+/* Day Mode Navigation, Capsule & Mode Switch */
+html[data-theme="day"] .studio .studio-rail,
+html[data-theme="day"] .studio .sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio .studio-rail button,
+html[data-theme="day"] .studio .sidebar button {
+  color: #334155 !important;
+}
+
+html[data-theme="day"] .studio .studio-rail button.active,
+html[data-theme="day"] .studio .sidebar button.active {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="day"] .studio-centered .directory-capsule,
+html[data-theme="day"] .studio-centered .account-toolbar {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+}
+
+html[data-theme="day"] .directory-capsule button,
+html[data-theme="day"] .account-toolbar button,
+html[data-theme="day"] .account-toolbar span {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .work-mode-switch {
+  background: #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+html[data-theme="day"] .work-mode-btn {
+  color: #475569 !important;
+}
+
+html[data-theme="day"] .work-mode-btn[aria-selected="true"] {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+/* Day Mode Content Pages: Settings, Tasks, Assets, Skills, Credits */
+html[data-theme="day"] .studio-centered .content {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .content h1,
+html[data-theme="day"] .studio-centered .content h2,
+html[data-theme="day"] .studio-centered .content h3 {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .content p,
+html[data-theme="day"] .studio-centered .content .muted,
+html[data-theme="day"] .studio-centered .content .setting-row p {
+  color: #334155 !important;
+}
+
+html[data-theme="day"] .studio-centered .content .eyebrow {
+  color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="day"] .studio-centered .content .setting-row {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="day"] .studio-centered .content .task-row {
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .content .task-row strong {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .content .task-row small {
+  color: #64748b !important;
+}
+
+html[data-theme="day"] .studio-centered .content .skill-card,
+html[data-theme="day"] .studio-centered .content .asset,
+html[data-theme="day"] .studio-centered .content .membership-plan {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="day"] .studio-centered .content .skill-card p,
+html[data-theme="day"] .studio-centered .content .skill-card small {
+  color: #475569 !important;
+}
+
+html[data-theme="day"] .studio-centered .content input:not([type="radio"],[type="checkbox"]),
+html[data-theme="day"] .studio-centered .content .skill-filters input {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio-centered .content input::placeholder {
+  color: #64748b !important;
+}
+
+/* Day Mode Tool Settings & Debug */
+html[data-theme="day"] #zora-tool-settings {
+  border-top-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .tool-settings-heading {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .tool-setting-card {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .tool-setting-title {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .tool-setting-description {
+  color: #475569 !important;
+}
+
+html[data-theme="day"] #zora-tool-settings .tool-settings-search {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] #zora-tool-settings .tool-settings-search::placeholder {
+  color: #64748b !important;
+}
+
+/* Day Mode Conversations & Media Task Entries */
+html[data-theme="day"] .conversation-reply {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .conversation-agent {
+  color: #1e40af !important;
+}
+
+html[data-theme="day"] .conversation-task-card {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+html[data-theme="day"] .conversation-task span {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .conversation-meta {
+  color: #64748b !important;
+}
+
+html[data-theme="day"] .media-task-heading {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="day"] .media-task-prompt {
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .studio .media-prompt-expand {
+  color: #2563eb !important;
+  font-weight: 500 !important;
+}
+
+html[data-theme="day"] .media-task-details p {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html[data-theme="day"] .media-task-placeholder {
+  color: #64748b !important;
+}
+
+/* Day Mode Mention Popovers & Node Editors */
+html[data-theme="day"] .node-mention-pop,
+html[data-theme="day"] .canvas-agent-mention-pop,
+html[data-theme="day"] .image-node-editor {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+}
+
+html[data-theme="day"] .node-mention-pop button,
+html[data-theme="day"] .canvas-agent-mention-pop button {
+  color: #1e293b !important;
+}
+
+html[data-theme="day"] .node-mention-pop button:hover,
+html[data-theme="day"] .canvas-agent-mention-pop button:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="day"] .image-node-editor textarea {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  color-scheme: light !important;
+}
+
+html.low-memory-mode[data-theme="day"] .studio .sidebar,
+html.low-memory-mode[data-theme="day"] .studio .workspace,
+html.low-memory-mode[data-theme="day"] .studio-centered .content,
+html.low-memory-mode[data-theme="day"] .studio-centered .prompt-card {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+
 
 

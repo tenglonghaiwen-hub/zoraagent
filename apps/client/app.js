@@ -11,19 +11,36 @@ function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.
 function saveUIPref(key,value){try{localStorage.setItem('zora.uiPrefs.v1',JSON.stringify({...readUIPrefs(),[key]:value}));}catch{toast('设置保存失败，请检查本地存储空间');}}
 function canvasNodeIcon(type){const paths=type==='res-image'||type==='image'||type==='t2i'||type==='i2i'?'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>':type==='res-video'||type==='video'||type==='t2v'||type==='i2v'?'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4Z"/>':'<path d="M5 5h14M5 10h14M5 15h10M5 20h7"/>';return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';}
 for(const button of document.querySelectorAll('[data-canvas-node],[data-canvas-gen]')){const icon=button.querySelector('.ccm-icon');if(icon)icon.innerHTML=canvasNodeIcon(button.dataset.canvasNode||button.dataset.canvasGen);}
+function isLowMemoryMode(){
+  try{ return localStorage.getItem('zora.lowMemoryMode.v1') === '1'; }catch{ return false; }
+}
 function ensureBackdrops(){
+  const isLowMem = document.documentElement.classList.contains('low-memory-mode');
+  const isDocHidden = document.visibilityState === 'hidden';
   const videos=[...document.querySelectorAll('video.backdrop,[data-backdrop="1"]')];
   for(const v of videos){
     v.muted=true;
     v.playsInline=true;
     v.setAttribute('playsinline','');
-    const tryPlay=()=>{v.play().catch(()=>{});};
-    v.addEventListener('error',()=>{v.dataset.failed='1';const page=v.closest('.page');if(page)page.dataset.backdropFailed='1';}, {once:true});
+    const page=v.closest('.page, [data-page], main, section');
+    const pageHidden = page && (page.hidden || page.style.display==='none');
+    if(isLowMem || isDocHidden || pageHidden){
+      try{ v.pause(); }catch{}
+      continue;
+    }
+    const canvasOpen = document.getElementById('studio')?.classList.contains('canvas-fullscreen');
+    if(canvasOpen && v.classList.contains('studio-backdrop')){
+      try{ v.pause(); }catch{}
+      continue;
+    }
+    const tryPlay=()=>{ if(!isLowMem && !isDocHidden && !pageHidden) v.play().catch(()=>{}); };
+    v.addEventListener('error',()=>{v.dataset.failed='1';if(page)page.dataset.backdropFailed='1';}, {once:true});
     if(v.readyState>=2) tryPlay();
     else v.addEventListener('loadeddata',tryPlay,{once:true});
     tryPlay();
   }
 }
+document.addEventListener('visibilitychange',ensureBackdrops);
 
 const $=s=>document.querySelector(s);
 function fileToDataUrl(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error||Error('读取素材失败'));reader.readAsDataURL(file);});}
@@ -505,11 +522,28 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='day'
   }
 
   function saveNodes(){try{localStorage.setItem(NODE_KEY,JSON.stringify(nodes));}catch{toast('画布保存失败：本地空间不足，请减少上传素材');}}
-  function pushHistory(){
-    history.push(JSON.stringify(nodes));
-    if(history.length>40) history.shift();
-    future.length=0;
+  function sanitizeNodesForHistory(nodesList){
+    if(!Array.isArray(nodesList)) return [];
+    return nodesList.map(n => {
+      const clone = { ...n };
+      if(clone.storageId){
+        if(typeof clone.imageData === 'string' && clone.imageData.length > 32768) delete clone.imageData;
+        if(typeof clone.mediaData === 'string' && clone.mediaData.length > 32768) delete clone.mediaData;
+      }
+      return clone;
+    });
   }
+  function pushHistory(){
+    try{
+      history.push(JSON.stringify(sanitizeNodesForHistory(nodes)));
+      if(history.length > 15) history.shift();
+      future.length = 0;
+    }catch{}
+  }
+  window.__clearCanvasHistory = () => {
+    history.length = 0;
+    future.length = 0;
+  };
   function showSaveStatus(text){
     if(!saveStatus)return;
     saveStatus.hidden=false;
@@ -3288,6 +3322,46 @@ if(themeBtn&&!themeBtn.dataset.wired){themeBtn.dataset.wired='1';themeBtn.onclic
  if(['agent','image','video'].includes(prefs.creationKind)){$('#creation-kind').value=prefs.creationKind;kindChanged();syncPickers();updateModeControls();$('#creation-kind').dataset.prevKind=prefs.creationKind;}
  $('#creation-kind').addEventListener('change',()=>saveUIPref('creationKind',$('#creation-kind').value));
  const motion=$('#reduce-motion');motion.checked=!!prefs.reduceMotion;document.documentElement.classList.toggle('reduce-motion',motion.checked);motion.addEventListener('change',()=>saveUIPref('reduceMotion',motion.checked));
+ const lowMemSwitch=$('#low-memory-mode');
+ const savedLowMem=localStorage.getItem('zora.lowMemoryMode.v1')==='1';
+ if(lowMemSwitch){
+  lowMemSwitch.checked=savedLowMem;
+  document.documentElement.classList.toggle('low-memory-mode',savedLowMem);
+  lowMemSwitch.addEventListener('change',()=>{
+   const on=!!lowMemSwitch.checked;
+   try{localStorage.setItem('zora.lowMemoryMode.v1',on?'1':'0');}catch{}
+   document.documentElement.classList.toggle('low-memory-mode',on);
+   ensureBackdrops();
+   toast(on?'已开启低内存模式（暂停动态背景与毛玻璃渲染）':'已关闭低内存模式');
+  });
+ }
+ function updateStorageUsageDisplay(){
+  const textEl=$('#storage-usage-text');
+  if(!textEl)return;
+  try{
+   let totalChars=0;
+   for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    totalChars+=(k?.length||0)+(localStorage.getItem(k)?.length||0);
+   }
+   const bytes=totalChars*2;
+   const mb=(bytes/(1024*1024)).toFixed(2);
+   textEl.textContent=`${mb} MB (约 ${Math.round(bytes/1024)} KB)`;
+  }catch{
+   textEl.textContent='正常';
+  }
+ }
+ updateStorageUsageDisplay();
+ $('#purge-memory-btn')?.addEventListener('click',()=>{
+  try{
+   window.__clearCanvasHistory?.();
+   updateStorageUsageDisplay();
+   ensureBackdrops();
+   toast('已清空撤销历史与运行缓存，内存已释放');
+  }catch{
+   toast('内存释放已完成');
+  }
+ });
  if(!!prefs.railCollapsed!==$('#studio').classList.contains('rail-collapsed'))$('#rail-toggle').click();
  $('#rail-toggle').addEventListener('click',()=>saveUIPref('railCollapsed',$('#studio').classList.contains('rail-collapsed')));
  for(const id of ['om-tool','om-project']){const field=$('#'+id);if(!field)continue;let restored=false;const restore=()=>{if(restored||!prefs[id]||![...field.options].some(o=>o.value===prefs[id]))return;restored=true;field.value=prefs[id];field.dispatchEvent(new Event('change',{bubbles:true}));};field.addEventListener('change',()=>{restored=true;saveUIPref(id,field.value);});restore();new MutationObserver(restore).observe(field,{childList:true});}
