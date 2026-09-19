@@ -583,7 +583,7 @@ export const MODELS = [
     queryRoute: '/v2/query/video_generation/{task_id}',
     contentType: 'json',
     ratios: ['16:9', '9:16', '1:1', 'adaptive', '21:9', '4:3', '3:4'],
-    resolutions: ['768P', '2K'],
+    resolutions: ['720P', '768P', '1080P', '2K'],
     durationRange: { min: 4, max: 15, step: 1 },
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     modes: [

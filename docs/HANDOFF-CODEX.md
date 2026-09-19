@@ -1,7 +1,7 @@
 # 造境 Zora → Codex 交接文档 (HANDOFF)
 
 > **最新更新**：2026-09-19（2026-09-18 晚班重大里程碑交接）  
-> **维护入口**：最新文档索引见 [文档索引](README.md)、[架构分离方案](ARCHITECTURE-SEPARATION.md)、[认证测试报告](AUTH-TEST-REPORT.md)、[API 规范](API.md)、[当前状态](CURRENT-STATUS.md)  
+> **维护入口**：最新文档索引见 [文档索引](docs/README.md)、[架构分离方案](docs/ARCHITECTURE-SEPARATION.md)、[认证测试报告](docs/AUTH-TEST-REPORT.md)、[API 规范](docs/API.md)、[当前状态](docs/CURRENT-STATUS.md)  
 > **交接对象**：Codex / 协作 Agent  
 > **用户**：Tr2ck（Windows 账户 `强哥`，机器 `DESKTOP-TI64NQE`）  
 > **项目规范**：严格遵循 [AGENTS.md](../AGENTS.md) 约定（第三方 API 密钥只在远程服务端、定点账本 1元=10分、成本×12、模型及并发以服务端为准、原生安全沙箱）
@@ -69,6 +69,39 @@
    - **消息全员与定向推送**：支持全员公告 `*` 与个人私信实时推送，后台支持一键撤回；
    - **VIP 专属模型控制**：支持将特定模型标记为 `👑 VIP 专属`；
    - **服务商 API 密钥自检与动态路由映射**。
+
+---
+
+## 0.2 造境 VIP 会员体系闭环与多端即时同步（2026-09-19 下午交付）
+针对“后台修改/开通 VIP 后客户端不同步”以及会员模块原本为占位态的问题，完成了端到端全链路闭环开发与多端即时同步：
+1. **黑金轻奢视觉重构**：
+   - 重构客户端 `#membership` 模块：包含 VIP 用户状态卡片（`#membership-user-card`）、4 档精选套餐（月度/季度/年度/终身）、6 大专属特权矩阵与权益对比表；
+   - 贯通桌面收银台：支持一键模拟支付，自动调用升级接口并赠送套餐点数，实时刷新余额、会员状态及顶栏徽标。
+2. **多端即时同步机制（根治“后台添加不显示”）**：
+   - **Cloudflare Worker / D1 字段补齐**：`/api/auth/login` 与 `/api/auth/refresh` 返回完整的 `isVip`, `vipExpiresAt`, `concurrencyLimit` 属性，彻底消除字段遗漏；
+   - **本地 SQLite Schema 对齐**：`packages/database/schema.mjs` 与 `packages/auth/index.mjs` 中的 `getUserById` / `getUserByEmail` 输出规范化 VIP 属性；
+   - **客户端静默热刷新与焦点监听**：
+     - `auth.js` 导出 `refreshUserProfile()`，在登录、获取 profile 及切换时主动向 `/api/auth/me` 刷新；
+     - `login-handler.js` 与 `app.js` 监听 `window.focus` 与 `document.visibilitychange`，站长在后台调整会员状态后，用户切回客户端窗口无需重新登录即可秒级自动同步最新 VIP 身份、金色皇冠徽标与并发数。
+   - 新增自动化测试 `tests/membership.test.mjs` 覆盖完整同步链路。
+
+---
+
+## 0.3 Zora Agent 身份标准合规与第三方防泄露纵深加固（2026-09-19 晚间交付）
+根据项目核心约定 [AGENTS.md](AGENTS.md) 规定：
+> 当用户问及模型身份等相关问题时，只能回答：“我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？”，严禁泄露任何第三方厂商、模型版本或底层提供方信息。
+
+排查修复了用户提问“你是谁”出现第三方模型自述的严重违规问题，构建了“云网关-本地服务端-客户端展示”三层纵深防御防线：
+1. **云端网关层（第一道防线，已上线）**：
+   - 在 `apps/cloudflare-worker/src/proxy.mjs` 中扩展 `isIdentityQuestion` 正则，涵盖各类中英文身份提问变体及全半角标点符号；
+   - 实现 `sanitizeAgentReply`：前置拦截身份提问直接秒回标准回复；后置校验第三方泄漏（ChatGPT / OpenAI / Claude 等）并强制替换为标准回复；
+   - 已通过 Wrangler 重新部署至线上环境 `https://zora-api.tenglonghaiwen.workers.dev`（Version ID `adff5e94-33de-40a8-bbb6-ddad2ab4701b`），线上实测 `你是谁`、`你是什么模型`、`who are you` 等均 100% 返回标准话术。
+2. **本地服务端路由层（第二道防线）**：
+   - 在 `apps/server/chat-service.mjs` 入口处提取原始提问 `input.message` 进行直接拦截，避免进入主 Agent 巨型 Prompt 造成正则失配，并杜绝无谓的上游 Token 消耗；同时执行后置脱敏过滤。
+3. **客户端展现层（第三道防线，零泄漏底线）**：
+   - 在 `apps/client/app.js`（主对话框与画布 Agent 浮窗）与 `apps/client/node-workflow.js`（画布节点执行）中加入前端级脱敏清洗兜底。
+4. **全套自动化测试回归**：
+   - 全套测试套件扩充至 **239 项测试 100% 绿灯全部通过（0 failure）**。
 
 ---
 
@@ -190,7 +223,9 @@
 ```text
 [ ] 1. 验证 Node 环境与测试套件：
       & "D:\zora\runtime\node-v24.21.0-win-x64\node.exe" -v
-[ ] 2. 验证自动化测试（全量 37 项）：
+[ ] 2. 验证自动化测试（全量 239 项）：
+      - npm test (全套 239 项测试 100% 绿灯通过)
+      - tests/membership.test.mjs (会员套餐、收银台、多端即时同步与 D1 数据库写入)
       - tests/auth.test.mjs (用户认证与会话)
       - tests/quota-billing.test.mjs (配额预检与扣除)
       - tests/phase3-lifecycle.test.mjs (用量账本与全生命周期)
@@ -233,7 +268,15 @@
    - 实现服务端提供商密钥连通性探测接口 `POST /api/admin/providers/test` 与代理核心方法 `testProviderConnectivity`。
    - 支持 MiniMax 官方直连、DeepSeek、OpenAI、SiliconFlow、多元交叉及自定义反代端点的自检与网络延迟诊断。
    - 在 Admin 可视化控制台（`admin-ui.mjs`）为各模型厂商提供一键「测试连通」按钮与毫秒级延迟指示。
-   - 编写完整的 0 成本部署与密钥配置指南 [CLOUDFLARE-WORKER-DEPLOYMENT.md](CLOUDFLARE-WORKER-DEPLOYMENT.md)。
+   - 编写完整的 0 成本部署与密钥配置指南 [CLOUDFLARE-WORKER-DEPLOYMENT.md](docs/CLOUDFLARE-WORKER-DEPLOYMENT.md)。
    - 升级 `tests/cloudflare-worker.test.mjs`，全套 37 项自动化测试全部通过。
-5. **Electron 正式打包与签名**：
+5. **VIP 会员全链路贯通与多端即时同步**：【已完成 ✅ 2026-09-19】
+   - 黑金轻奢 4 档套餐矩阵与 6 大权益对比表全面上线，无缝联动演示收银台；
+   - 彻底修复后台调整会员后客户端不同步缺陷：服务端/Worker 完整返回 VIP 字段，客户端监听窗口 focus 与可见性切换秒级自动热刷新。
+6. **Zora Agent 模型身份合规与防泄露纵深加固**：【已完成 ✅ 2026-09-19】
+   - 严格遵守 `AGENTS.md` 身份约定，构建“云端网关-本地服务端-客户端展示”三重拦截防御；
+   - 杜绝任何第三方模型名称或厂商信息泄露，提问身份统一回答标准话术；
+   - 重新部署线上 Cloudflare Worker（版本 `adff5e94-33de-40a8-bbb6-ddad2ab4701b`），线上与本地实测 100% 合规。
+7. **Electron 正式打包与签名**：
    - 完善生产环境跨平台打包脚本与离线静态资源封装（待用户下达明确打包指令）。
+

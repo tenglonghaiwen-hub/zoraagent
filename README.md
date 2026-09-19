@@ -42,6 +42,7 @@ Zora 自行启动包内 Codex 进程，不依赖电脑其他目录的 Codex 安�
 | 视频理解 | 视频画面时序分析、音轨提取与音频转写适配；结果取决于可读取的素材和上游服务 |
 | OpenMontage | 本地 sidecar 与工具桥接；不等于已经验收上游项目的全部功能 |
 | 独立浏览器 | 搜索、打开网页和读取页面内容；需要桌面宿主，不是任意网站操作自动化 |
+| 通用电脑操作 | 按名称打开应用、读取控件与窗口截图、窗口内点击/输入/快捷键；保留操作确认，尚未完成通用桌面端到端验收 |
 | 剪映控制 | Windows 窗口与可访问界面读取、受限点击/输入/快捷键；完整导入—剪辑—导出流程尚未验收 |
 | 本地执行 | Codex 原生执行与 Zora 本地工作区工具；部分本地执行流程依赖 Docker |
 | 技能 | 项目内技能及导入的 Codex 技能资源；不代表自动继承 Codex 桌面的全部插件和连接器 |
@@ -195,6 +196,7 @@ Codex 原生沙箱与 Docker 工具执行是不同路径，Docker 就绪不代�
 - [包内运行时](docs/bundled-runtime.md)
 - [Codex 主 Agent 接入](docs/codex-agent.md)
 - [独立浏览器](docs/INDEPENDENT-BROWSER.md)
+- [通用电脑操作与限制](docs/DESKTOP-CONTROL.md)
 - [剪映桌面控制及限制](docs/JIANYING-DESKTOP-CONTROL.md)
 - [OpenMontage 桥](docs/openmontage-bridge.md)
 - [视频音频时序分析](docs/VIDEO-AUDIO-TIMELINE.md)

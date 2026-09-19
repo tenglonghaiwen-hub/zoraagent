@@ -51,7 +51,7 @@ export async function startBrowserBridge({directory=path.resolve(path.dirname(fi
   if(input.action==='search'){if(typeof input.query!=='string'||!input.query.trim()||input.query.length>2000)throw Error('搜索内容需为 1–2000 字符');url='https://www.bing.com/search?q='+encodeURIComponent(input.query);}
   if(typeof url!=='string'||url.length>8000)throw Error('网页地址无效');
   url=await validateBrowserURL(url,{lookupImpl});const target=window();let timer;
-  try{await Promise.race([target.loadURL(url),new Promise((_,reject)=>{timer=setTimeout(()=>{target.webContents.stop();reject(Error('网页导航超过 30 秒'));},30000);})]);}finally{clearTimeout(timer);}
+  try{await Promise.race([target.loadURL(url),new Promise((_,reject)=>{timer=setTimeout(()=>{target.webContents.stop();reject(Error('网页导航超过 30 秒'));},30000);})]);}catch(e){if(!target.isDestroyed())target.destroy();throw Error('网页打开失败，旧页面已关闭：'+String(e.message||e));}finally{clearTimeout(timer);}
   target.show();return readPage(target);
  }
  const send=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};

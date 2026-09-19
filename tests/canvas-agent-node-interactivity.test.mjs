@@ -159,12 +159,12 @@ test('collectNodeInput extracts Jimeng-style explicit constraint and agent auto 
   assert.equal(resultAuto.references[0].role, 'agent-auto-infer');
 });
 
-test('node-workflow.js provides connected-only @-mention popover and full parameter controls', () => {
+test('node-workflow.js provides connected and canvas-wide auto-connecting @-mention popover and parameter controls', () => {
   const code = fs.readFileSync(path.join(ROOT, 'apps/client/node-workflow.js'), 'utf8');
-  // Connected-only @-mention
   assert.match(code, /node-mention-pop/);
-  assert.match(code, /n\.inputs\s*\|\|\s*\[\]/);
-  assert.match(code, /未连接素材/);
+  assert.match(code, /connectNodes\(nodes,\s*item\.id,\s*n\.id\)/, 'Selecting canvas media should auto-connect to current node');
+  assert.match(code, /mention-badge-connected/);
+  assert.match(code, /mention-badge-connectable/);
   assert.match(code, /mention-thumb/);
 
   // Parameter grid controls: ratio, resolution, count, concurrency, duration slider
@@ -178,5 +178,48 @@ test('node-workflow.js provides connected-only @-mention popover and full parame
   assert.match(code, /视频时长滑杆/);
 });
 
+test('canvas card supports deleting uploaded media, reuploading, and canvas agent supports @-mentions', () => {
+  const appCode = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  const cssCode = fs.readFileSync(path.join(ROOT, 'apps/client/style.css'), 'utf8');
 
+  // Card media deletion & replacement
+  assert.match(appCode, /data-remove-media/, 'Toolbar must have remove media button');
+  assert.match(appCode, /ref-btn-del/, 'Reference card must have delete button');
+  assert.match(appCode, /canvas-media-overlay/, 'Media body must have overlay with replace and delete');
+  assert.match(cssCode, /\.canvas-media-overlay/, 'CSS must style media overlay');
+  assert.match(cssCode, /\.ref-btn-del/, 'CSS must style reference delete button');
+
+  // Canvas Agent @-mention popup & reference auto-attachment
+  assert.match(appCode, /canvas-agent-mention-pop/, 'Canvas agent must create mention popup');
+  assert.match(appCode, /checkAgentMentions/, 'Canvas agent must check mentions on input');
+  assert.match(appCode, /assets\.push/, 'Selecting canvas media must add to agent assets');
+  assert.match(cssCode, /\.canvas-agent-mention-pop/, 'CSS must style canvas agent mention pop');
+});
+
+test('canvas card and canvas agent support full-width ＠, IME composition, and explicit mention trigger button', () => {
+  const nodeWorkflowCode = fs.readFileSync(path.join(ROOT, 'apps/client/node-workflow.js'), 'utf8');
+  const appCode = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  const cssCode = fs.readFileSync(path.join(ROOT, 'apps/client/style.css'), 'utf8');
+
+  // Node workflow: full-width ＠ regex, compositionend, trigger button, and fixed popover
+  assert.match(nodeWorkflowCode, /\[@\\uff20\]/, 'Node workflow must support full-width ＠ character in regex');
+  assert.match(nodeWorkflowCode, /node-mention-trigger-btn/, 'Node workflow must provide explicit @ mention trigger button');
+  assert.match(nodeWorkflowCode, /compositionend/, 'Node workflow must listen to compositionend for Chinese IME');
+  assert.match(nodeWorkflowCode, /mentionPop\.style\.position\s*=\s*'fixed'/, 'Node workflow must use fixed positioning to avoid overflow clipping');
+
+  // Canvas Agent: full-width ＠ regex, compositionend, trigger button
+  assert.match(appCode, /\[@\\uff20\]/, 'App.js must support full-width ＠ in checkAgentMentions and showMentions');
+  assert.match(appCode, /canvas-agent-mention-btn/, 'App.js must provide explicit mention button in canvas agent');
+
+  // CSS: trigger button styles
+  assert.match(cssCode, /\.node-mention-trigger-btn/, 'CSS must style node mention trigger button');
+  assert.match(cssCode, /\.canvas-agent-mention-btn/, 'CSS must style canvas agent mention button');
+});
+
+test('canvas card upload has no 2MB limit and safely handles large files via IndexedDB', () => {
+  const appCode = fs.readFileSync(path.join(ROOT, 'apps/client/app.js'), 'utf8');
+  assert.doesNotMatch(appCode, /本地节点图片暂限 2 MB/, 'Must not have 2MB image upload restriction');
+  assert.doesNotMatch(appCode, /本地参考素材暂限 2 MB/, 'Must not have 2MB media upload restriction');
+  assert.match(appCode, /saveReference\(\{file,\s*storageId:\s*n\.storageId\}\)/, 'Must safely persist large files to IndexedDB');
+});
 

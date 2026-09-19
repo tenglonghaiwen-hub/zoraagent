@@ -15,9 +15,9 @@ export async function startDesktopBridge({directory,dialog,invokeImpl=invokeDesk
   try{
    const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>12000)throw Error('请求过长');chunks.push(chunk);}
    const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-   if(!['listWindows','launchJianying','readWindow','click','type','keys'].includes(input.action))throw Error('桌面操作不支持');
-   if(!['listWindows','readWindow'].includes(input.action)){
-    const approval=await dialog.showMessageBox({type:'question',title:'Zora 桌面操作确认',message:'Agent 请求操作剪映',detail:JSON.stringify(input,null,2)+'\n\n请确认目标与内容。该操作会作用于本机剪映窗口。',buttons:['取消','允许本次操作'],defaultId:0,cancelId:0,noLink:true});
+   if(!['focus','openApp','captureWindow','listApps','launchApp','listWindows','launchJianying','readWindow','click','type','keys'].includes(input.action))throw Error('桌面操作不支持');
+   if(!['listApps','listWindows','readWindow','captureWindow'].includes(input.action)){
+    const approval=await dialog.showMessageBox({type:'question',title:'Zora 桌面操作确认',message:input.scope==='desktop'?'Agent 请求操作桌面应用':input.action==='launchApp'?'Agent 请求启动桌面应用':'Agent 请求操作剪映',detail:JSON.stringify(input,null,2)+'\n\n请确认目标与内容。该操作会作用于本机应用。',buttons:['取消','允许本次操作'],defaultId:0,cancelId:0,noLink:true});
     if(approval.response!==1)return send(res,200,{ok:false,status:'denied',error:'用户取消了本次桌面操作'});
    }
    send(res,200,await invokeImpl(input));

@@ -1,3 +1,4 @@
+import {agentResponses} from './agent-responses.mjs';
 import {
   hashPassword,
   verifyPassword,
@@ -26,7 +27,8 @@ import {
   createNotification,
   deleteNotification,
   getUserMessages,
-  verifyAdminRequest
+  verifyAdminRequest,
+  upgradeUserMembership
 } from './billing.mjs';
 import {
   proxyGeneration,
@@ -76,6 +78,7 @@ export default {
     const jwtSecret = env.JWT_SECRET || 'zora-default-secret-change-in-production';
 
     try {
+      if(path==='/api/agent/v1/responses' && method==='POST')return await agentResponses(request,env);
       // ----------------------------------------------------
       // 0. Visual Admin Console Dashboard (HTML)
       // ----------------------------------------------------
@@ -366,7 +369,7 @@ export default {
         }
 
         let user = await env.DB.prepare(
-          'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE email = ? OR username = ?'
+          'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE email = ? OR username = ?'
         ).bind(account, account).first();
 
         // 1. 自动初始化官方预置测试账号
@@ -380,7 +383,7 @@ export default {
           ).bind(userId, 'test@zora.local', pHash, '测试账号', 'user', 1100, now, now, 'active').run();
 
           user = await env.DB.prepare(
-            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
           ).bind(userId).first();
         }
 
@@ -395,7 +398,7 @@ export default {
           ).bind(userId, 'admin@zora.local', pHash, '系统管理', 'admin', 10000, now, now, 'active').run();
 
           user = await env.DB.prepare(
-            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
           ).bind(userId).first();
         }
 
@@ -412,7 +415,7 @@ export default {
           ).bind(userId, account, pHash, uname, 'user', initialQuota, now, now, 'active').run();
 
           user = await env.DB.prepare(
-            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+            'SELECT id, email, username, password_hash, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
           ).bind(userId).first();
         }
 
@@ -452,7 +455,10 @@ export default {
             email: user.email,
             role: user.role,
             balance: user.quotaBalance,
-            quotaBalance: user.quotaBalance
+            quotaBalance: user.quotaBalance,
+            isVip: user.isVip === 1 || Boolean(user.isVip),
+            vipExpiresAt: user.vipExpiresAt || 0,
+            concurrencyLimit: user.concurrencyLimit || 1
           }
         }, 200, cors);
       }
@@ -470,7 +476,7 @@ export default {
         }
 
         const user = await env.DB.prepare(
-          'SELECT id, email, username, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+          'SELECT id, email, username, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
         ).bind(payload.userId).first();
 
         if (!user || user.status !== 'active') {
@@ -502,7 +508,10 @@ export default {
             email: user.email,
             role: user.role,
             balance: user.quotaBalance,
-            quotaBalance: user.quotaBalance
+            quotaBalance: user.quotaBalance,
+            isVip: user.isVip === 1 || Boolean(user.isVip),
+            vipExpiresAt: user.vipExpiresAt || 0,
+            concurrencyLimit: user.concurrencyLimit || 1
           }
         }, 200, cors);
       }
@@ -517,7 +526,10 @@ export default {
             email: user.email,
             role: user.role,
             balance: user.quotaBalance,
-            quotaBalance: user.quotaBalance
+            quotaBalance: user.quotaBalance,
+            isVip: user.isVip === 1 || Boolean(user.isVip),
+            vipExpiresAt: user.vipExpiresAt || 0,
+            concurrencyLimit: user.concurrencyLimit || 1
           }
         }, 200, cors);
       }
@@ -561,6 +573,30 @@ export default {
           message: `成功充值 ${amount} 积分 [DEMO]`,
           newBalance,
           balance: newBalance
+        }, 200, cors);
+      }
+
+      if (path === '/api/user/membership/upgrade' && method === 'POST') {
+        const { user } = await authenticateRequest(request, env);
+        const body = await request.json().catch(() => ({}));
+        const days = body.days === -1 ? -1 : parseInt(body.days, 10);
+        const giftQuota = parseInt(body.giftQuota, 10) || 0;
+        const tier = String(body.tier || 'monthly');
+
+        if (isNaN(days) && days !== -1) {
+          return errorResponse('无效的会员有效天数', 400, cors);
+        }
+
+        const upgradeResult = await upgradeUserMembership(env.DB, user.id, {
+          days,
+          giftQuota,
+          tier
+        });
+
+        return jsonResponse({
+          ok: true,
+          message: `成功开通/续费造境 VIP 会员 [DEMO]`,
+          ...upgradeResult
         }, 200, cors);
       }
 

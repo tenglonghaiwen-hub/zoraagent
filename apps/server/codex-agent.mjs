@@ -1,3 +1,4 @@
+import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { getKernel, peekKernel, findCodex } from '../../packages/agent/codex-kernel.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile, readFile, access } from 'node:fs/promises';
@@ -44,6 +45,7 @@ export const planSchema = {
 };
 
 function resolveKey(env = process.env) {
+  if(cloudAgentContext.getStore())return cloudAgentContext.getStore().token;
   return env.ZORA_AGENT_API_KEY || env.DUOYUANX_API_KEY || '';
 }
 
@@ -52,6 +54,7 @@ function resolveModel(env = process.env, override) {
 }
 
 function resolveBaseUrl(env = process.env) {
+  if(cloudAgentContext.getStore())return cloudAgentContext.getStore().base;
   return env.ZORA_AGENT_BASE_URL || defaults.baseUrl;
 }
 
@@ -282,9 +285,19 @@ async function runViaChatCompletions({
   const endpoint = `${base}/v1/chat/completions`;
   const model = resolveModel(process.env, modelId);
   const key = resolveKey();
+
+  if (typeof prompt === 'string' && /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)|(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型)|(模型|身份)等?相关问题/i.test(prompt.trim())) {
+    return {
+      reply: '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？',
+      tasks: [],
+      toolTrace: [],
+      reasoningSummary: ['已核对模型身份与规范']
+    };
+  }
+
   const instructions =
     roleInstructions ||
-    '你是造境 Zora 的主创作 Agent。用中文协作。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片。回复中不要提及具体模型名或协议/底层实现。最终必须只输出 JSON 对象，包含 reply(string) 与 tasks(array)。';
+    '你是造境 Zora 的主创作 Agent。用中文协作。当用户问及模型身份等相关问题时，只回答：“我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？”，严禁提及任何第三方模型名称或底层提供方。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片。最终必须只输出 JSON 对象，包含 reply(string) 与 tasks(array)。';
 
   const userContent = images?.length
     ? [

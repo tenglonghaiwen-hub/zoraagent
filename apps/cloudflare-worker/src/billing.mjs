@@ -22,7 +22,7 @@ export async function authenticateRequest(request, env) {
 
   // Query user from D1 database
   const user = await env.DB.prepare(
-    'SELECT id, email, username, role, quota_balance as quotaBalance, status FROM users WHERE id = ?'
+    'SELECT id, email, username, role, quota_balance as quotaBalance, status, is_vip as isVip, vip_expires_at as vipExpiresAt, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
   ).bind(payload.userId).first();
 
   if (!user) {
@@ -156,6 +156,66 @@ export async function getUserUsageLogs(db, userId, { limit = 20, offset = 0 } = 
   };
 }
 
+const KNOWN_MODEL_METAS = {
+  'MiniMax-H3': {
+    ratios: ['16:9', '9:16', '1:1', 'adaptive', '21:9', '4:3', '3:4'],
+    resolutions: ['768P', '2K'],
+    durationRange: { min: 4, max: 15, step: 1 },
+    durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    modes: [
+      { id: 't2v', name: '文生视频', enabled: true },
+      { id: 'i2v', name: '首帧生视频', enabled: true },
+      { id: 'fl', name: '首尾帧', enabled: true },
+      { id: 'ref', name: '多模态参考', enabled: true },
+    ]
+  },
+  'doubao-seedream-5-0-260128': {
+    ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9'],
+    resolutions: ['1K', '2K', '4K'],
+    modes: [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+    ]
+  },
+  'gpt-image-2': {
+    ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9'],
+    resolutions: ['1K', '2K'],
+    modes: [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+    ]
+  }
+};
+
+export function attachModelCapabilities(model) {
+  if (!model) return model;
+  const known = KNOWN_MODEL_METAS[model.id] || {};
+  const isVideo = model.kind === 'video';
+  const isImage = model.kind === 'image';
+  return {
+    ...model,
+    ratios: model.ratios || known.ratios || (isVideo ? ['16:9', '9:16', '1:1', '4:3', '21:9'] : ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9']),
+    resolutions: model.resolutions || known.resolutions || (isVideo ? ['720P', '1080P', '2K'] : ['1K', '2K', '4K']),
+    modes: model.modes || known.modes || (isVideo ? [
+      { id: 't2v', name: '文生视频', enabled: true },
+      { id: 'i2v', name: '首帧生视频', enabled: true },
+      { id: 'fl', name: '首尾帧', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+      { id: 'v2v', name: '参考视频', enabled: true }
+    ] : [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true }
+    ]),
+    durations: model.durations || known.durations || (isVideo ? [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] : undefined),
+    durationRange: model.durationRange || known.durationRange || (isVideo ? { min: 4, max: 15, step: 1 } : undefined),
+    maxCount: model.maxCount || (isImage ? 4 : 2),
+    maxConcurrency: model.maxConcurrency || 2
+  };
+}
+
 /**
  * Retrieve enabled server models
  */
@@ -170,7 +230,7 @@ export async function getServerModels(db) {
      ORDER BY kind ASC, name ASC`
   ).all();
 
-  return results || [];
+  return (results || []).map(attachModelCapabilities);
 }
 
 /**
@@ -374,24 +434,116 @@ export async function adjustUserBalance(db, userId, delta, reason = '管理员�
 /**
  * Update user's VIP status and expiration
  */
-export async function setUserVip(db, userId, { isVip, days = 30 } = {}) {
+export async function setUserVip(db, userId, arg3 = {}, arg4) {
+  let isVip;
+  let days = 30;
+
+  if (typeof arg3 === 'boolean' || typeof arg3 === 'number') {
+    isVip = Boolean(arg3);
+    if (arg4 !== undefined) days = Number(arg4);
+  } else if (arg3 && typeof arg3 === 'object') {
+    isVip = Boolean(arg3.isVip);
+    if (arg3.days !== undefined) days = Number(arg3.days);
+  } else {
+    isVip = Boolean(arg3);
+  }
+
   const now = Date.now();
   let vipVal = isVip ? 1 : 0;
   let expiresAt = 0;
+  let concurrency = vipVal ? 4 : 1;
 
   if (vipVal) {
     if (days === -1) {
       expiresAt = -1; // 永久 VIP
     } else {
-      expiresAt = now + (days * 86400000);
+      const existing = await db.prepare(
+        'SELECT is_vip as isVip, vip_expires_at as vipExpiresAt FROM users WHERE id = ?'
+      ).bind(userId).first();
+      const currentExpiry = Number(existing?.vipExpiresAt) || 0;
+      const baseTime = (existing?.isVip && currentExpiry > now) ? currentExpiry : now;
+      expiresAt = baseTime + (days * 86400000);
     }
   }
 
   await db.prepare(
-    `UPDATE users SET is_vip = ?, vip_expires_at = ?, updated_at = ? WHERE id = ?`
-  ).bind(vipVal, expiresAt, now, userId).run();
+    `UPDATE users SET is_vip = ?, vip_expires_at = ?, concurrency_limit = ?, updated_at = ? WHERE id = ?`
+  ).bind(vipVal, expiresAt, concurrency, now, userId).run();
 
-  return { userId, isVip: vipVal === 1, vipExpiresAt: expiresAt };
+  return { userId, isVip: vipVal === 1, vipExpiresAt: expiresAt, concurrencyLimit: concurrency };
+}
+
+/**
+ * Self-service membership upgrade for users (supporting demo/paid flows)
+ */
+export async function upgradeUserMembership(db, userId, { days = 30, giftQuota = 0, tier = 'monthly' } = {}) {
+  const now = Date.now();
+  const existing = await db.prepare(
+    'SELECT is_vip as isVip, vip_expires_at as vipExpiresAt, quota_balance as quotaBalance, concurrency_limit as concurrencyLimit FROM users WHERE id = ?'
+  ).bind(userId).first();
+
+  if (!existing) {
+    throw Object.assign(new Error('目标用户不存在'), { status: 404 });
+  }
+
+  let newExpiresAt = 0;
+  if (days === -1) {
+    newExpiresAt = -1; // 终身永久 VIP
+  } else {
+    const currentExpiry = Number(existing.vipExpiresAt) || 0;
+    const baseTime = (existing.isVip && currentExpiry > now) ? currentExpiry : now;
+    newExpiresAt = baseTime + (days * 86400000);
+  }
+
+  // Set concurrency limit according to tier
+  let targetConcurrency = 2;
+  if (days === -1 || days >= 365) {
+    targetConcurrency = 4;
+  } else if (days >= 90) {
+    targetConcurrency = 3;
+  }
+  const newConcurrency = Math.max(Number(existing.concurrencyLimit) || 1, targetConcurrency);
+
+  // Calculate new quota
+  const addPoints = Math.max(0, parseInt(giftQuota, 10) || 0);
+  const newBalance = (Number(existing.quotaBalance) || 0) + addPoints;
+
+  // Update DB
+  await db.prepare(
+    `UPDATE users SET is_vip = 1, vip_expires_at = ?, concurrency_limit = ?, quota_balance = ?, updated_at = ? WHERE id = ?`
+  ).bind(newExpiresAt, newConcurrency, newBalance, now, userId).run();
+
+  // Record audit log
+  const logId = `mem-${now}-${Math.random().toString(36).slice(2, 7)}`;
+  await db.prepare(
+    `INSERT INTO usage_logs (id, user_id, type, amount, balance_after, details, created_at)
+     VALUES (?, ?, 'topup', ?, ?, ?, ?)`
+  ).bind(
+    logId,
+    userId,
+    addPoints,
+    newBalance,
+    JSON.stringify({
+      channel: 'membership_upgrade',
+      tier,
+      days,
+      giftQuota: addPoints,
+      vipExpiresAt: newExpiresAt,
+      concurrencyLimit: newConcurrency,
+      note: '造境 VIP 会员开通/续费入账'
+    }),
+    now
+  ).run();
+
+  return {
+    userId,
+    isVip: true,
+    vipExpiresAt: newExpiresAt,
+    concurrencyLimit: newConcurrency,
+    newBalance,
+    giftQuota: addPoints,
+    tier
+  };
 }
 
 /**

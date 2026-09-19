@@ -1,4 +1,5 @@
 import { rpcError } from './codex-errors.mjs';
+import { desktopToolContent } from './desktop-tool-content.mjs';
 import { disabledTools } from './tool-preferences.mjs';
 import { approvalModes, readApprovalMode, saveApprovalMode } from './approval-policy.mjs';
 import { interactionMethods, interactionReply } from './codex-interactions.mjs';
@@ -182,6 +183,7 @@ export class CodexKernel {
       if (process.env[k]) env[k] = process.env[k];
     }
     Object.assign(env, {
+      NO_PROXY: [process.env.NO_PROXY || process.env.no_proxy || '', 'localhost', '127.0.0.1', '::1'].filter(Boolean).join(','),
       CODEX_HOME: this.home,
       ZORA_AGENT_API_KEY: this.key || '',
     });
@@ -277,10 +279,11 @@ export class CodexKernel {
         if (activity) {
           activity.tools[String(m.id)].status = result?.ok === false ? 'failed' : 'completed';
         }
+        const toolContent = desktopToolContent(p.tool, result);
         turn?.toolTrace.push({
           name: p.tool,
           args: p.arguments,
-          result,
+          result: toolContent.trace,
           startedAt,
           durationMs: Date.now() - startedAt,
         });
@@ -288,7 +291,7 @@ export class CodexKernel {
           id: m.id,
           result: {
             success: result?.ok !== false,
-            contentItems: [{ type: 'inputText', text: JSON.stringify(result ?? null) }],
+            contentItems: toolContent.contentItems,
           },
         });
         return;
@@ -717,5 +720,12 @@ export function getKernel(config = {}) {
   return singleton || (singleton = new CodexKernel(config));
 }
 export function peekKernel() {
+  return singleton;
+}
+export async function configureCloudKernel(config) {
+  if(singleton?.key===config.key && singleton?.home===config.home && singleton?.base===config.base)return singleton;
+  if(singleton?.active.size)throw Object.assign(Error('已有任务运行，请完成或停止后切换登录身份'),{status:409});
+  if(singleton)await singleton.close();
+  singleton=new CodexKernel(config);
   return singleton;
 }

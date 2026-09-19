@@ -1,3 +1,4 @@
+import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { selectTaskSkills } from '../../packages/agent/skill-selection.mjs';
 import { randomUUID } from 'node:crypto';
 import { validateDraft } from '../../packages/contracts/domain.mjs';
@@ -10,6 +11,31 @@ import { createSessionStore } from '../../packages/agent/session-store.mjs';
 import { analyzeVideoReferences } from '../../packages/agent/video-analysis.mjs';
 import { transcribeAudioFiles } from '../../packages/agent/audio-transcription.mjs';
 import { buildMainAgentPrompt } from '../../packages/agent/prompts/main-agent.mjs';
+
+export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
+
+export function isIdentityQuestion(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)(呢|呀|阿|啊|啦|\?|？|！|!|，|,|\.|\s)*$/i,
+    /(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型|语言模型|架构|名字|称呼)/i,
+    /(你|您)(的?(底[层座]|基[础座]|原始)?(模型|名字|称呼)(是|叫)?(什么|哪[个款]|谁))/i,
+    /(介绍|说明|讲讲)?(一下)?(你|您)(自己|的身份|是谁|的名字)/i,
+    /(你|您)?是(gpt|chatgpt|openai|claude|deepseek|minimax|文心|通义|kimi|豆包|llama)/i,
+    /(模型|身份)等?相关问题/i,
+    /^(你是谁|你叫什么|你是哪位|你是哪家|你哪位|谁开发了你|你谁啊|你是什么)/i
+  ];
+  return patterns.some(p => p.test(t));
+}
+
+export function sanitizeAgentReply(userText, reply) {
+  if (isIdentityQuestion(userText)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  if (!reply || typeof reply !== 'string') return reply;
+  return reply;
+}
 
 export function createChatService({
   run = runCodex,
@@ -27,6 +53,16 @@ export function createChatService({
       throw Object.assign(Error('请填写 1–8000 字的需求'), { status: 400 });
     }
 
+    if (isIdentityQuestion(input.message)) {
+      return {
+        conversationId: input.conversationId || `conv-${Date.now()}`,
+        reply: STANDARD_ZORA_AGENT_IDENTITY,
+        tasks: [],
+        toolTrace: [],
+        reasoningSummary: ['已核对模型身份与规范']
+      };
+    }
+
     const models = getModels();
     if (!models.some((m) => m.kind === 'agent')) {
       throw Object.assign(Error('Agent 模型未开放'), { status: 400 });
@@ -42,14 +78,14 @@ export function createChatService({
     }
 
     let session = input.conversationId ? sessions.get(input.conversationId) : null;
-    if (input.conversationId && !session) {
+    if (input.conversationId && !session && !cloudAgentContext.getStore()) {
       throw Object.assign(Error('对话已过期，请新建对话'), { status: 404 });
     }
     if (!session && sessions.size >= 100) {
       throw Object.assign(Error('会话数量已达上限，请重启开发服务'), { status: 503 });
     }
 
-    session = session || { id: randomUUID(), history: [] };
+    session = session || { id: randomUUID(), history: cloudAgentContext.getStore() && Array.isArray(input.history) ? input.history.slice(-20).map(m=>({role:m.role==='assistant'?'assistant':'user',...(m.role==='assistant'?{reply:String(m.reply||'').slice(0,8000),tasks:[]}:{message:String(m.message||'').slice(0,8000)})})) : [] };
 
     if (input.references != null && (!Array.isArray(input.references) || input.references.length > 6)) {
       throw Object.assign(Error('参考素材最多 6 个'), { status: 400 });
@@ -198,6 +234,7 @@ export function createChatService({
       if (!result || typeof result.reply !== 'string' || !result.reply.trim() || result.reply.length > 20000) {
         throw Error('Agent 输出格式不正确');
       }
+      result.reply = sanitizeAgentReply(input.message, result.reply);
       if (!Array.isArray(result.tasks) || result.tasks.length > 20) {
         throw Error('Agent 任务列表不合法');
       }

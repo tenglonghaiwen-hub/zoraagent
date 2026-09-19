@@ -6,6 +6,14 @@ import { callDesktop } from '../desktop-client.mjs';
  * Returns undefined if the tool name doesn't match.
  */
 export async function handleBrowserTool(name, args) {
+  if (name === 'desktop_control') {
+    if(!['focus','openApp','listWindows','readWindow','captureWindow','click','type','keys'].includes(args.action))return {ok:false,error:'不支持的桌面操作'};
+    return callDesktop({...args,scope:'desktop'});
+  }
+  if (name === 'desktop_apps') {
+    if(!['listApps','launchApp'].includes(args.action))return {ok:false,error:'不支持的应用操作'};
+    return callDesktop(args);
+  }
   if (name === 'desktop_jianying') {
     return callDesktop(args);
   }

@@ -291,19 +291,57 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const response = await fetch(apiUrl('/api/auth/me'), {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+  try {
+    const response = await fetch(apiUrl('/api/auth/me'), {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!data.ok) {
-    clearAuth();
+    if (!data.ok) {
+      if (response.status === 401) {
+        clearAuth();
+      }
+      return null;
+    }
+
+    const prev = getUser() || {};
+    const updated = {
+      ...prev,
+      ...data.user,
+      isVip: data.user.isVip === 1 || Boolean(data.user.isVip),
+      vipExpiresAt: Number(data.user.vipExpiresAt) || 0,
+      concurrencyLimit: Number(data.user.concurrencyLimit) || 1,
+      quotaBalance: data.user.quotaBalance ?? data.user.balance ?? prev.quotaBalance ?? 0
+    };
+
+    storeUser(updated);
+    return updated;
+  } catch (err) {
+    console.warn('getCurrentUser request failed:', err);
     return null;
   }
+}
 
-  storeUser(data.user);
-  return data.user;
+/**
+ * Refresh user profile from backend and dispatch state update events
+ */
+export async function refreshUserProfile() {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const user = await getCurrentUser();
+    if (user && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('zora:vip-updated', { detail: user }));
+      window.dispatchEvent(new CustomEvent('zora:user-refreshed', { detail: user }));
+      window.dispatchEvent(new CustomEvent('zora:balance-updated', { detail: { quotaBalance: user.quotaBalance } }));
+    }
+    return user;
+  } catch (err) {
+    console.warn('Failed to refresh user profile:', err);
+    return null;
+  }
 }
 
 /**
@@ -319,7 +357,7 @@ export async function authFetch(url, options = {}, isRetry = false) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const finalUrl = apiUrl(url);
+  const finalUrl = url === '/api/chat' && getGatewayConfig().mode === 'cloud' ? '/api/agent/chat' : apiUrl(url);
   const response = await fetch(finalUrl, { ...options, headers });
 
   // Handle 401 - try refresh token once if not a retry and not already an auth endpoint
@@ -383,6 +421,78 @@ export async function topupDemoQuota(amount = 100) {
     body: JSON.stringify({ amount }),
   });
   return res.json();
+}
+
+/**
+ * Upgrade or renew membership (with demo fallback for offline / mock testing)
+ */
+export async function upgradeMembership({ days = 30, giftQuota = 0, tier = 'monthly' } = {}) {
+  try {
+    const res = await authFetch('/api/user/membership/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days, giftQuota, tier }),
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      const user = getUser();
+      if (user) {
+        user.isVip = true;
+        user.vipExpiresAt = data.vipExpiresAt;
+        user.concurrencyLimit = data.concurrencyLimit;
+        if (typeof data.newBalance === 'number') {
+          user.quotaBalance = data.newBalance;
+          user.balance = data.newBalance;
+        }
+        storeUser(user);
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Network upgrade failed, applying local fallback:', err);
+  }
+
+  // Fallback for demo mode / offline
+  const now = Date.now();
+  let user = getUser() || {
+    id: 'demo-user-' + Math.random().toString(36).slice(2, 8),
+    username: '演示创作者',
+    email: 'demo@zora.local',
+    quotaBalance: 100,
+    isVip: false
+  };
+
+  let newExpiresAt = 0;
+  if (days === -1) {
+    newExpiresAt = -1;
+  } else {
+    const currentExpiry = Number(user.vipExpiresAt) || 0;
+    const baseTime = (user.isVip && currentExpiry > now) ? currentExpiry : now;
+    newExpiresAt = baseTime + (days * 86400000);
+  }
+
+  let targetConcurrency = 2;
+  if (days === -1 || days >= 365) targetConcurrency = 4;
+  else if (days >= 90) targetConcurrency = 3;
+
+  const gift = parseInt(giftQuota, 10) || 0;
+  user.isVip = true;
+  user.vipExpiresAt = newExpiresAt;
+  user.concurrencyLimit = Math.max(Number(user.concurrencyLimit) || 1, targetConcurrency);
+  user.quotaBalance = (Number(user.quotaBalance) || 0) + gift;
+  user.balance = user.quotaBalance;
+  storeUser(user);
+
+  return {
+    ok: true,
+    message: '成功开通造境 VIP 会员 [DEMO 本地]',
+    isVip: true,
+    vipExpiresAt: newExpiresAt,
+    concurrencyLimit: user.concurrencyLimit,
+    newBalance: user.quotaBalance,
+    giftQuota: gift,
+    tier
+  };
 }
 
 /**

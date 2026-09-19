@@ -153,7 +153,7 @@ export async function proxyGeneration({ body, env, provider = null, route = null
     );
   }
 
-  const isVideo = body.duration !== undefined || body.videoMode !== undefined || body.kind === 'video';
+  const isVideo = body.kind === 'video' || (body.duration !== undefined && Number(body.duration) > 0) || ['t2v', 'i2v', 'fl', 'v2v'].includes(body.videoMode);
 
   // Determine upstream route for this specific model
   let targetRoute = route;
@@ -298,11 +298,50 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', queryRoute 
   };
 }
 
+export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
+
+export function isIdentityQuestion(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)(呢|呀|阿|啊|啦|\?|？|！|!|，|,|\.|\s)*$/i,
+    /(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型|语言模型|架构|名字|称呼)/i,
+    /(你|您)(的?(底[层座]|基[础座]|原始)?(模型|名字|称呼)(是|叫)?(什么|哪[个款]|谁))/i,
+    /(介绍|说明|讲讲)?(一下)?(你|您)(自己|的身份|是谁|的名字)/i,
+    /(你|您)?是(gpt|chatgpt|openai|claude|deepseek|minimax|文心|通义|kimi|豆包|llama)/i,
+    /(模型|身份)等?相关问题/i,
+    /^(你是谁|你叫什么|你是哪位|你是哪家|你哪位|谁开发了你|你谁啊|你是什么)/i
+  ];
+  return patterns.some(p => p.test(t));
+}
+
+export function sanitizeAgentReply(userText, reply) {
+  if (isIdentityQuestion(userText)) {
+    return STANDARD_ZORA_AGENT_IDENTITY;
+  }
+  if (!reply || typeof reply !== 'string') return reply;
+  return reply;
+}
+
 /**
  * Proxy chat completion to upstream LLM
  */
 export async function proxyChat({ body, env, provider = null, route = null }) {
   const modelId = body.modelId || body.model || 'gpt-5.5';
+
+  const userQuery = Array.isArray(body.messages)
+    ? [...body.messages].reverse().find(m => m.role === 'user')?.content
+    : String(body.message || '');
+
+  // Intercept identity questions directly to enforce unified Zora Agent identity
+  if (isIdentityQuestion(userQuery)) {
+    return {
+      conversationId: body.conversationId || `conv-${Date.now()}`,
+      reply: STANDARD_ZORA_AGENT_IDENTITY,
+      provider: 'zora',
+      upstream: { model: modelId, choices: [{ message: { role: 'assistant', content: STANDARD_ZORA_AGENT_IDENTITY } }] }
+    };
+  }
 
   // Determine provider if not provided
   let targetProvider = provider;
@@ -323,9 +362,17 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
 
   const targetRoute = route || '/v1/chat/completions';
   const endpoint = `${baseUrl}${targetRoute.startsWith('/') ? targetRoute : '/' + targetRoute}`;
-  const messages = Array.isArray(body.messages)
-    ? body.messages
+  let messages = Array.isArray(body.messages)
+    ? [...body.messages]
     : [{ role: 'user', content: String(body.message || '') }];
+
+  const systemIdentityRule = '你是zora agent。当用户问及你的模型身份、你是谁、基于什么模型或哪个底层AI等相关问题时，只能回答：“我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？”，严禁透露任何第三方厂商或底层模型信息。';
+  const hasSystem = messages.some(m => m.role === 'system');
+  if (hasSystem) {
+    messages = messages.map(m => m.role === 'system' ? { ...m, content: `${systemIdentityRule}\n${m.content}` } : m);
+  } else {
+    messages.unshift({ role: 'system', content: systemIdentityRule });
+  }
 
   const payload = {
     model: modelId,
@@ -351,7 +398,9 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
     );
   }
 
-  const reply = data.choices?.[0]?.message?.content || '(无回复)';
+  let reply = data.choices?.[0]?.message?.content || '(无回复)';
+  reply = sanitizeAgentReply(userQuery, reply);
+
   return {
     conversationId: body.conversationId || `conv-${Date.now()}`,
     reply,

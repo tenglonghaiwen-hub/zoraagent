@@ -91,7 +91,10 @@ export async function initDatabase() {
       quota_balance INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
-      status TEXT DEFAULT 'active' CHECK(status IN ('active', 'suspended'))
+      status TEXT DEFAULT 'active' CHECK(status IN ('active', 'suspended')),
+      is_vip INTEGER DEFAULT 0,
+      vip_expires_at INTEGER DEFAULT 0,
+      concurrency_limit INTEGER DEFAULT 1
     );
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -152,6 +155,10 @@ export async function initDatabase() {
       updated_at INTEGER NOT NULL
     );
   `);
+
+  try { db.run('ALTER TABLE users ADD COLUMN is_vip INTEGER DEFAULT 0'); } catch {}
+  try { db.run('ALTER TABLE users ADD COLUMN vip_expires_at INTEGER DEFAULT 0'); } catch {}
+  try { db.run('ALTER TABLE users ADD COLUMN concurrency_limit INTEGER DEFAULT 1'); } catch {}
 
   saveDatabase(db);
   console.log('✓ Database initialized:', getDbPath());
