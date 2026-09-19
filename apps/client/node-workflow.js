@@ -173,12 +173,13 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
  // 高级参数控制面板：比例、画质、时长滑杆、并发、数量
  // ----------------------------------------------------
  const controls=document.createElement('div');controls.className='node-generation-controls';
+ const modelRow=document.createElement('div');modelRow.className='node-model-row';
  const select=document.createElement('select');select.setAttribute('aria-label','节点模型');
  const available=models.filter(m=>m.kind===kind&&m.enabled!==false);
  for(const m of available)select.add(new Option(m.name||m.id,m.id));
  const savedModel=available.find(m=>m.id===n.modelId||m.aliases?.includes(n.modelId));if(savedModel)select.value=savedModel.id;
  n.modelId=select.value;select.onchange=()=>{n.modelId=select.value;n.params={};n.conversationId=undefined;persist();render();};
- controls.append(select);
+ modelRow.append(select);controls.append(modelRow);
 
  const model=available.find(m=>m.id===n.modelId);
  n.params||={};
