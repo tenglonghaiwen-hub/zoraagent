@@ -1,3 +1,4 @@
+import {authFetch} from './auth.js';
 export const nodeKind=n=>['text','free','novel-input'].includes(n.type)?'agent':['res-image','t2i','i2i'].includes(n.type)?'image':['res-video','t2v','i2v'].includes(n.type)?'video':null;
 const activeRequests=new Set();
 export const isNodeRunning=id=>activeRequests.has(id);
@@ -396,10 +397,10 @@ export function mountNodeWorkflow(el,n,{nodes,models,persist,render,runMedia,sav
    if(kind==='agent'&&input.references.some(r=>!r.type.startsWith('image/')))throw Error('文字节点当前只支持文字与图片输入');
    n.runState='running';activeRequests.add(n.id);n.error='';n.outputText='';n.outputUrl='';persist();render();
     if(kind==='agent'){
-     const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:n.conversationId,channel:'canvas',modelId:n.modelId,message:input.prompt,skills:[],references:input.references})});const result=await response.json();if(!response.ok||!result.reply)throw Error(result.error||'文字模型未返回内容');n.conversationId=result.conversationId;
+     const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:n.conversationId,channel:'canvas',modelId:n.modelId,message:input.prompt,skills:[],references:input.references})});const result=await response.json();if(!response.ok||!result.reply)throw Error(result.error||'文字模型未返回内容');n.conversationId=result.conversationId;
      const isIdQ = /^(你|您)?是(谁|什么|哪位|哪个ai|什么ai|什么模型|哪个模型)|(你|您)(是|叫|基于|用的?(是)?)(什么|哪个|哪款|哪家|谁家的?)(模型|ai|大模型)|(模型|身份)等?相关问题/i.test(String(input.prompt||'').trim());
      const leaksId = /(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(result.reply);
-     n.outputText = (isIdQ || leaksId) ? '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？' : result.reply;
+     n.outputText = (isIdQ) ? '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？' : result.reply;
      n.runState='complete';
     }else{
     n.genBatchId=crypto.randomUUID();persist();const message={kind,modelId:n.modelId,text:input.prompt,...n.params,references:input.references,genBatchId:n.genBatchId};await runMedia(message);n.genBatchId=message.genBatchId;n.genPending=message.genPending;n.outputUrls=message.genUrls;n.outputUrl=message.genUrl||'';n.taskIds=message.genTaskIds;n.taskId=message.genTaskId;n.error=message.genError;n.runState=message.genPending||n.taskIds?.length?'submitted':n.outputUrl?'complete':'failed';

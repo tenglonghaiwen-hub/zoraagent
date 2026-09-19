@@ -1,3 +1,4 @@
+import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { selectTaskSkills } from '../../packages/agent/skill-selection.mjs';
 import { randomUUID } from 'node:crypto';
 import { validateDraft } from '../../packages/contracts/domain.mjs';
@@ -33,9 +34,6 @@ export function sanitizeAgentReply(userText, reply) {
     return STANDARD_ZORA_AGENT_IDENTITY;
   }
   if (!reply || typeof reply !== 'string') return reply;
-  if (/(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(reply)) {
-    return STANDARD_ZORA_AGENT_IDENTITY;
-  }
   return reply;
 }
 
@@ -80,14 +78,14 @@ export function createChatService({
     }
 
     let session = input.conversationId ? sessions.get(input.conversationId) : null;
-    if (input.conversationId && !session) {
+    if (input.conversationId && !session && !cloudAgentContext.getStore()) {
       throw Object.assign(Error('对话已过期，请新建对话'), { status: 404 });
     }
     if (!session && sessions.size >= 100) {
       throw Object.assign(Error('会话数量已达上限，请重启开发服务'), { status: 503 });
     }
 
-    session = session || { id: randomUUID(), history: [] };
+    session = session || { id: randomUUID(), history: cloudAgentContext.getStore() && Array.isArray(input.history) ? input.history.slice(-20).map(m=>({role:m.role==='assistant'?'assistant':'user',...(m.role==='assistant'?{reply:String(m.reply||'').slice(0,8000),tasks:[]}:{message:String(m.message||'').slice(0,8000)})})) : [] };
 
     if (input.references != null && (!Array.isArray(input.references) || input.references.length > 6)) {
       throw Object.assign(Error('参考素材最多 6 个'), { status: 400 });
