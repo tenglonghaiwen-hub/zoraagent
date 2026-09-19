@@ -156,6 +156,66 @@ export async function getUserUsageLogs(db, userId, { limit = 20, offset = 0 } = 
   };
 }
 
+const KNOWN_MODEL_METAS = {
+  'MiniMax-H3': {
+    ratios: ['16:9', '9:16', '1:1', 'adaptive', '21:9', '4:3', '3:4'],
+    resolutions: ['768P', '2K'],
+    durationRange: { min: 4, max: 15, step: 1 },
+    durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    modes: [
+      { id: 't2v', name: '文生视频', enabled: true },
+      { id: 'i2v', name: '首帧生视频', enabled: true },
+      { id: 'fl', name: '首尾帧', enabled: true },
+      { id: 'ref', name: '多模态参考', enabled: true },
+    ]
+  },
+  'doubao-seedream-5-0-260128': {
+    ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9'],
+    resolutions: ['1K', '2K', '4K'],
+    modes: [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+    ]
+  },
+  'gpt-image-2': {
+    ratios: ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9'],
+    resolutions: ['1K', '2K'],
+    modes: [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+    ]
+  }
+};
+
+export function attachModelCapabilities(model) {
+  if (!model) return model;
+  const known = KNOWN_MODEL_METAS[model.id] || {};
+  const isVideo = model.kind === 'video';
+  const isImage = model.kind === 'image';
+  return {
+    ...model,
+    ratios: model.ratios || known.ratios || (isVideo ? ['16:9', '9:16', '1:1', '4:3', '21:9'] : ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9']),
+    resolutions: model.resolutions || known.resolutions || (isVideo ? ['720P', '1080P', '2K'] : ['1K', '2K', '4K']),
+    modes: model.modes || known.modes || (isVideo ? [
+      { id: 't2v', name: '文生视频', enabled: true },
+      { id: 'i2v', name: '首帧生视频', enabled: true },
+      { id: 'fl', name: '首尾帧', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true },
+      { id: 'v2v', name: '参考视频', enabled: true }
+    ] : [
+      { id: 't2i', name: '文生图', enabled: true },
+      { id: 'i2i', name: '图生图', enabled: true },
+      { id: 'ref', name: '全能参考', enabled: true }
+    ]),
+    durations: model.durations || known.durations || (isVideo ? [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] : undefined),
+    durationRange: model.durationRange || known.durationRange || (isVideo ? { min: 4, max: 15, step: 1 } : undefined),
+    maxCount: model.maxCount || (isImage ? 4 : 2),
+    maxConcurrency: model.maxConcurrency || 2
+  };
+}
+
 /**
  * Retrieve enabled server models
  */
@@ -170,7 +230,7 @@ export async function getServerModels(db) {
      ORDER BY kind ASC, name ASC`
   ).all();
 
-  return results || [];
+  return (results || []).map(attachModelCapabilities);
 }
 
 /**

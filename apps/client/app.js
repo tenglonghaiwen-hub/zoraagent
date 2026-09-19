@@ -4,7 +4,7 @@ import {prepareMediaReference} from './media-reference.js?v=studio148';
 import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
-import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio136';
+import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio137';
 import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl} from './auth.js';
 import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu} from './login-handler.js';
 function readUIPrefs(){try{return JSON.parse(localStorage.getItem('zora.uiPrefs.v1')||'{}')||{};}catch{return {};}}
@@ -1899,6 +1899,54 @@ document.querySelectorAll('.tab').forEach(el=>el.hidden=el.id!==id);document.que
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
 $('#wallet-open').onclick=()=>$('#wallet').showModal();$('#wallet-close').onclick=()=>$('#wallet').close();
 $('#reduce-motion').onchange=e=>document.documentElement.classList.toggle('reduce-motion',e.target.checked);
+const DEFAULT_IMAGE_MODES = [
+  { id: 't2i', name: '文生图', enabled: true },
+  { id: 'i2i', name: '图生图', enabled: true },
+  { id: 'ref', name: '全能参考', enabled: true }
+];
+const DEFAULT_VIDEO_MODES = [
+  { id: 't2v', name: '文生视频', enabled: true },
+  { id: 'i2v', name: '首帧生视频', enabled: true },
+  { id: 'fl', name: '首尾帧', enabled: true },
+  { id: 'ref', name: '全能参考', enabled: true },
+  { id: 'v2v', name: '参考视频', enabled: true }
+];
+const DEFAULT_IMAGE_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9'];
+const DEFAULT_VIDEO_RATIOS = ['16:9', '9:16', '1:1', '4:3', '21:9'];
+const DEFAULT_IMAGE_RESOLUTIONS = ['1K', '2K', '4K'];
+const DEFAULT_VIDEO_RESOLUTIONS = ['720P', '1080P', '2K'];
+
+function normalizeModel(m) {
+  if (!m || typeof m !== 'object') return m;
+  const isVideo = m.kind === 'video';
+  const isImage = m.kind === 'image';
+  if (isVideo) {
+    m.modes = (Array.isArray(m.modes) && m.modes.length) ? m.modes : (
+      m.id === 'MiniMax-H3' ? [
+        { id: 't2v', name: '文生视频', enabled: true },
+        { id: 'i2v', name: '首帧生视频', enabled: true },
+        { id: 'fl', name: '首尾帧', enabled: true },
+        { id: 'ref', name: '多模态参考', enabled: true },
+      ] : DEFAULT_VIDEO_MODES
+    );
+    m.ratios = (Array.isArray(m.ratios) && m.ratios.length) ? m.ratios : (
+      m.id === 'MiniMax-H3' ? ['16:9', '9:16', '1:1', 'adaptive', '21:9', '4:3', '3:4'] : DEFAULT_VIDEO_RATIOS
+    );
+    m.resolutions = (Array.isArray(m.resolutions) && m.resolutions.length) ? m.resolutions : (
+      m.id === 'MiniMax-H3' ? ['768P', '2K'] : DEFAULT_VIDEO_RESOLUTIONS
+    );
+    if (!m.durations && !m.durationRange) {
+      m.durations = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+      m.durationRange = { min: 4, max: 15, step: 1 };
+    }
+  } else if (isImage) {
+    m.modes = (Array.isArray(m.modes) && m.modes.length) ? m.modes : DEFAULT_IMAGE_MODES;
+    m.ratios = (Array.isArray(m.ratios) && m.ratios.length) ? m.ratios : DEFAULT_IMAGE_RATIOS;
+    m.resolutions = (Array.isArray(m.resolutions) && m.resolutions.length) ? m.resolutions : DEFAULT_IMAGE_RESOLUTIONS;
+  }
+  return m;
+}
+
 function modelLabel(m){if(!m||typeof m!=='object')return String(m);const role=m.textRole||(m.modes&&m.modes[0]&&m.modes[0].id)||'';if(role==='chat')return m.name+'（普通对话）';if(m.kind==='agent')return m.name+'（Agent）';return m.name;}
 function options(element,values=[]){element.replaceChildren(...values.map(v=>{const o=document.createElement('option');o.value=typeof v==='object'?v.id:v;o.textContent=typeof v==='object'?modelLabel(v):(element.id==='duration'&&Number(v)===-1?'自动':String(v));return o;}));}
 const OPTION_PREFS_KEY='zora.optionPrefs.v1';
@@ -1906,8 +1954,8 @@ function loadOptionPrefs(){try{return JSON.parse(localStorage.getItem(OPTION_PRE
 function saveOptionPrefsForKind(kind){kind=kind||$('#creation-kind')?.value;if(kind!=='video'&&kind!=='image')return;const p=loadOptionPrefs();p[kind]={model:$('#model')?.value||'',videoMode:$('#video-mode')?.value||'',ratio:$('#ratio')?.value||'',resolution:$('#resolution')?.value||'',duration:$('#duration')?.value||'',concurrency:$('#concurrency')?.value||'',count:$('#count')?.value||''};try{localStorage.setItem(OPTION_PREFS_KEY,JSON.stringify(p));}catch{}}
 function setSelectIfPresent(id,val){const el=$(id.startsWith('#')?id:'#'+id);if(!el||val==null||val==='')return false;const want=String(val);if(el.tagName==='SELECT'){if([...el.options].some(o=>o.value===want&&!o.disabled)){el.value=want;return true;}return false;}el.value=want;return true;}
 function applyOptionPrefs(kind){kind=kind||$('#creation-kind')?.value;if(kind!=='video'&&kind!=='image')return;const pref=loadOptionPrefs()[kind];if(!pref)return;setSelectIfPresent('video-mode',pref.videoMode);setSelectIfPresent('ratio',pref.ratio);setSelectIfPresent('resolution',pref.resolution);if(!$('#duration')?.disabled)setSelectIfPresent('duration',pref.duration);setSelectIfPresent('concurrency',pref.concurrency);setSelectIfPresent('count',pref.count);}
-function fillVideoModes(m,preferred){const sel=$('#video-mode');if(!sel)return;const modes=Array.isArray(m?.modes)?m.modes:[];sel.replaceChildren();for(const mode of modes){const o=document.createElement('option');o.value=mode.id;o.textContent=mode.name;o.disabled=mode.enabled===false;sel.append(o);}const kind=$('#creation-kind')?.value;const want=preferred||loadOptionPrefs()[kind]?.videoMode;const pick=modes.find(x=>x.id===want&&x.enabled!==false)||modes.find(x=>x.enabled!==false);if(pick)sel.value=pick.id;sel.disabled=!modes.some(x=>x.enabled!==false);}
-function modelChanged(){const m=models.find(x=>x.id===$('#model').value);if(!m)return;const kind=$('#creation-kind').value;const pref=loadOptionPrefs()[kind]||{};options($('#ratio'),m.ratios||[]);options($('#resolution'),m.resolutions||[]);const isVideo=m.kind==='video';const isImage=m.kind==='image';$('#duration-label').hidden=!isVideo;if($('#video-mode-label'))$('#video-mode-label').hidden=!(isVideo||isImage);if(isImage){fillVideoModes(m.modes?.length?m:{modes:[{id:'t2i',name:'文生图',enabled:true},{id:'i2i',name:'图生图',enabled:true}]},pref.videoMode);}else if(isVideo){fillVideoModes(m,pref.videoMode);}else if($('#video-mode')){$('#video-mode').replaceChildren();}$('#duration').disabled=false;let times=[];if(m.fixedSeconds!=null){times=[m.fixedSeconds];options($('#duration'),times);$('#duration').value=String(m.fixedSeconds);$('#duration').disabled=true;}else{const range=m.durationRange;times=m.durations?.length?m.durations:range?Array.from({length:Math.floor((range.max-range.min)/range.step)+1},(_,i)=>Number((range.min+i*range.step).toFixed(6))):m.durations||[];options($('#duration'),times);if(pref.duration!=null)setSelectIfPresent('duration',pref.duration);} $('#concurrency').max=(m.maxConcurrency||1);$('#concurrency').value=Math.min(Number($('#concurrency').value)||1,m.maxConcurrency||1);applyOptionPrefs(kind);if(typeof applyBackendLimits==='function')applyBackendLimits();if(typeof syncPickers==='function')syncPickers();}
+function fillVideoModes(m,preferred){const sel=$('#video-mode');if(!sel)return;normalizeModel(m);const modes=Array.isArray(m?.modes)&&m.modes.length?m.modes:(m?.kind==='video'?DEFAULT_VIDEO_MODES:DEFAULT_IMAGE_MODES);sel.replaceChildren();for(const mode of modes){const o=document.createElement('option');o.value=mode.id;o.textContent=mode.name;o.disabled=mode.enabled===false;sel.append(o);}const kind=$('#creation-kind')?.value;const want=preferred||loadOptionPrefs()[kind]?.videoMode;const pick=modes.find(x=>x.id===want&&x.enabled!==false)||modes.find(x=>x.enabled!==false);if(pick)sel.value=pick.id;else if(modes.length)sel.value=modes[0].id;sel.disabled=!modes.some(x=>x.enabled!==false);}
+function modelChanged(){const m=models.find(x=>x.id===$('#model').value);if(!m)return;normalizeModel(m);const kind=$('#creation-kind').value;const pref=loadOptionPrefs()[kind]||{};const isVideo=m.kind==='video';const isImage=m.kind==='image';options($('#ratio'),m.ratios||(isVideo?DEFAULT_VIDEO_RATIOS:DEFAULT_IMAGE_RATIOS));if(!$('#ratio').value&&$('#ratio').options.length)$('#ratio').value=$('#ratio').options[0].value;options($('#resolution'),m.resolutions||(isVideo?DEFAULT_VIDEO_RESOLUTIONS:DEFAULT_IMAGE_RESOLUTIONS));if(!$('#resolution').value&&$('#resolution').options.length)$('#resolution').value=$('#resolution').options[0].value;$('#duration-label').hidden=!isVideo;if($('#video-mode-label'))$('#video-mode-label').hidden=!(isVideo||isImage);if(isImage){fillVideoModes(m,pref.videoMode);}else if(isVideo){fillVideoModes(m,pref.videoMode);}else if($('#video-mode')){$('#video-mode').replaceChildren();}$('#duration').disabled=false;let times=[];if(m.fixedSeconds!=null){times=[m.fixedSeconds];options($('#duration'),times);$('#duration').value=String(m.fixedSeconds);$('#duration').disabled=true;}else{const range=m.durationRange;times=m.durations?.length?m.durations:range?Array.from({length:Math.floor((range.max-range.min)/range.step)+1},(_,i)=>Number((range.min+i*range.step).toFixed(6))):m.durations||[4,5,6,8,10];options($('#duration'),times);if(pref.duration!=null)setSelectIfPresent('duration',pref.duration);if(!$('#duration').value&&$('#duration').options.length)$('#duration').value=$('#duration').options[0].value;} $('#concurrency').max=(m.maxConcurrency||2);$('#concurrency').value=Math.min(Number($('#concurrency').value)||1,m.maxConcurrency||2);applyOptionPrefs(kind);if(typeof applyBackendLimits==='function')applyBackendLimits();if(typeof syncPickers==='function')syncPickers();}
 const MODEL_PREFS_KEY='zora.modelPrefs.v1';
 function loadModelPrefs(){try{return JSON.parse(localStorage.getItem(MODEL_PREFS_KEY)||'{}')||{};}catch{return {};}}
 function saveModelPref(kind,id){if(!kind||!id)return;const p=loadModelPrefs();p[kind]=id;try{localStorage.setItem(MODEL_PREFS_KEY,JSON.stringify(p));}catch{}}
@@ -1918,7 +1966,7 @@ $('#model').onchange=()=>{modelChanged();saveModelPref($('#creation-kind').value
 function wireOptionPrefSaves(){for(const id of ['video-mode','ratio','resolution','duration','concurrency','count']){const el=$('#'+id);if(!el||el.dataset.prefWired)continue;el.dataset.prefWired='1';el.addEventListener('change',()=>saveOptionPrefsForKind());}}
 wireOptionPrefSaves();
 $('#creation-kind').dataset.prevKind=$('#creation-kind').value;
-try{const response=await authFetch('/api/models');if(!response.ok)throw Error();models=(await response.json()).models;kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
+try{const response=await authFetch('/api/models');if(!response.ok)throw Error();models=((await response.json()).models||[]).map(normalizeModel);kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
 /* legacy files.onchange replaced by incremental handler below */
 function renderTasks(){
   $('#task-count').textContent=drafts.reduce((n,d)=>n+(Number(d.count)||1),0);
@@ -2015,7 +2063,7 @@ const optionTitles={'creation-kind':'创作类型',model:'选择模型',ratio:'�
 const optionCard=document.createElement('div');optionCard.className='zora-option-card';optionCard.hidden=true;document.body.append(optionCard);
 let activePicker=null;
 function closePicker(restore=false){optionCard.hidden=true;if(activePicker){activePicker.button.setAttribute('aria-expanded','false');if(restore)activePicker.button.focus();}activePicker=null;}
-function syncPickers(){for(const p of pickers){const value=p.control.tagName==='SELECT'?p.control.selectedOptions[0]?.textContent:p.control.value;p.label.textContent=value||'暂无模型';p.button.disabled=p.control.disabled||(p.control.tagName==='SELECT'&&!p.control.options.length);}}
+function syncPickers(){for(const p of pickers){const value=p.control.tagName==='SELECT'?p.control.selectedOptions[0]?.textContent:p.control.value;const fallback=optionTitles[p.control.id]||'选择选项';p.label.textContent=value||fallback;p.button.disabled=p.control.disabled||(p.control.tagName==='SELECT'&&!p.control.options.length);}}
 function placePicker(){if(!activePicker)return;const r=activePicker.button.getBoundingClientRect();const w=Math.min(optionCard.classList.contains('format-option-card')?336:252,innerWidth-24);optionCard.style.width=w+'px';optionCard.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+'px';optionCard.style.maxHeight=Math.min(320,innerHeight-24)+'px';const height=optionCard.offsetHeight;optionCard.style.top=Math.max(12,r.bottom+8+height>innerHeight-12?r.top-height-8:r.bottom+8)+'px';}
 function showPicker(p){if(activePicker===p){closePicker(true);return;}closePicker();activePicker=p;p.button.setAttribute('aria-expanded','true');optionCard.replaceChildren();const title=document.createElement('div');title.className='option-card-title';title.textContent=optionTitles[p.control.id];const list=document.createElement('div');list.setAttribute('role','listbox');list.setAttribute('aria-label',title.textContent);list.id='zora-options';optionCard.append(title,list);
  const entries=p.control.tagName==='SELECT'?Array.from(p.control.options).map(o=>({value:o.value,label:o.textContent,disabled:o.disabled})):Array.from({length:Number(p.control.max)-Number(p.control.min)+1},(_,i)=>({value:String(i+Number(p.control.min)),label:String(i+Number(p.control.min))}));
@@ -2037,7 +2085,12 @@ quantityPicker.button.closest('label').hidden=true;
 ratioPicker.button.closest('label').querySelector('.control-caption').textContent='';
 const originalShowPicker=showPicker;
 function segmentGroup(title,items,value,onSelect,aspect=false){const section=document.createElement('section');section.className='format-group';const heading=document.createElement('div');heading.className='option-card-title';heading.textContent=title;const grid=document.createElement('div');grid.className=aspect?'ratio-segments':'quantity-segments';for(const item of items){const b=document.createElement('button');b.type='button';b.className='format-segment';b.setAttribute('aria-pressed',String(item.value===value));b.setAttribute('aria-label',title+' '+item.label);if(aspect){const icon=document.createElement('span');icon.className='aspect-icon';const [w,h]=item.value.split(':').map(Number);icon.style.width=(16*Math.min(w/h,1))+'px';icon.style.height=(16*Math.min(h/w,1))+'px';icon.setAttribute('aria-hidden','true');b.append(icon);}const text=document.createElement('span');text.textContent=item.label;b.append(text);b.onclick=()=>onSelect(item.value);grid.append(b);}section.append(heading,grid);return section;}
-function updateFormatLabel(){ratioPicker.label.textContent=`${$('#ratio').value} · ${$('#resolution').value} · ${$('#count').value} 条`;}
+function updateFormatLabel(){
+  const ratio = $('#ratio')?.value || $('#ratio')?.options[0]?.value || '16:9';
+  const res = $('#resolution')?.value || $('#resolution')?.options[0]?.value || '720P';
+  const cnt = $('#count')?.value || '1';
+  if(ratioPicker) ratioPicker.label.textContent=`${ratio} · ${res} · ${cnt} 条`;
+}
 const originalSyncPickers=syncPickers;
 syncPickers=function(){originalSyncPickers();updateFormatLabel();};
 showPicker=function(p){if(!['ratio','duration'].includes(p.control.id))return originalShowPicker(p);if(activePicker===p){closePicker(true);return;}closePicker();activePicker=p;p.button.setAttribute('aria-expanded','true');optionCard.replaceChildren();optionCard.classList.add('format-option-card');optionCard.setAttribute('role','group');optionCard.setAttribute('aria-label',p.control.id==='ratio'?'画面规格':'视频时长');
@@ -2076,7 +2129,13 @@ const durationPicker=pickers.find(p=>p.control.id==='duration');
 durationPicker.button.closest('label').querySelector('.control-caption').hidden=true;
 durationPicker.button.closest('label').querySelector('.unit').hidden=true;
 const syncWithDuration=syncPickers;
-syncPickers=function(){syncWithDuration();durationPicker.label.textContent=$('#duration').value==='-1'?'自动':$('#duration').value+'s';const kind=$('#creation-kind').value;$('#video-mode-label').hidden=!(kind==='video'||kind==='image');};
+syncPickers=function(){
+  syncWithDuration();
+  const dVal=$('#duration')?.value;
+  if(durationPicker) durationPicker.label.textContent=(dVal==='-1'||dVal==='auto')?'自动':(dVal ? dVal+'s' : '5s');
+  const kind=$('#creation-kind').value;
+  $('#video-mode-label').hidden=!(kind==='video'||kind==='image');
+};
 $('#creation-kind').addEventListener('change',syncPickers);
 for(const p of pickers){p.button.querySelector('.picker-chevron').textContent='';}
 syncPickers();
@@ -2672,10 +2731,10 @@ $('#creation-kind').addEventListener('change',updateModeControls);updateModeCont
 
 // Refresh backend-owned capabilities on focus; retain only still-supported values.
 async function refreshModelCatalog(){
- try{const response=await authFetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=data.models;
+ try{const response=await authFetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=(data.models||[]).map(normalizeModel);window.models=models;
  options($('#creation-kind'),[{id:'agent',name:'Agent 模式'},{id:'video',name:'视频生成'},{id:'image',name:'图片生成'}]);
  if([...$('#creation-kind').options].some(o=>o.value===before['creation-kind']))$('#creation-kind').value=before['creation-kind'];kindChanged();if(models.some(m=>m.id===before.model&&m.kind===$('#creation-kind').value)){$('#model').value=before.model;modelChanged();}
- for(const id of ['ratio','resolution','duration','video-mode'])if($('#'+id)&&[...$('#'+id).options].some(o=>o.value===before[id]))$('#'+id).value=before[id];applyOptionPrefs($('#creation-kind').value);applyBackendLimits();syncPickers();updateModeControls();saveOptionPrefsForKind();$('#send-prompt').disabled=!models.length;$('#preview').disabled=!models.length;$('#preview').title=models.some(m=>m.kind!=='agent')?'校验当前视频/图片参数，并打开任务清单':'模型目录异常时仍可打开任务页；视频/图片预览需有效模型';
+ for(const id of ['ratio','resolution','duration','video-mode']){const el=$('#'+id);if(el&&[...el.options].some(o=>o.value===before[id]))el.value=before[id];else if(el&&!el.value&&el.options.length)el.value=el.options[0].value;}applyOptionPrefs($('#creation-kind').value);applyBackendLimits();syncPickers();updateModeControls();saveOptionPrefsForKind();$('#send-prompt').disabled=!models.length;$('#preview').disabled=!models.length;$('#preview').title=models.some(m=>m.kind!=='agent')?'校验当前视频/图片参数，并打开任务清单':'模型目录异常时仍可打开任务页；视频/图片预览需有效模型';
  }catch{$('#send-prompt').disabled=true;$('#preview').disabled=false;toast('模型配置暂不可用，请稍后重新切回窗口刷新');}
 }
 function applyBackendLimits(){const m=models.find(m=>m.id===$('#model').value);$('#count').max=m?.maxCount||1;$('#count').value=Math.max(1,Math.min(Number($('#count').value)||1,Number($('#count').max)));$('#concurrency').max=m?.maxConcurrency||1;$('#concurrency').value=Math.max(1,Math.min(Number($('#concurrency').value)||1,Number($('#concurrency').max)));}

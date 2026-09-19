@@ -31,8 +31,8 @@ export async function handleAuthRoutes(req, res, url, { sendJson }) {
     // GET /api/models
     if (req.method === 'GET' && isModelsRoute) {
       let models = await getServerModelsList();
+      const { getModels, getModel } = await import('../../../packages/duoyuanx/catalog.mjs');
       if (!models || models.length === 0) {
-        const { getModels } = await import('../../../packages/duoyuanx/catalog.mjs');
         const catalogModels = getModels();
         models = catalogModels.map((m) => ({
           id: m.id,
@@ -42,7 +42,30 @@ export async function handleAuthRoutes(req, res, url, { sendJson }) {
           provider: m.family || 'duoyuanx',
           quotaCostPerUnit: m.kind === 'agent' ? 1 : m.kind === 'image' ? 10 : 100,
           maxConcurrency: m.maxConcurrency || 1,
+          ratios: m.ratios || [],
+          resolutions: m.resolutions || [],
+          modes: m.modes || [],
+          durations: m.durations || [],
+          durationRange: m.durationRange || null,
+          fixedSeconds: m.fixedSeconds,
         }));
+      } else {
+        // Merge capability metadata from catalog for DB-stored server models
+        models = models.map((m) => {
+          const cat = getModel(m.id) || {};
+          return {
+            ...m,
+            ratios: (m.ratios && m.ratios.length) ? m.ratios : (cat.ratios || []),
+            resolutions: (m.resolutions && m.resolutions.length) ? m.resolutions : (cat.resolutions || []),
+            modes: (m.modes && m.modes.length) ? m.modes : (cat.modes || []),
+            durations: (m.durations && m.durations.length) ? m.durations : (cat.durations || []),
+            durationRange: m.durationRange || cat.durationRange || null,
+            fixedSeconds: m.fixedSeconds !== undefined ? m.fixedSeconds : cat.fixedSeconds,
+            family: m.family || cat.family,
+            route: m.route || cat.route,
+            queryRoute: m.queryRoute || cat.queryRoute,
+          };
+        });
       }
       sendJson(res, 200, {
         ok: true,

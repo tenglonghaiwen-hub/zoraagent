@@ -153,7 +153,7 @@ export async function proxyGeneration({ body, env, provider = null, route = null
     );
   }
 
-  const isVideo = body.duration !== undefined || body.videoMode !== undefined || body.kind === 'video';
+  const isVideo = body.kind === 'video' || (body.duration !== undefined && Number(body.duration) > 0) || ['t2v', 'i2v', 'fl', 'v2v'].includes(body.videoMode);
 
   // Determine upstream route for this specific model
   let targetRoute = route;
