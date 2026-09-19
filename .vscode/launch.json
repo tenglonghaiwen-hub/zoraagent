@@ -1,0 +1,75 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "启动 Zora 后端服务器",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/runtime/node-v24.21.0-win-x64/node.exe",
+      "program": "${workspaceFolder}/apps/server/server.mjs",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PORT": "4317",
+        "ZORA_AGENT_BACKEND": "app-server",
+        "ZORA_AGENT_ENABLED": "true"
+      },
+      "console": "integratedTerminal",
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "启动 Zora 桌面客户端",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/runtime/node-v24.21.0-win-x64/npm.cmd",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "env": {
+        "PORT": "4317",
+        "ELECTRON_RUN_AS_NODE": ""
+      },
+      "console": "integratedTerminal",
+      "outputCapture": "std"
+    },
+    {
+      "name": "运行单元测试",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/runtime/node-v24.21.0-win-x64/node.exe",
+      "runtimeArgs": ["--test"],
+      "args": ["tests/*.test.mjs"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "验证 Codex 内核",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/runtime/node-v24.21.0-win-x64/node.exe",
+      "program": "${workspaceFolder}/scripts/verify-codex-kernel.mjs",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "附加到运行中的后端进程",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "完整启动：后端 + 桌面客户端",
+      "configurations": ["启动 Zora 后端服务器", "启动 Zora 桌面客户端"],
+      "stopAll": true,
+      "presentation": {
+        "order": 1
+      }
+    }
+  ]
+}

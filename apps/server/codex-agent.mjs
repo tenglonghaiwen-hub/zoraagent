@@ -1,4 +1,4 @@
-import {getKernel,peekKernel,findCodex} from '../../packages/agent/codex-kernel.mjs';
+import { getKernel, peekKernel, findCodex } from '../../packages/agent/codex-kernel.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile, readFile, access } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
@@ -13,7 +13,8 @@ const runtime = fileURLToPath(new URL('../../runtime/agent/', import.meta.url));
 
 // Bound the gateway reservation for every Agent round, including tool follow-ups.
 const AGENT_OUTPUT_TOKEN_LIMIT = 4096;
-const isQuotaError = message => /预扣|余额|额度不足|insufficient.*(?:quota|balance)|quota.*exceed/i.test(message);
+const isQuotaError = (message) =>
+  /预扣|余额|额度不足|insufficient.*(?:quota|balance)|quota.*exceed/i.test(message);
 
 export const planSchema = {
   type: 'object',
@@ -78,13 +79,21 @@ export function agentStatus(env = process.env) {
     model,
     baseUrl,
     wireApi: defaults.wireApi || 'responses',
-    hasCodexBin: Boolean(env.ZORA_CODEX_BIN||findCodex()),
-    foundation: backend==='app-server'?'codex-app-server':'zora',
-    kernel:peekKernel()?.status()||null,
+    hasCodexBin: Boolean(env.ZORA_CODEX_BIN || findCodex()),
+    foundation: backend === 'app-server' ? 'codex-app-server' : 'zora',
+    kernel: peekKernel()?.status() || null,
   };
 }
 
-async function runViaResponses({ prompt, modelId, tools, toolRunner, maxRounds = 4, images = [], roleInstructions }) {
+async function runViaResponses({
+  prompt,
+  modelId,
+  tools,
+  toolRunner,
+  maxRounds = 4,
+  images = [],
+  roleInstructions,
+}) {
   const status = agentStatus();
   if (!status.configured || !status.enabled) {
     throw Object.assign(Error('主 Agent 尚未配置或启用，请在后台完成服务配置'), { status: 503 });
@@ -124,7 +133,8 @@ async function runViaResponses({ prompt, modelId, tools, toolRunner, maxRounds =
   for (let round = 0; round <= maxRounds; round++) {
     const body = {
       model,
-      instructions: roleInstructions ||
+      instructions:
+        roleInstructions ||
         '你是造境 Zora 的主创作 Agent。用中文协作。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片内容。回复中不要提及具体模型名或协议/底层实现。最终必须给出符合 JSON schema 的 reply 与 tasks。',
       input,
       max_output_tokens: AGENT_OUTPUT_TOKEN_LIMIT,
@@ -163,8 +173,12 @@ async function runViaResponses({ prompt, modelId, tools, toolRunner, maxRounds =
       });
       data = await res.json().catch(() => ({}));
       if (res.ok) break;
-      const err = data?.error?.message || data?.error || data?.message || `上游错误 ${res.status}`;
-      lastErr = Object.assign(Error(String(err)), { status: res.status >= 400 && res.status < 600 ? res.status : 502, endpoint });
+      const err =
+        data?.error?.message || data?.error || data?.message || `上游错误 ${res.status}`;
+      lastErr = Object.assign(Error(String(err)), {
+        status: res.status >= 400 && res.status < 600 ? res.status : 502,
+        endpoint,
+      });
       if (isQuotaError(String(err))) throw lastErr;
       // try next gateway on auth / not found
       if (![401, 403, 404].includes(res.status)) throw lastErr;
@@ -173,7 +187,15 @@ async function runViaResponses({ prompt, modelId, tools, toolRunner, maxRounds =
 
     last = data;
     const output = Array.isArray(data.output) ? data.output : [];
-    for(const item of output)if(item?.type==='reasoning')for(const part of item.summary||[])if(part?.type==='summary_text'&&typeof part.text==='string')reasoningSummary.push(part.text.slice(0,6000));
+    for (const item of output) {
+      if (item?.type === 'reasoning') {
+        for (const part of item.summary || []) {
+          if (part?.type === 'summary_text' && typeof part.text === 'string') {
+            reasoningSummary.push(part.text.slice(0, 6000));
+          }
+        }
+      }
+    }
     const fnCalls = output.filter((o) => o?.type === 'function_call' || o?.type === 'tool_call');
     if (!fnCalls.length || !toolRunner || round >= maxRounds) {
       break;
@@ -190,9 +212,9 @@ async function runViaResponses({ prompt, modelId, tools, toolRunner, maxRounds =
       } catch {
         args = {};
       }
-      const startedAt=Date.now();
+      const startedAt = Date.now();
       const result = await toolRunner(name, args);
-      toolTrace.push({ name, args, result,startedAt,durationMs:Date.now()-startedAt });
+      toolTrace.push({ name, args, result, startedAt, durationMs: Date.now() - startedAt });
       input.push({
         type: 'function_call_output',
         call_id: call.call_id || call.id,
@@ -243,7 +265,15 @@ function extractPlan(data) {
 }
 
 
-async function runViaChatCompletions({ prompt, modelId, tools, toolRunner, maxRounds = 4, images = [], roleInstructions }) {
+async function runViaChatCompletions({
+  prompt,
+  modelId,
+  tools,
+  toolRunner,
+  maxRounds = 4,
+  images = [],
+  roleInstructions,
+}) {
   const status = agentStatus();
   if (!status.configured || !status.enabled) {
     throw Object.assign(Error('主 Agent 尚未配置或启用'), { status: 503 });
@@ -252,7 +282,8 @@ async function runViaChatCompletions({ prompt, modelId, tools, toolRunner, maxRo
   const endpoint = `${base}/v1/chat/completions`;
   const model = resolveModel(process.env, modelId);
   const key = resolveKey();
-  const instructions = roleInstructions ||
+  const instructions =
+    roleInstructions ||
     '你是造境 Zora 的主创作 Agent。用中文协作。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片。回复中不要提及具体模型名或协议/底层实现。最终必须只输出 JSON 对象，包含 reply(string) 与 tasks(array)。';
 
   const userContent = images?.length
@@ -294,8 +325,11 @@ async function runViaChatCompletions({ prompt, modelId, tools, toolRunner, maxRo
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = data?.error?.message || data?.error || data?.message || `上游错误 ${res.status}`;
-      throw Object.assign(Error(String(err)), { status: res.status >= 400 && res.status < 600 ? res.status : 502 });
+      const err =
+        data?.error?.message || data?.error || data?.message || `上游错误 ${res.status}`;
+      throw Object.assign(Error(String(err)), {
+        status: res.status >= 400 && res.status < 600 ? res.status : 502,
+      });
     }
     const msg = data?.choices?.[0]?.message;
     if (!msg) throw Error('Agent 无响应');
@@ -311,9 +345,9 @@ async function runViaChatCompletions({ prompt, modelId, tools, toolRunner, maxRo
       } catch {
         args = {};
       }
-      const startedAt=Date.now();
+      const startedAt = Date.now();
       const result = await toolRunner(name, args);
-      toolTrace.push({ name, args, result,startedAt,durationMs:Date.now()-startedAt });
+      toolTrace.push({ name, args, result, startedAt, durationMs: Date.now() - startedAt });
       messages.push({
         role: 'tool',
         tool_call_id: call.id,
@@ -322,7 +356,10 @@ async function runViaChatCompletions({ prompt, modelId, tools, toolRunner, maxRo
     }
   }
 
-  const content = typeof lastMessage?.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage?.content || '');
+  const content =
+    typeof lastMessage?.content === 'string'
+      ? lastMessage.content
+      : JSON.stringify(lastMessage?.content || '');
   let parsed;
   try {
     parsed = JSON.parse(content);
@@ -347,52 +384,41 @@ async function runViaCli(prompt) {
     throw Error('Codex 二进制不可用，请改用 responses 后端或重装 @openai/codex');
   }
   const url = new URL(resolveBaseUrl());
-  if (url.protocol !== 'https:' || url.username || url.password || url.search) throw Error('Invalid provider URL');
+  if (url.protocol !== 'https:' || url.username || url.password || url.search) {
+    throw Error('Invalid provider URL');
+  }
+
   await mkdir(runtime, { recursive: true });
   const dir = await mkdtemp(path.join(runtime, 'request-'));
   const home = path.join(dir, 'home');
   await mkdir(home);
   await writeFile(path.join(dir, 'schema.json'), JSON.stringify(planSchema));
+
   const args = [
     'exec',
     '--ignore-user-config',
     '--ignore-rules',
     '--ephemeral',
     '--skip-git-repo-check',
-    '--sandbox',
-    'read-only',
-    '--disable',
-    'shell_tool',
-    '--disable',
-    'unified_exec',
-    '--disable',
-    'shell_snapshot',
-    '-c',
-    'approval_policy="never"',
-    '-c',
-    'web_search="disabled"',
-    '-c',
-    'model_provider="zora"',
-    '-c',
-    'model_providers.zora.name="Zora backend"',
-    '-c',
-    'model_providers.zora.wire_api="responses"',
-    '-c',
-    'model_providers.zora.requires_openai_auth=false',
-    '-c',
-    'model_providers.zora.env_key="ZORA_AGENT_API_KEY"',
-    '-c',
-    `model_providers.zora.base_url=${JSON.stringify(url.href)}`,
-    '-m',
-    resolveModel(),
-    '--output-schema',
-    path.join(dir, 'schema.json'),
-    '-o',
-    path.join(dir, 'result.json'),
-    '--color',
-    'never',
+    '--sandbox', 'read-only',
+    '--disable', 'shell_tool',
+    '--disable', 'unified_exec',
+    '--disable', 'shell_snapshot',
+    '-c', 'approval_policy="never"',
+    '-c', 'web_search="disabled"',
+    '-c', 'model_provider="zora"',
+    '-c', 'model_providers.zora.name="Zora backend"',
+    '-c', 'model_providers.zora.wire_api="responses"',
+    '-c', 'model_providers.zora.requires_openai_auth=false',
+    '-c', 'model_providers.zora.env_key="ZORA_AGENT_API_KEY"',
+    '-c', `model_providers.zora.base_url=${JSON.stringify(url.href)}`,
+    '-m', resolveModel(),
+    '--output-schema', path.join(dir, 'schema.json'),
+    '-o', path.join(dir, 'result.json'),
+    '--color', 'never',
     '-',
   ];
+
   const env = {};
   for (const k of ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP']) {
     if (process.env[k]) env[k] = process.env[k];
@@ -401,6 +427,7 @@ async function runViaCli(prompt) {
     CODEX_HOME: home,
     ZORA_AGENT_API_KEY: resolveKey(),
   });
+
   await new Promise((resolve, reject) => {
     const child = spawn(process.env.ZORA_CODEX_BIN, args, {
       cwd: dir,
@@ -438,6 +465,7 @@ async function runViaCli(prompt) {
     child.stdin.on('error', () => {});
     child.stdin.end(prompt);
   });
+
   const result = await readFile(path.join(dir, 'result.json'), 'utf8');
   if (result.length > 100000) throw Error('Agent 输出过大');
   return { ...JSON.parse(result), backend: 'cli', model: resolveModel() };
@@ -462,8 +490,18 @@ function isResponsesUnsupportedError(err) {
 
 export async function runCodex(prompt, opts = {}) {
   const backend = resolveBackend();
-  if(backend==='app-server'){const base=resolveBaseUrl().replace(/\/$/,'');return getKernel({base:base.endsWith('/v1')?base:base+'/v1',key:resolveKey(),model:resolveModel()}).run(prompt,{...opts,outputSchema:planSchema});}
+
+  if (backend === 'app-server') {
+    const base = resolveBaseUrl().replace(/\/$/, '');
+    return getKernel({
+      base: base.endsWith('/v1') ? base : base + '/v1',
+      key: resolveKey(),
+      model: resolveModel(),
+    }).run(prompt, { ...opts, outputSchema: planSchema });
+  }
+
   if (backend === 'cli') return runViaCli(prompt);
+
   const args = {
     prompt,
     modelId: opts.modelId,
@@ -473,9 +511,11 @@ export async function runCodex(prompt, opts = {}) {
     images: opts.images || [],
     roleInstructions: opts.roleInstructions,
   };
+
   if (preferChatCompletions(opts.modelId)) {
     return runViaChatCompletions(args);
   }
+
   try {
     return await runViaResponses(args);
   } catch (err) {
@@ -495,4 +535,13 @@ export async function runCodex(prompt, opts = {}) {
   }
 }
 
-export async function startCodexKernel(){if(resolveBackend()!=='app-server'||!agentStatus().enabled||!agentStatus().configured)return;const base=resolveBaseUrl().replace(/\/$/,'');return getKernel({base:base.endsWith('/v1')?base:base+'/v1',key:resolveKey(),model:resolveModel()}).start();}
+export async function startCodexKernel() {
+  if (resolveBackend() !== 'app-server') return;
+  if (!agentStatus().enabled || !agentStatus().configured) return;
+  const base = resolveBaseUrl().replace(/\/$/, '');
+  return getKernel({
+    base: base.endsWith('/v1') ? base : base + '/v1',
+    key: resolveKey(),
+    model: resolveModel(),
+  }).start();
+}

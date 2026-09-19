@@ -1,0 +1,24 @@
+{
+  "name": "zora-cloudflare-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zora 官方云端中转网关：基于 Cloudflare Workers + D1，实现 0 云主机成本的商业鉴权、计费扣费与模型安全代理",
+  "main": "src/index.mjs",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:create": "wrangler d1 create zora-db",
+    "db:init": "wrangler d1 execute zora-db --file=./schema.sql",
+    "db:remote:init": "wrangler d1 execute zora-db --remote --file=./schema.sql",
+    "db:local:init": "wrangler d1 execute zora-db --local --file=./schema.sql",
+    "secret:jwt": "wrangler secret put JWT_SECRET",
+    "secret:minimax": "wrangler secret put MINIMAX_API_KEY",
+    "secret:deepseek": "wrangler secret put DEEPSEEK_API_KEY",
+    "secret:openai": "wrangler secret put OPENAI_API_KEY"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.0"
+  }
+}

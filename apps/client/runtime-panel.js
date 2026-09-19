@@ -47,7 +47,8 @@ if(activity.skills?.length)card.append(details('选用技能',activity.skills.ma
   log.scrollTop=position;
  }
  function render(){
-  status.textContent=`工作区：${data.workspaceRoot||'未配置'} · ${data.available?'Docker 执行环境已就绪':'Docker 执行环境未就绪'}。审批操作请回到发起请求的对话。${data.available?'':' '+(data.error||'请启动 Docker Desktop。')}`;
+  const backendText = data.backend === 'native' ? '本地安全工作区' : 'Docker 执行环境';
+  status.textContent=`工作区：${data.workspaceRoot||'未配置'} · ${data.available?`${backendText}已就绪`:`${backendText}未就绪`}。审批操作请回到发起请求的对话。${data.available?'':' '+(data.error||'请检查运行环境。')}`;
   list.replaceChildren();for(const request of data.requests||[]){const row=details(`${body(request).kind||'操作'} · ${request.status}${owner(request)?'':' · 未关联对话，仅保留记录'}`,describe(request));if(request.engine!=='codex'&&!['pending','consumed','running'].includes(request.status)){const remove=el('button','删除记录');remove.disabled=actionBusy;remove.onclick=()=>{if(window.confirm('删除这条执行记录？实际文件和会话文件关联将保留。'))void decide(request,'delete');};row.append(remove);}list.append(row);}
   const library=document.getElementById('workspace-file-library');if(library){library.replaceChildren(el('h2','工作区文件'),el('p','全部会话的工作区文件；各对话内仅显示关联文件。'));for(const file of files)library.append(fileLink(file));if(!files.length)library.append(el('p','暂无工作区文件。'));}
   renderConversation();
