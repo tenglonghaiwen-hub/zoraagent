@@ -357,7 +357,7 @@ export async function authFetch(url, options = {}, isRetry = false) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const finalUrl = apiUrl(url);
+  const finalUrl = url === '/api/chat' && getGatewayConfig().mode === 'cloud' ? '/api/agent/chat' : apiUrl(url);
   const response = await fetch(finalUrl, { ...options, headers });
 
   // Handle 401 - try refresh token once if not a retry and not already an auth endpoint

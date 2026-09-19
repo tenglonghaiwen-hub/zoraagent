@@ -1,3 +1,4 @@
+import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { getKernel, peekKernel, findCodex } from '../../packages/agent/codex-kernel.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile, readFile, access } from 'node:fs/promises';
@@ -44,6 +45,7 @@ export const planSchema = {
 };
 
 function resolveKey(env = process.env) {
+  if(cloudAgentContext.getStore())return cloudAgentContext.getStore().token;
   return env.ZORA_AGENT_API_KEY || env.DUOYUANX_API_KEY || '';
 }
 
@@ -52,6 +54,7 @@ function resolveModel(env = process.env, override) {
 }
 
 function resolveBaseUrl(env = process.env) {
+  if(cloudAgentContext.getStore())return cloudAgentContext.getStore().base;
   return env.ZORA_AGENT_BASE_URL || defaults.baseUrl;
 }
 

@@ -1,3 +1,13 @@
+import {createChatService} from '../chat-service.mjs';
+import {createLocalApiCaller} from '../../../packages/agent/api.mjs';
+import {cloudToolApi} from '../cloud-agent-api.mjs';
+const cloudChats=new Map();
+let cloudChatBusy=false;
+import {cloudAgentContext,CLOUD_AGENT_GATEWAY} from '../cloud-agent-context.mjs';
+import {configureCloudKernel} from '../../../packages/agent/codex-kernel.mjs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
 import { validateDraft } from '../../../packages/contracts/domain.mjs';
 import { packGenerateRequest } from '../../../packages/duoyuanx/generation-adapters.mjs';
 import { generateBatch } from '../../../packages/duoyuanx/generation-service.mjs';
@@ -192,6 +202,29 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
       apis: listAllowedApis(),
       note: '工具、技能与 API 白名单；含图片/视频生成代理路径',
     });
+    return true;
+  }
+
+  // Cloud-authenticated desktop execution. Only the fixed gateway receives the JWT.
+  if(req.method==='POST' && url.pathname==='/api/agent/chat'){
+    if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)||req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`){sendJson(res,403,{error:'仅允许本机同源执行'});return true;}
+    if(cloudChatBusy){sendJson(res,409,{error:'Agent 正在处理另一条消息'});return true;}
+    const token=(req.headers.authorization||'').replace(/^Bearer /,'');
+    if(!token){sendJson(res,401,{error:'请先登录云服务'});return true;}
+    cloudChatBusy=true;
+    try{
+      const profile=await fetch(CLOUD_AGENT_GATEWAY+'/api/auth/me',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+      const data=await profile.json();if(!profile.ok)throw Object.assign(Error(data.error||'云端登录验证失败'),{status:profile.status});
+      const user=data.user||data.data?.user; if(!user?.id)throw Error('云端用户信息缺少 id');
+      const owner=createHash('sha256').update(String(user.id)).digest('hex').slice(0,24);
+      const root=fileURLToPath(new URL('../../../',import.meta.url));
+      const body=await readJson(req);
+      const base=CLOUD_AGENT_GATEWAY+'/api/agent';
+      await configureCloudKernel({home:path.join(root,'data','codex-cloud',owner),key:token,base:base+'/v1'});
+      if(!cloudChats.has(owner))cloudChats.set(owner,createChatService({storageDirectory:path.join(root,'data','cloud-chat-sessions',owner),callApi:cloudToolApi(createLocalApiCaller({port:req.socket.localPort}))}));
+      const result=await cloudAgentContext.run({token,base,owner},()=>cloudChats.get(owner)(body));
+      sendJson(res,200,result);
+    }catch(error){sendJson(res,error.status||502,{error:error.message,tasks:[],reply:''});}finally{cloudChatBusy=false;}
     return true;
   }
 

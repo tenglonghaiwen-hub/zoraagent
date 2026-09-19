@@ -1,3 +1,4 @@
+import {agentResponses} from './agent-responses.mjs';
 import {
   hashPassword,
   verifyPassword,
@@ -77,6 +78,7 @@ export default {
     const jwtSecret = env.JWT_SECRET || 'zora-default-secret-change-in-production';
 
     try {
+      if(path==='/api/agent/v1/responses' && method==='POST')return await agentResponses(request,env);
       // ----------------------------------------------------
       // 0. Visual Admin Console Dashboard (HTML)
       // ----------------------------------------------------

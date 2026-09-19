@@ -320,9 +320,6 @@ export function sanitizeAgentReply(userText, reply) {
     return STANDARD_ZORA_AGENT_IDENTITY;
   }
   if (!reply || typeof reply !== 'string') return reply;
-  if (/(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(reply)) {
-    return STANDARD_ZORA_AGENT_IDENTITY;
-  }
   return reply;
 }
 

@@ -4,7 +4,7 @@ import {prepareMediaReference} from './media-reference.js?v=studio148';
 import {saveReference,restoreReference} from './reference-store.js?v=studio137';
 import './canvas-dropdown-position.js?v=studio135';
 import {normalizeMediaResults} from './media-results.js?v=studio136';
-import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio198';
+import {nodeKind,connectNodes,mountNodeWorkflow,isNodeRunning} from './node-workflow.js?v=studio199';
 import {isAuthenticated, getUser, authFetch, logout, clearAuth, getGatewayConfig, setGatewayConfig, testGatewayConnection, fetchMessages, DEFAULT_CLOUD_GATEWAY, isLegacyGatewayUrl, refreshUserProfile} from './auth.js';
 import {initLoginPage, initUserMenu, updateUserBalance, clearUserMenu, initMembershipPanel, updateUserVipUI} from './login-handler.js';
 export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
@@ -29,9 +29,6 @@ export function sanitizeAgentReply(userText, reply) {
     return STANDARD_ZORA_AGENT_IDENTITY;
   }
   if (!reply || typeof reply !== 'string') return reply;
-  if (/(chatgpt|openai|由\s*openai|anthropic|claude|deepseek|我是.*(?:人工智能助手|语言模型))/i.test(reply)) {
-    return STANDARD_ZORA_AGENT_IDENTITY;
-  }
   return reply;
 }
 
@@ -3210,7 +3207,7 @@ const sendBeforeAgent=$('#send-prompt').onclick;let agentSending=false;
 $('#send-prompt').onclick=async()=>{
  if($('#creation-kind').value!=='agent')return sendBeforeAgent();if(agentSending)return;const text=buildInstructionText();if(!text){toast('请先填写创作需求或 @ 素材');return;}
  if(!currentConversation){currentConversation={id:'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:text.slice(0,24),messages:[],projectId:currentProjectId,createdAt:Date.now(),updatedAt:Date.now()};conversations.unshift(currentConversation);}else{touchConversation(currentConversation);ensureConversationId(currentConversation);}const conversation=currentConversation;const message={id:crypto.randomUUID(),text,kind:'agent',count:0,meta:'',references:[...(mentionedAssets())],liveAgent:true,pending:true,createdAt:Date.now()};conversation.messages.push(message);$('#prompt').value='';agentSending=true;$('#send-prompt').disabled=true;saveSession();renderConversation();
- try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=sanitizeAgentReply(text, result.reply);message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
+ try{await Promise.all(message.references.map(r=>saveReference(r)));saveSession();const refs=await prepareAgentReferences(message.references);const response=await authFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:message.id,conversationId:conversation.backendId,history:conversation.messages.filter(m=>m!==message).slice(-10).flatMap(m=>[{role:'user',message:m.text||''},...(m.answer?[{role:'assistant',reply:m.answer}]:[])]),modelId:$('#model').value,message:text,skills:selectedSkills.map(s=>({id:s.id,name:s.name,category:s.category,description:s.description,prompt:s.prompt})),references:refs})});const result=await response.json();if(!response.ok)throw Error(result.error||'Agent 请求失败');conversation.backendId=result.conversationId;message.answer=sanitizeAgentReply(text, result.reply);message.tasks=result.tasks;message.toolTrace=result.toolTrace;message.reasoningSummary=result.reasoningSummary;attachGenerationReceipts(conversation.messages,message,result.generationTasks,models);}catch(e){message.error=(/failed to fetch|networkerror|load failed/i.test(e.message||'')?'与后端的连接中断，暂未取得任务结果。请先查看任务记录，确认状态后再重试，避免重复提交。':/not implemented/i.test(e.message||'')?'当前模型暂不支持该调用方式，已可切换其他 Agent 模型或重试':(e.message||'连接失败，请重试'));}finally{message.pending=false;message.completedAt=Date.now();agentSending=false;$('#send-prompt').disabled=false;saveSession();renderConversation();}
 };
 /* directory-capsule-hooks */
 const _renderConversationForDirectory=renderConversation;
