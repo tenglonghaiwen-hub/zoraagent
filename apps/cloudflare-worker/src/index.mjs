@@ -1,3 +1,4 @@
+import { changeMembership } from './membership-lifecycle.mjs';
 import {agentResponses} from './agent-responses.mjs';
 import {generateImages,readImageReceipt} from './image-generation.mjs';
 import {
@@ -284,9 +285,10 @@ export default {
         } catch {
           // If unauthenticated, only return public system announcements (*)
         }
-        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-        const messages = await getUserMessages(env.DB, userId || '*', { limit });
-        return jsonResponse({ ok: true, messages }, 200, cors);
+        const limit = Math.min(100,Math.max(1,parseInt(url.searchParams.get('limit')||'50',10)||50));
+        const offset = Math.max(0,parseInt(url.searchParams.get('offset')||'0',10)||0);
+        const messages = await getUserMessages(env.DB, userId || '*', { limit, offset });
+        return jsonResponse({ ok: true, messages, hasMore:messages.length===limit }, 200, {...cors,'Cache-Control':'no-store'});
       }
 
       // ----------------------------------------------------
@@ -530,7 +532,10 @@ export default {
             quotaBalance: user.quotaBalance,
             isVip: user.isVip === 1 || Boolean(user.isVip),
             vipExpiresAt: user.vipExpiresAt || 0,
-            concurrencyLimit: user.concurrencyLimit || 1
+            concurrencyLimit: user.concurrencyLimit || 1,
+            membershipTier: user.membershipTier || null,
+            pendingMembership: user.pendingMembership || null,
+            membershipScheduling: env.MEMBERSHIP_SCHEDULING === 'true'
           }
         }, 200, cors);
       }
@@ -580,6 +585,11 @@ export default {
       if (path === '/api/user/membership/upgrade' && method === 'POST') {
         const { user } = await authenticateRequest(request, env);
         const body = await request.json().catch(() => ({}));
+        if (env.MEMBERSHIP_SCHEDULING === 'true') {
+          const result = await changeMembership(env.DB, user.id, body);
+          return jsonResponse({...result, message: result.scheduled ? '已预约到期次日降级 [DEMO]' : '会员套餐已生效 [DEMO]'}, 200, cors);
+        }
+        if (body.requestId) return errorResponse('会员服务尚未升级，请稍后重试', 503, cors);
         const days = body.days === -1 ? -1 : parseInt(body.days, 10);
         const giftQuota = parseInt(body.giftQuota, 10) || 0;
         const tier = String(body.tier || 'monthly');

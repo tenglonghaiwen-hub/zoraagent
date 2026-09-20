@@ -7,10 +7,10 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 
 test('index.html uses studio185+ cache buster', () => {
   const html = fs.readFileSync(path.join(ROOT, 'apps/client/index.html'), 'utf8');
-  assert.match(html, /style\.css\?v=studio(18[3-9]|19\d)/);
-  assert.match(html, /app\.js\?v=studio(18[3-9]|19\d)/);
-  assert.match(html, /runtime-panel\.js\?v=studio(18[3-9]|19\d)/);
-  assert.match(html, /appearance\.js\?v=studio(18[3-9]|19\d)/);
+  assert.match(html, /style\.css\?v=studio(18[3-9]|19\d|[2-9]\d{2}|\d{4,})/);
+  assert.match(html, /app\.js\?v=studio(18[3-9]|19\d|[2-9]\d{2}|\d{4,})/);
+  assert.match(html, /runtime-panel\.js\?v=studio(18[3-9]|19\d|[2-9]\d{2}|\d{4,})/);
+  assert.match(html, /appearance\.js\?v=studio(18[3-9]|19\d|[2-9]\d{2}|\d{4,})/);
   assert.doesNotMatch(html, /studio182/);
 });
 

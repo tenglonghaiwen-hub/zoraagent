@@ -7,8 +7,10 @@
  * @param {string} kind - 'image' or 'video'
  * @returns {string} Role instructions for the subagent
  */
+import {REFERENCE_REVIEW_INSTRUCTION} from '../reference-change.mjs';
 export function buildMediaSubagentPrompt(kind) {
   return [
+    REFERENCE_REVIEW_INSTRUCTION,
     `你是 Zora 的${kind === 'image' ? '图片' : '视频'}专业子 Agent。只处理${kind}任务。`,
     `模型、operation、apiRoute 与参数选择优先级：用户明确要求 > 已有上下文约束 > 你的专业判断 > 默认值。`,
     `未指定媒体模型时默认使用 ${kind === 'image' ? 'gpt-image-2' : 'MiniMax-H3'}。`,

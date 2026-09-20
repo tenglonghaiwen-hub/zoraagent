@@ -7,7 +7,7 @@ const text=value=>String(value??'').replace(/data:[^\s"']+;base64,[A-Za-z0-9+/=]
 const taskFields=['modelId','kind','family','route','queryRoute','contentType','prompt','count','concurrency','ratio','resolution','duration','videoMode','operation','apiRoute','provider','projectId','tool','status','createdAt','paused','fromAgent'];
 function safeHistory(history){
  return history.map(m=>{
-  if(m.role==='user')return {role:'user',text:text(m.text),skills:Array.isArray(m.skills)?m.skills.map(text):[],references:Array.isArray(m.references)?m.references.map(r=>({name:text(r.name),type:text(r.type),reference:text(r.reference),hasContent:!!r.hasContent})):[]};
+  if(m.role==='user')return {role:'user',text:text(m.text),skills:Array.isArray(m.skills)?m.skills.map(text):[],references:Array.isArray(m.references)?m.references.map(r=>({name:text(r.name),type:text(r.type),reference:text(r.reference),hasContent:!!r.hasContent,...(/^[a-f0-9]{64}$/.test(r.fingerprint||'')?{fingerprint:r.fingerprint}:{})})):[]};
   if(m.role==='assistant')return {role:'assistant',reply:text(m.reply),tasks:Array.isArray(m.tasks)?m.tasks.map(t=>Object.fromEntries(taskFields.filter(k=>['string','number','boolean'].includes(typeof t[k])).map(k=>[k,typeof t[k]==='string'?text(t[k]):t[k]]))):[]};
   throw Error('会话历史角色无效');
  });

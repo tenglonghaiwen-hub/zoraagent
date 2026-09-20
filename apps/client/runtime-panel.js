@@ -1,3 +1,4 @@
+import {conversationViewport} from './conversation-view.js?v=studio206';
 import {bindExecutionDisclosure} from './execution-disclosure.js';
 import {interactionForm,pruneInteractionForms} from './codex-interactions.js';
 // Approvals are shown only inside their originating conversation.
@@ -20,15 +21,21 @@ export function mountRuntimePanel(root,{fetchImpl=window.fetch.bind(window)}={})
  const fileLink=file=>{const row=el('p');row.append(el('span',`${file.name||file.path} · ${Number(file.size)||0} 字节 `));try{const u=new URL(file.url,location.origin);if(u.origin===location.origin&&u.protocol===location.protocol){const a=el('a','下载文件');a.href=u.href;a.download=file.name||'';row.append(a);}}catch{}return row;};
  function renderConversation(){
   const log=document.querySelector('.conversation-log');if(!log){dock.hidden=true;return;}
-  const position=log.scrollTop;log.querySelector('#conversation-runtime')?.remove();log.querySelectorAll('.runtime-inline').forEach(n=>n.remove());
+  const viewport=conversationViewport(log),position=viewport.capture();
+  const focused=document.activeElement,selection=focused?.selectionStart!=null?[focused.selectionStart,focused.selectionEnd]:null;
+  const restoreView=()=>{viewport.restore(position);if(focused?.isConnected&&document.activeElement!==focused&&(log.contains(focused)||dock.contains(focused))){focused.focus({preventScroll:true});if(selection)focused.setSelectionRange(...selection);}};
+  // Restore final tool records before replacing the runtime wrapper.
+  log.querySelectorAll('.runtime-inline .agent-execution-process').forEach(panel=>panel.closest('.conversation-reply')?.append(panel));
+  log.querySelectorAll('.agent-execution-process').forEach(panel=>panel.hidden=false);
+  log.querySelector('#conversation-runtime')?.remove();log.querySelectorAll('.runtime-inline').forEach(n=>n.remove());
   const current=window.__zoraConversationContext?.()?.conversationId;
   const matching=(data.requests||[]).filter(r=>(current&&owner(r)===current)||(!owner(r)&&r.engine==='codex'&&r.status==='pending')); dock.replaceChildren();dock.hidden=true;positionDock();
   const sessionFiles=current?files.filter(file=>(file.conversationIds||[]).includes(current)):[];
-  const activities=(data.codexActivities||[]).filter(a=>a.conversationId===current);
-  if(!matching.length&&!sessionFiles.length&&!activities.length)return;
+  const activities=(data.codexActivities||[]).filter(a=>current&&a.conversationId===current);
+  if(!matching.length&&!sessionFiles.length&&!activities.length){restoreView();return;}
   const replies=[...log.querySelectorAll('.conversation-reply[data-message-created-at]')];
   const target=r=>replies.find(n=>r.messageId&&n.dataset.messageId===r.messageId)||replies.filter(n=>Number(n.dataset.messageCreatedAt)<=Date.parse(r.createdAt)).at(-1);
-  const append=(node,record)=>{const execution=node.matches?.('.thinking-execution')?node:node.querySelector?.('.thinking-execution');if(execution)execution.querySelectorAll('details').forEach((detail,index)=>bindExecutionDisclosure(detail,'runtime-child:'+record.threadId+':'+(record.turnId||record.messageId||record.createdAt)+':'+(detail.querySelector('summary')?.textContent||index)));const reply=target(record);node.classList.add('runtime-inline');(reply||log).append(node);};
+  const append=(node,record)=>{const execution=node.matches?.('.thinking-execution')?node:node.querySelector?.('.thinking-execution');if(execution)execution.querySelectorAll('details').forEach((detail,index)=>{if(detail.closest('.agent-execution-process'))return;bindExecutionDisclosure(detail,'runtime-child:'+record.threadId+':'+(record.turnId||record.messageId||record.createdAt)+':'+(detail.querySelector('summary')?.textContent?.replace(/（\d+条）/g,'')||index));});const reply=target(record);if(execution&&reply){const finalProcess=reply.querySelector('.agent-execution-process');if(finalProcess){if(finalProcess.querySelector('.agent-tool-step')){finalProcess.querySelector('summary').textContent='工具返回详情';execution.append(finalProcess);}else finalProcess.hidden=true;}if(reply.dataset.pending==='true'){const text=reply.querySelector('.agent-response-text');if(text)text.textContent=record.status==='running'?'正在执行任务…':'正在整理执行结果…';}}node.classList.add('runtime-inline');(reply||log).append(node);};
   for(const activity of activities){const card=el('details');card.className='thinking-execution';bindExecutionDisclosure(card,'runtime:'+activity.threadId+':'+(activity.turnId||activity.messageId||activity.createdAt),activity.status==='running');const statusLabels={running:'进行中',completed:'已完成',failed:'失败',interrupted:'已停止',unknown:'状态待确认'};card.append(el('summary','思考与执行 · '+(activity.status==='running'&&activity.retrying?'连接异常，正在重试':statusLabels[activity.status]||activity.status)));if(activity.errors?.length){const recent=activity.errors.at(-1);const retry=el('p');retry.className='execution-retry-notice';retry.setAttribute('role','status');retry.textContent=(activity.status==='running'&&activity.retrying?'正在自动重试 · ':'最近请求错误 · ')+new Date(recent.at).toLocaleTimeString()+' · '+recent.message;card.append(retry);card.append(details('错误与重试记录（'+activity.errors.length+'条）',activity.errors.map(e=>new Date(e.at).toLocaleString()+' · '+(e.willRetry?'上游将自动重试':'上游不会自动重试')+'\n'+e.message+(e.details?'\n'+e.details:'')).join('\n\n')));}
 if(activity.skills?.length)card.append(details('选用技能',activity.skills.map(s=>s.name+' · '+s.reason).join('\n')));if(activity.error)card.append(el('p',activity.error));const summaries=Object.values(activity.reasoningSummary||{}).filter(Boolean);if(summaries.length)card.append(details('上游推理摘要',summaries.join('\n\n')));if(activity.plan){const lines=activity.plan.map(p=>(p.status==='completed'?'✓ ':p.status==='inProgress'?'进行中 · ':'待执行 · ')+p.step);card.append(details('执行计划',lines.join('\n')));}if(activity.tools)card.append(details('工具调用',Object.values(activity.tools).map(t=>t.name+' · '+(statusLabels[t.status]||t.status)).join('\n')));if(activity.text)card.append(details('阶段输出',activity.text));if(!summaries.length&&!activity.plan&&!activity.tools&&!activity.text)card.append(el('p',activity.status==='running'?'正在等待上游返回执行信息…':'上游未返回摘要或执行详情。'));if(activity.status!=='running'){append(card,activity);continue;}const stop=el('button','停止执行');stop.type='button';stop.onclick=async()=>{stop.disabled=true;stop.textContent='正在停止…';try{await json('/api/local-runtime/codex/interrupt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:current})});stop.textContent='已请求停止，等待确认';await refresh();}catch(e){error.textContent=e.message;stop.textContent='停止失败，点击重试';stop.title=e.message;stop.disabled=false;}};
    let steer=steerForms.get(current);if(!steer){steer=el('form');const input=el('textarea');input.placeholder='补充当前任务的要求';const submit=el('button','补充指令');submit.type='submit';steer.append(input,submit);steer.onsubmit=async e=>{e.preventDefault();if(!input.value.trim())return;submit.disabled=true;try{await json('/api/local-runtime/codex/steer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:current,text:input.value})});input.value='';}catch(e){error.textContent=e.message;}finally{submit.disabled=false;}};steerForms.set(current,steer);}card.append(steer);const runningCard=el('div');runningCard.append(stop,card);append(runningCard,activity);}
@@ -41,11 +48,11 @@ if(activity.skills?.length)card.append(details('选用技能',activity.skills.ma
     approve.onclick=()=>void decide(request,'approve');deny.onclick=()=>void decide(request,'deny');card.append(approve,deny);
     if(request.engine!=='codex'&&data.available!==true)card.append(el('p','执行环境未就绪，暂不能批准。'));
    }
-   
+
    if(['pending','awaiting_approval'].includes(request.status)){dock.append(card);dock.hidden=false;}
   }
   for(const file of sessionFiles){const origin=(file.origins||[]).find(r=>r.conversationId===current);if(origin)append(fileLink(file),origin);}
-  log.scrollTop=position;
+  restoreView();
  }
  function render(){
   const backendText = data.backend === 'native' ? '本地安全工作区' : 'Docker 执行环境';

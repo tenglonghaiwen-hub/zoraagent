@@ -14,6 +14,8 @@ new_sqlite_classes = ["ImageGenerationJob"]
 [vars]
 DUOYUANX_BASE_URL = "https://duoyuanx.com"
 ENVIRONMENT = "production"
+# Requires membership-state.sql before deployment.
+MEMBERSHIP_SCHEDULING = "true"
 
 # Cloudflare D1 关系型数据库绑定
 # 执行 wrangler d1 create zora-db 后将返回的 database_id 填入此处

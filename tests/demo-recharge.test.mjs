@@ -8,10 +8,10 @@ const css = readFileSync(resolve('apps/client/style.css'), 'utf8');
 const loginHandler = readFileSync(resolve('apps/client/login-handler.js'), 'utf8');
 
 test('index.html uses studio185 cache buster and includes recharge checkout structure', () => {
-  assert.match(html, /style\.css\?v=studio(18[5-9]|19\d)/, 'CSS must be tagged with studio185 or higher');
-  assert.match(html, /app\.js\?v=studio(18[5-9]|19\d)/, 'app.js must be tagged with studio185 or higher');
-  assert.match(html, /runtime-panel\.js\?v=studio(18[5-9]|19\d)/);
-  assert.match(html, /appearance\.js\?v=studio(18[5-9]|19\d)/);
+  assert.match(html, /style\.css\?v=studio(18[5-9]|19\d|[2-9]\d{2}|\d{4,})/, 'CSS must be tagged with studio185 or higher');
+  assert.match(html, /app\.js\?v=studio(18[5-9]|19\d|[2-9]\d{2}|\d{4,})/, 'app.js must be tagged with studio185 or higher');
+  assert.match(html, /runtime-panel\.js\?v=studio(18[5-9]|19\d|[2-9]\d{2}|\d{4,})/);
+  assert.match(html, /appearance\.js\?v=studio(18[5-9]|19\d|[2-9]\d{2}|\d{4,})/);
   assert.doesNotMatch(html, /studio184/);
 
   // Recharge Tier Cards in #credits

@@ -5,6 +5,7 @@ import { validateDraft } from '../../packages/contracts/domain.mjs';
 import { getModels } from '../../packages/duoyuanx/catalog.mjs';
 import { runCodex, agentStatus } from './codex-agent.mjs';
 import { createToolRunner } from '../../packages/agent/tools.mjs';
+import {describeReferenceChange,REFERENCE_REVIEW_INSTRUCTION} from '../../packages/agent/reference-change.mjs';
 import { MAIN_AGENT_TOOL_DEFS, createMediaDelegator } from '../../packages/agent/media-subagents.mjs';
 import { getRouteCapabilities } from '../../packages/duoyuanx/route-capabilities.mjs';
 import { createSessionStore } from '../../packages/agent/session-store.mjs';
@@ -117,12 +118,13 @@ export function createChatService({
     skills = selectTaskSkills(input.message, skills);
 
     // Binary image data belongs only in the multimodal input, never in text history.
+    const referenceReview=describeReferenceChange(references,session.history);
     const user = {
       role: 'user',
       text: input.message,
-      references: references.map(({ contentUrl, ...ref }) => ({
+      references: referenceReview.current.map((ref) => ({
         ...ref,
-        hasContent: Boolean(contentUrl),
+        hasContent: true,
       })),
       skills: skills.map((s) => s.name),
     };
@@ -145,6 +147,10 @@ export function createChatService({
       }));
 
     const promptLines = buildMainAgentPrompt();
+    promptLines.push(REFERENCE_REVIEW_INSTRUCTION,JSON.stringify({referenceChange:referenceReview.change}));
+    promptLines.push(references.length
+      ? '本轮可用参考素材已由宿主读取并附加，专业子 Agent 和生成工具共享这些原始素材。用户继续修改或确认生成时，不因本轮未重新上传就要求重传。以当前 references 清单为准，不用历史同名素材替换。'
+      : '本轮没有启用参考素材。历史中的素材名称不表示文件已丢失；需要历史素材时请提示用户在当前会话重新 @ 或开启沿用参考，不应直接要求重新上传。仅在工具明确报告原文件不可读取时说明缺失。');
     promptLines.push(
       JSON.stringify({
         skills,
@@ -211,6 +217,7 @@ export function createChatService({
         skills,
         images: imageInputs,
         context: {
+          referenceChange:referenceReview.change,
           history: [...session.history, user],
           videoAnalysis: videoAnalysis.summary,
           references: references.map(({ contentUrl, ...r }) => ({

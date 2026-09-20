@@ -77,10 +77,12 @@ function portListening(port, host = '127.0.0.1') {
   });
 }
 
-async function waitForUrl(url, timeoutMs = 30000) {
+async function waitForUrl(url, timeoutMs = 30000, child = null) {
   const deadline = Date.now() + timeoutMs;
   let last = '';
   while (Date.now() < deadline) {
+    if(child?.startupError)throw new Error(`后台启动失败：${child.startupError}`);
+    if(child && child.exitCode !== null)throw new Error(`后台已退出（代码 ${child.exitCode}）。${child.startupStderr||'请检查包内运行时与启动日志。'}`);
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
       if (res.ok || res.status === 404) return true;
@@ -102,10 +104,13 @@ function spawnLogged(command, args, opts = {}) {
     detached: false,
   });
   const tag = opts.tag || 'child';
+  child.startupStderr='';
+  child.on('error',error=>{child.startupError=error.message;});
   child.stdout?.on('data', (c) => {
     if (process.env.ZORA_DESKTOP_VERBOSE === '1') process.stdout.write(`[${tag}] ${c}`);
   });
   child.stderr?.on('data', (c) => {
+    child.startupStderr=(child.startupStderr+String(c)).slice(-3000);
     process.stderr.write(`[${tag}] ${c}`);
   });
   children.push(child);
@@ -124,7 +129,7 @@ async function ensureAppServer(port) {
 
   const node = resolveBundledNode();
   const serverEntry = path.join(REPO_ROOT, 'apps', 'server', 'server.mjs');
-  spawnLogged(node, [serverEntry], {
+  const child=spawnLogged(node, [serverEntry], {
     tag: 'server',
     env: {
       PORT: String(port),
@@ -132,7 +137,7 @@ async function ensureAppServer(port) {
     },
   });
   startedServer = true;
-  await waitForUrl(models, 45000);
+  await waitForUrl(models, 45000, child);
   await requireGenerationCapabilities(origin);
   return { reused: false };
 }

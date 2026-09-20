@@ -2,6 +2,7 @@
  * Billing and D1 database operations for Cloudflare Workers
  */
 import { verifyJwt } from './auth.mjs';
+import { membershipProfile } from './membership-lifecycle.mjs';
 
 /**
  * Authenticate request via Bearer token against D1 users & sessions
@@ -33,6 +34,7 @@ export async function authenticateRequest(request, env) {
     throw Object.assign(new Error('账号已被封禁'), { status: 403 });
   }
 
+  if (env.MEMBERSHIP_SCHEDULING === 'true') await membershipProfile(env.DB, user);
   return { user, token };
 }
 
@@ -592,14 +594,14 @@ export async function deleteNotification(db, id) {
   return { ok: true, id };
 }
 
-export async function getUserMessages(db, userId, { limit = 50 } = {}) {
+export async function getUserMessages(db, userId, { limit = 50, offset = 0 } = {}) {
   const { results } = await db.prepare(
     `SELECT id, user_id as userId, title, content, kind, created_at as createdAt
      FROM notifications
      WHERE user_id = '*' OR user_id = ?
-     ORDER BY created_at DESC
-     LIMIT ?`
-  ).bind(userId, limit).all();
+     ORDER BY created_at DESC, id DESC
+     LIMIT ? OFFSET ?`
+  ).bind(userId, limit, offset).all();
   return results || [];
 }
 
@@ -622,4 +624,3 @@ export async function verifyAdminRequest(request, env) {
 
   return payload;
 }
-

@@ -6,6 +6,7 @@
 
 - [项目介绍、配置与启动](../README.md)
 - [当前实现与限制](CURRENT-STATUS.md)
+- [会员套餐、到期降级与迁移](MEMBERSHIP.md)
 - [架构](architecture.md)
 - [包内 Codex 运行时](bundled-runtime.md)
 - [Codex 执行与交互](codex-agent.md)

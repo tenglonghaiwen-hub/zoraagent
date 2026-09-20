@@ -425,76 +425,23 @@ export async function topupDemoQuota(amount = 100) {
   return res.json();
 }
 
-/**
- * Upgrade or renew membership (with demo fallback for offline / mock testing)
- */
-export async function upgradeMembership({ days = 30, giftQuota = 0, tier = 'monthly' } = {}) {
-  try {
-    const res = await authFetch('/api/user/membership/upgrade', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ days, giftQuota, tier }),
-    });
-    const data = await res.json();
-    if (data && data.ok) {
-      const user = getUser();
-      if (user) {
-        user.isVip = true;
-        user.vipExpiresAt = data.vipExpiresAt;
-        user.concurrencyLimit = data.concurrencyLimit;
-        if (typeof data.newBalance === 'number') {
-          user.quotaBalance = data.newBalance;
-          user.balance = data.newBalance;
-        }
-        storeUser(user);
-      }
-      return data;
+/** Membership changes are authoritative only after the server confirms them. */
+export async function upgradeMembership({ days = 30, giftQuota = 0, tier = 'monthly', requestId = crypto.randomUUID() } = {}) {
+  const res = await authFetch('/api/user/membership/upgrade', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days, giftQuota, tier, requestId }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data?.ok) throw new Error(data?.error?.message || data?.error || data?.message || '会员操作未确认，请重试或刷新会员状态');
+  const user = getUser();
+  if (user) {
+    for (const key of ['isVip', 'vipExpiresAt', 'concurrencyLimit', 'membershipTier', 'pendingMembership', 'membershipScheduling']) {
+      if (key in data) user[key] = data[key];
     }
-  } catch (err) {
-    console.warn('Network upgrade failed, applying local fallback:', err);
+    if (typeof data.newBalance === 'number') user.balance = user.quotaBalance = data.newBalance;
+    storeUser(user);
   }
-
-  // Fallback for demo mode / offline
-  const now = Date.now();
-  let user = getUser() || {
-    id: 'demo-user-' + Math.random().toString(36).slice(2, 8),
-    username: '演示创作者',
-    email: 'demo@zora.local',
-    quotaBalance: 100,
-    isVip: false
-  };
-
-  let newExpiresAt = 0;
-  if (days === -1) {
-    newExpiresAt = -1;
-  } else {
-    const currentExpiry = Number(user.vipExpiresAt) || 0;
-    const baseTime = (user.isVip && currentExpiry > now) ? currentExpiry : now;
-    newExpiresAt = baseTime + (days * 86400000);
-  }
-
-  let targetConcurrency = 2;
-  if (days === -1 || days >= 365) targetConcurrency = 4;
-  else if (days >= 90) targetConcurrency = 3;
-
-  const gift = parseInt(giftQuota, 10) || 0;
-  user.isVip = true;
-  user.vipExpiresAt = newExpiresAt;
-  user.concurrencyLimit = Math.max(Number(user.concurrencyLimit) || 1, targetConcurrency);
-  user.quotaBalance = (Number(user.quotaBalance) || 0) + gift;
-  user.balance = user.quotaBalance;
-  storeUser(user);
-
-  return {
-    ok: true,
-    message: '成功开通造境 VIP 会员 [DEMO 本地]',
-    isVip: true,
-    vipExpiresAt: newExpiresAt,
-    concurrencyLimit: user.concurrencyLimit,
-    newBalance: user.quotaBalance,
-    giftQuota: gift,
-    tier
-  };
+  return data;
 }
 
 /**
@@ -511,6 +458,14 @@ export async function fetchServerModels() {
 export async function fetchMessages() {
   const token = getToken();
   const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  const res = await fetch(apiUrl('/api/messages'), { headers });
-  return res.json();
+  const messages = [], seen = new Set();
+  for (let offset=0;;offset+=100) {
+    const res=await fetch(apiUrl(`/api/messages?limit=100&offset=${offset}`),{headers,cache:'no-store'});
+    const data=await res.json();
+    if(!res.ok||!data?.ok||!Array.isArray(data.messages))return {ok:false};
+    let added=0;
+    for(const message of data.messages){if(!seen.has(message.id)){seen.add(message.id);messages.push(message);added++;}}
+    if(!data.hasMore||!added)break;
+  }
+  return {ok:true,messages};
 }
