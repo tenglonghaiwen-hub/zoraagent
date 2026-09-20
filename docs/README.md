@@ -1,6 +1,6 @@
 # 项目文档索引
 
-更新：2026-09-16。先看维护文档；历史报告只证明当时的实现和验收，不能作为当前服务可用性证明。
+更新：2026-09-20。先看维护文档；历史报告只证明当时的实现和验收，不能作为当前服务可用性证明。
 
 ## 维护入口
 
@@ -9,6 +9,8 @@
 - [会员套餐、到期降级与迁移](MEMBERSHIP.md)
 - [架构](architecture.md)
 - [包内 Codex 运行时](bundled-runtime.md)
+- [Windows 安装包构建、数据目录与验收](DESKTOP-PACKAGING.md)
+- [OpenMontage 内置组件、用户数据与验收](OPENMONTAGE-BUNDLE.md)
 - [Codex 执行与交互](codex-agent.md)
 - [模型目录和路由来源](model-catalog.md)
 - [文件交付、PPTX 检查和素材保存](FILE-DELIVERY.md)

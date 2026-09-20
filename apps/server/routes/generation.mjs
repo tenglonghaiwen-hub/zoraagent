@@ -1,3 +1,4 @@
+import {dataPath} from '../../../packages/runtime-paths.mjs';
 import {createChatService} from '../chat-service.mjs';
 import {createLocalApiCaller} from '../../../packages/agent/api.mjs';
 import {cloudToolApi} from '../cloud-agent-api.mjs';
@@ -239,8 +240,8 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
       const root=fileURLToPath(new URL('../../../',import.meta.url));
       const body=await readJson(req);
       const base=CLOUD_AGENT_GATEWAY+'/api/agent';
-      await configureCloudKernel({home:path.join(root,'data','codex-cloud',owner),key:token,base:base+'/v1'});
-      if(!cloudChats.has(owner))cloudChats.set(owner,createChatService({storageDirectory:path.join(root,'data','cloud-chat-sessions',owner),callApi:cloudToolApi(createLocalApiCaller({port:req.socket.localPort}))}));
+      await configureCloudKernel({home:dataPath('codex-cloud',owner),key:token,base:base+'/v1'});
+      if(!cloudChats.has(owner))cloudChats.set(owner,createChatService({storageDirectory:dataPath('cloud-chat-sessions',owner),callApi:cloudToolApi(createLocalApiCaller({port:req.socket.localPort}))}));
       const result=await cloudAgentContext.run({token,base,owner},()=>cloudChats.get(owner)(body));
       sendJson(res,200,result);
     }catch(error){sendJson(res,error.status||502,{error:error.message,tasks:[],reply:''});}finally{cloudChatBusy=false;}

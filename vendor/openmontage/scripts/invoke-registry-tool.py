@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Invoke an OpenMontage registry tool by name. Stdin: JSON {tool, inputs}. Stdout: JSON result."""
 from __future__ import annotations
-import json, sys, traceback
+import json, os, sys, traceback
 from pathlib import Path
 
 def main() -> int:
-    engine = Path(__file__).resolve().parents[1] / "engine"
+    engine = Path(os.environ["OM_ENGINE_ROOT"]) if os.environ.get("OM_ENGINE_ROOT") else Path(__file__).resolve().parents[1] / "engine"
     sys.path.insert(0, str(engine))
     raw = sys.stdin.read() or "{}"
     try:

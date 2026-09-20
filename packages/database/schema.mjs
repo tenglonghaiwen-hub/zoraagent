@@ -1,3 +1,4 @@
+import {dataPath} from '../runtime-paths.mjs';
 /**
  * Database schema and migrations for Zora authentication and user management
  * Using sql.js (pure JavaScript SQLite implementation)
@@ -17,7 +18,7 @@ function getDbPath() {
       ? process.env.DATABASE_PATH
       : path.resolve(ROOT, process.env.DATABASE_PATH);
   }
-  return path.join(ROOT, 'data', 'zora.db');
+  return dataPath('zora.db');
 }
 
 let SQL = null;

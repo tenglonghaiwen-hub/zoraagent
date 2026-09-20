@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Bundled desktop components
+
+OpenMontage source is from https://github.com/calesthio/OpenMontage. Its AGPL-3.0 license is preserved at `vendor/openmontage/engine/LICENSE` in the desktop payload; the source revision and file hashes are recorded in `vendor/openmontage/bundle.json` and `bundle-files.json`. This snapshot includes local working-tree changes, rather than claiming to be an unmodified upstream release.
+
+Node and Codex license texts are included under `licenses/`. FFmpeg's supplied license is retained under `runtime/ffmpeg/`. Python and npm runtime dependencies retain their packaged license and distribution metadata. This local test package has not been published as a signed production release.
+
+## Interface attribution
+
 Send button adapted from https://uiverse.io/prikshit_1236/loud-fly-32 and the code supplied by the user. Colors adapted to monochrome; native CSS instead of styled-components.
 
 MIT License

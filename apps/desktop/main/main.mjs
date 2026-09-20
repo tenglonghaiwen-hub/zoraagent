@@ -1,3 +1,4 @@
+import {configurePackagedRuntime,packagedPort} from './packaged-runtime.mjs';
 /**
  * Zora desktop host: starts or reuses the local server and optional OM sidecar.
  * Hosts the studio, browser/desktop bridges and controlled media downloads.
@@ -25,6 +26,13 @@ let startedServer = false;
 let startedSidecar = false;
 let browserBridge;
 let desktopBridge;
+
+const ownsInstance = !app.isPackaged || app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+app.on('second-instance', () => {
+  if (mainWindow?.isMinimized()) mainWindow.restore();
+  mainWindow?.focus();
+});
 
 function loadEnvFile(filePath) {
   try {
@@ -230,11 +238,16 @@ async function stopChildren() {
 }
 
 async function boot() {
-  loadEnvFile(path.join(REPO_ROOT, '.env'));
+  if(app.isPackaged){
+    configurePackagedRuntime(REPO_ROOT,app.getPath('userData'));
+    process.env.PORT=String(await packagedPort(app.getPath('userData')));
+    if(await portListening(Number(process.env.PORT)))throw Error('安装版本地端口已被占用，请关闭另一实例后重试。');
+  }else loadEnvFile(path.join(REPO_ROOT, '.env'));
   const port = Number(process.env.PORT || 4317);
 
   const server = await ensureAppServer(port);
   const om = await ensureOmSidecar();
+  if(app.isPackaged && process.env.OM_AUTO_SIDECAR==='true' && om?.ok===false)throw Error('OpenMontage 启动失败：'+(om.diagnostic||om.error||'请检查运行时'));
   console.log(
     `[zora-desktop] server=${server.reused ? 'reused' : 'started'} port=${port} om=${JSON.stringify(om?.origin || om?.skipped || om?.error || om)}`,
   );
@@ -244,6 +257,7 @@ async function boot() {
 }
 
 app.whenReady().then(() => {
+  if (!ownsInstance) return;
   ipcMain.handle('zora:download-media',async(event,{url,name}={})=>{
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('下载来源无效');
     if(typeof url!=='string'||!(/^(https?:\/\/|blob:|data:(image|video)\/)/.test(url))||!/^zora-(auto-)?[\w-]+\.(png|mp4)$/.test(name||''))throw Error('下载参数无效');
@@ -292,11 +306,16 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
+let cleanupFinished=false;
+let cleanupStarted=false;
+app.on('before-quit', event => {
+  if(cleanupFinished)return;
+  event.preventDefault();
+  if(cleanupStarted)return;
+  cleanupStarted=true;
   browserBridge?.close();
   desktopBridge?.close();
-  // fire and forget; Electron won't await async here reliably
-  void stopChildren();
+  void stopChildren().finally(()=>{cleanupFinished=true;app.quit();});
 });
 
 app.on('activate', () => {

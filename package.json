@@ -11,7 +11,8 @@
     "desktop": "npm --prefix apps/desktop start",
     "desktop:install": "npm --prefix apps/desktop install",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "db:seed": "node scripts/db-seed.mjs"
+    "db:seed": "node scripts/db-seed.mjs",
+    "desktop:package": "node scripts/package-desktop.mjs"
   },
   "engines": {
     "node": ">=22"

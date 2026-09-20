@@ -29,7 +29,7 @@ function vendorRoot() {
 }
 
 function statePath() {
-  return path.join(vendorRoot(), STATE_FILE);
+  return path.join(process.env.OM_STATE_DIR || vendorRoot(), STATE_FILE);
 }
 
 function exists(p) {
@@ -111,8 +111,8 @@ export function probeOpenMontageRuntime() {
     path.join(REPO_ROOT, 'vendor', 'codex-main', 'codex-rs', 'target', 'release', 'codex.exe'),
   ]);
 
-  const engineRoot = path.join(root, manifest.engine?.root || 'engine');
-  const studioApi = path.join(root, manifest.engine?.studio_api || 'engine/services/studio_api');
+  const engineRoot = process.env.OM_ENGINE_ROOT || path.join(root, manifest.engine?.root || 'engine');
+  const studioApi = process.env.OM_ENGINE_ROOT ? path.join(engineRoot,'services/studio_api') : path.join(root, manifest.engine?.studio_api || 'engine/services/studio_api');
   const engineHasContent =
     exists(engineRoot) &&
     fs.readdirSync(engineRoot).some((n) => !n.startsWith('.') && n !== '.gitkeep.txt');
@@ -168,6 +168,7 @@ function readStateFile() {
 }
 
 function writeState(state) {
+  fs.mkdirSync(path.dirname(statePath()),{recursive:true});
   fs.writeFileSync(statePath(), JSON.stringify(state, null, 2), 'utf8');
 }
 
@@ -280,11 +281,13 @@ function buildSidecarEnv(probe, port, token, authority) {
     ...process.env,
     PYTHONUTF8: '1',
     PYTHONNOUSERSITE: '1',
+    PYTHONDONTWRITEBYTECODE: '1',
     PATH: childPath,
     OPENMONTAGE_STUDIO_API_PORT: String(port),
     OPENMONTAGE_STUDIO_API_TOKEN: token,
     OPENMONTAGE_LOCAL_TOOL_AUTHORITY_TOKEN: authority,
     OPENMONTAGE_PROJECTS_ROOT: projectsRoot,
+    OPENMONTAGE_PROJECTS_DIR: projectsRoot,
     OPENMONTAGE_FFMPEG_EXECUTABLE: probe.tools.ffmpeg.path,
     OPENMONTAGE_FFPROBE_EXECUTABLE: probe.tools.ffprobe.path,
     OPENMONTAGE_HYPERFRAMES_CLI: probe.tools.hyperframesCli?.path || '',
@@ -663,7 +666,7 @@ export function listOmSkills(filter = {}) {
 export function getOmSkill(skillId) {
   const id = String(skillId || '').replace(/^om:/, '');
   if (!id) return { ok: false, error: 'skillId required' };
-  const file = path.join(vendorRoot(), 'engine', 'skills', id.endsWith('.md') ? id : id + '.md');
+  const file = path.join(process.env.OM_ENGINE_ROOT || path.join(vendorRoot(),'engine'), 'skills', id.endsWith('.md') ? id : id + '.md');
   if (!exists(file)) return { ok: false, error: 'skill not found', skillId };
   const body = fs.readFileSync(file, 'utf8');
   const name = (body.match(/^#\s+(.+)$/m) || [, id])[1].trim();
@@ -692,6 +695,10 @@ function invokeRegistryTool(toolName, inputs = {}) {
         ...process.env,
         PYTHONUTF8: '1',
         PYTHONNOUSERSITE: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
+        OPENMONTAGE_PROJECTS_ROOT: process.env.OM_PROJECTS_ROOT || path.join(probe.engineRoot,'projects'),
+        OPENMONTAGE_PROJECTS_DIR: process.env.OM_PROJECTS_ROOT || path.join(probe.engineRoot,'projects'),
+        OM_ENGINE_ROOT: probe.engineRoot,
         OPENMONTAGE_FFMPEG_EXECUTABLE: probe.tools.ffmpeg?.path || '',
         OPENMONTAGE_FFPROBE_EXECUTABLE: probe.tools.ffprobe?.path || '',
         OPENMONTAGE_HYPERFRAMES_CLI: probe.tools.hyperframesCli?.path || '',

@@ -1,3 +1,4 @@
+import {dataPath} from '../../packages/runtime-paths.mjs';
 import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { getKernel, peekKernel, findCodex } from '../../packages/agent/codex-kernel.mjs';
 import { spawn } from 'node:child_process';
@@ -10,7 +11,7 @@ import { getModel } from '../../packages/duoyuanx/catalog.mjs';
 const defaults = JSON.parse(
   (await readFile(new URL('./config/agent.json', import.meta.url), 'utf8')).replace(/^\uFEFF/, ''),
 );
-const runtime = fileURLToPath(new URL('../../runtime/agent/', import.meta.url));
+const runtime = process.env.ZORA_DATA_DIR ? dataPath('agent-runtime') : fileURLToPath(new URL('../../runtime/agent/', import.meta.url));
 
 // Bound the gateway reservation for every Agent round, including tool follow-ups.
 const AGENT_OUTPUT_TOKEN_LIMIT = 4096;

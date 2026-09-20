@@ -23,6 +23,6 @@ npm run desktop
 - 默认尝试 `startSidecar`（`OM_AUTO_SIDECAR=false` 可关）
 - 退出时只停**本壳拉起**的子进程；复用的外部服务不杀
 
-## 打包（后续）
+## Windows 首次打包
 
-尚未接 `electron-builder`；先验证开窗与起停即可。
+已接入 `electron-builder`，在根目录运行 `npm run desktop:package`，输出内置 OpenMontage 的 Windows x64 NSIS 测试安装包和独立程序目录。安装版使用独立用户数据目录，不带入开发机密钥、会话与素材；自动初始化并启动剪辑引擎，退出时等待引擎停止。构建步骤与验证见 [桌面打包说明](../../docs/DESKTOP-PACKAGING.md)及 [OpenMontage 内置说明](../../docs/OPENMONTAGE-BUNDLE.md)。

@@ -4,6 +4,27 @@
 
 ## 本次本地提交范围与后续操作
 
+### OpenMontage 内置安装包（本次本地提交）
+
+- 安装包内嵌压缩数据检查通过（`outputs/openmontage-installer-integrity.txt`，Everything is Ok）；NSIS 附加数据产生尾部警告，未执行正式安装向导。签名实测为 `NotSigned`。
+- 最终安装包已生成：687,603,093 字节（约 655.7 MiB），SHA-256 `42139b628aa71f0636862ed8f2b9c45af5c8777333cbd71c4a82603724f1a204`；成功产物索引 `outputs/latest-desktop-package.json` 已更新。`release/安装说明.txt` 给出正确用户数据路径及能力范围。
+
+- 当前构建默认携带 OpenMontage 的实际引擎源码、Python 及依赖、HyperFrames/Chromium 和 Remotion 合成依赖；复用 Zora 的 Node、Codex 与 FFmpeg。已将外部引擎链接解析为实际文件，没有改动 `D:\ui` 下的引擎工作副本，也没有复制账号数据、个人项目或 `.env`。
+- 引擎来源提交 `0416fb7c5b9a7b07154b1f88c717c23fc5aba95c`，包含本机工作副本修改（包括未提交的 `services/studio_api/local_tools.py`）；`bundle-files.json` 记录 28,712 个随包文件的校验，`engineDigest` 为 `d6e25abdd63bc87f0bcbf359fb1aa83d32a81383658a452a8e44e42715fc3f1c`。
+- 安装版用户目录由 `app.getPath('userData')` 决定，应用名实测为 `Zora`，默认对应 `%APPDATA%\Zora`；此前文档的 `zora-agent` 目录名已更正。`openmontage/projects`、`config`、`state`、`cache` 独立保存；引擎工作副本按内容摘要分版本，升级保留项目和配置，不自动清理旧版本。
+- 新增源码/依赖白名单打包、清单与来源记录，Python 路径不依赖开发机；两类项目环境变量指向同一用户项目目录。安装版自动启动引擎并检查健康状态；退出等待引擎停止，不遗留本次启动的后台。
+- 全套 **304 项测试通过，0 失败**（`outputs/openmontage-packaging-regression.txt`）。最终独立程序的两次启动、存储恢复、OpenMontage 自动启动及双后台退出检查通过，报告 `outputs/package-smoke-1789899815657/result.json`。
+- 最终程序内真实 Studio API 成功合成两段测试色块视频，产物约 1.23 秒；注册表 `video_trimmer` 成功裁剪并写出视频，报告 `outputs/openmontage-smoke-1789900011621/result.json`。发现 123 个注册工具，但这不是 123 个工具全部执行通过；GPU/模型权重/外部 API 功能仍有各自依赖，未做付费任务。
+- 构建目录：`outputs/desktop-package-2026-09-20T10-04-39-460Z/`；安装包名 `Zora-0.1.0-win-x64-openmontage-setup.exe`。构建与验收说明见 [OpenMontage 内置](docs/OPENMONTAGE-BUNDLE.md)。未签名，未在另一台干净电脑安装验收；本轮源码、测试及文档已纳入本次本地提交，不推送远程。
+
+### 首次 Windows x64 打包（659ada6 之后，纳入本次提交）
+
+- 已生成 0.1.0 NSIS 测试安装包：`outputs/desktop-package-2026-09-20T09-47-43-015Z/release/Zora-0.1.0-win-x64-setup.exe`，338,765,874 字节，SHA-256 `44d8f954507b96fd8203ba82e7c0ee33188d645e7f9dae2661db11502ef5b3e9`。`outputs/latest-desktop-package.json` 记录成功产物位置。
+- 新增 `npm run desktop:package`，使用白名单暂存、锁定生产依赖和包内 Electron/Node/Codex/FFmpeg；不包含个人密钥、会话、素材或开发工具。应用文件保持可由包内 Node 直接读取，未使用 ASAR；未配置代码签名，仍为默认 Electron 图标。
+- 安装版使用 Electron 用户数据目录下的独立数据、工作区与浏览器存储；首次选择回环端口并持久化，支持单实例，退出时停止自己启动的后台。原开发目录数据不会自动迁移，需重新登录。开发模式现有数据路径保持原样，后台默认仅监听 127.0.0.1。
+- 全套 **302 项测试通过，0 失败**（`outputs/packaging-regression.txt`）；随后启动相关 3 项复验通过。独立打包程序两次启动、稳定端口和本地存储、接口、包内 Codex 真正初始化握手、视频探测、无个人配置、退出后台停止均通过，证据 `outputs/package-smoke-1789897923934/`。安装包内嵌 7z 数据检查通过；7-Zip 对 NSIS 附加数据报告尾部警告，不能把它表述为完整安装向导验收。
+- OpenMontage 开发引擎是外部目录链接，首包不包含该引擎及 Python 运行时，不自动启动该 sidecar。首包未在另一台无开发环境电脑验收，未操作真实登录、付款或媒体生成；没有安装到当前用户的正式目录，没有上传或提交本轮打包修改。说明见 [Windows 打包](docs/DESKTOP-PACKAGING.md)。
+
 ### 当前本地快照（2026-09-20）
 
 - 本次在唯一工作目录 `D:\zora`、分支 `codex/fix-internal-error` 汇总自 `776b7ee` 之后的源码、测试与文档，创建中文本地提交；不推送远程。提交号以 `git log -1 --oneline` 为准。
@@ -215,7 +236,7 @@ Set-Location D:\zora
 3. 提权桌面、锁屏、通用拖拽及任意快捷键不在当前已实现能力内。截图要求目标窗口处于前台且未最小化，模型必须支持图片输入。
 4. 云端媒体持久化、按本地 UUID 找回任务、幂等、提供商查询差异仍有缺口；回执丢失不应盲目重提。
 5. 模型流请求在成功接受时按现有方法扣费；流中断退款、并发预占等生产计费机制尚未完善。
-6. 正式打包、签名和无开发环境电脑上的完整独立安装验收未完成。
+6. 已生成首次 Windows x64 测试安装包并完成本机独立程序验收；正式签名、正式安装升级迁移及另一台无开发环境电脑的完整验收未完成，见本文开头。
 
 ## 6. 数据、密钥与同步规则
 

@@ -1,3 +1,4 @@
+import {dataPath} from '../../packages/runtime-paths.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -48,4 +49,4 @@ export function createCloudMediaTasks({directory,fetchImpl=fetch,gateway=CLOUD_A
   },
  };
 }
-export const cloudMediaTasks=createCloudMediaTasks({directory:path.join(fileURLToPath(new URL('../../',import.meta.url)),'data','cloud-generation-tasks')});
+export const cloudMediaTasks=createCloudMediaTasks({directory:dataPath('cloud-generation-tasks')});

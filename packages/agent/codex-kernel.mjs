@@ -1,3 +1,4 @@
+import {dataPath,workspacePath} from '../runtime-paths.mjs';
 import { rpcError } from './codex-errors.mjs';
 import { desktopToolContent } from './desktop-tool-content.mjs';
 import { disabledTools } from './tool-preferences.mjs';
@@ -42,8 +43,8 @@ export function findCodex({ projectRoot = root, env = process.env } = {}) {
 export class CodexKernel {
   constructor({
     bin = findCodex(),
-    home = path.join(root, 'data', 'codex-home'),
-    cwd = path.join(root, 'workspace'),
+    home = dataPath('codex-home'),
+    cwd = workspacePath(),
     base,
     key,
     model = 'gpt-5.5',
