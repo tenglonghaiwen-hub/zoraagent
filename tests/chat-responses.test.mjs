@@ -4,6 +4,25 @@ import {toChat,chatJson,chatStream} from '../apps/cloudflare-worker/src/chat-res
 import {agentResponses} from '../apps/cloudflare-worker/src/agent-responses.mjs';
 import {proxyChat,proxyGeneration} from '../apps/cloudflare-worker/src/proxy.mjs';
 import {publishModelCapability} from '../packages/contracts/model-capability.mjs';
+import {toClaude,claudeJson} from '../apps/cloudflare-worker/src/claude-responses.mjs';
+
+test('client tool search round trips through both bridges and exposes discovered tools',async()=>{
+ const search={type:'tool_search',execution:'client',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}};
+ for(const convert of [toChat,toClaude]){
+  const first=convert({model:'gpt-5.5',input:'hi',tools:[search]});
+  const alias=[...first.names.keys()][0];
+  const result=claudeJson({type:'message',content:[{type:'tool_use',id:'search-1',name:alias,input:{query:'files'}}]},first.names).output[0];
+  assert.equal(result.type,'tool_search_call');assert.equal(result.execution,'client');assert.deepEqual(result.arguments,{query:'files'});
+  const discovered={type:'namespace',name:'files',tools:[{type:'function',name:'read',parameters:{type:'object'}}]};
+  const next=convert({model:'gpt-5.5',tools:[search,discovered],input:[{role:'user',content:'find files'},result,{type:'tool_search_output',call_id:'search-1',execution:'client',status:'completed',tools:[discovered]}]});
+  assert.equal(next.names.size,2);assert.ok([...next.names.values()].some(x=>x.name==='read'&&x.namespace==='files'));
+  assert.throws(()=>convert({input:'x',tools:[{...search,execution:'server'}]}),/服务端工具搜索/);
+ }
+ const {request,names}=toChat({model:'gpt-5.5',input:'hi',tools:[search]});
+ const data={choices:[{delta:{tool_calls:[{index:0,id:'s',function:{name:request.tools[0].function.name,arguments:'{"query":"files"}'}}]},finish_reason:'tool_calls'}]};
+ const stream=await new Response(chatStream(new Response('data: '+JSON.stringify(data)+'\n\ndata: [DONE]\n\n').body,names)).text();
+ assert.match(stream,/tool_search_call/);assert.match(stream,/"execution":"client"/);
+});
 
 test('legacy chat and media proxy send the configured protocol and preserve cancellation',async()=>{
  const original=globalThis.fetch;const env={CUSTOM_API_KEY:'test',CUSTOM_BASE_URL:'https://example.com/v1'};

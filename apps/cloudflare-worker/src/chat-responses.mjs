@@ -1,7 +1,9 @@
 import {toClaude,claudeJson,claudeStream} from './claude-responses.mjs';
 // Reuse the tested namespace/custom-tool mapping without exposing raw reasoning.
 export function toChat(body){
- const {request:c,names}=toClaude(body);
+ let converted;
+ try {converted=toClaude(body);} catch(error) {error.message=error.message.replaceAll('Claude','Chat Completions');throw error;}
+ const {request:c,names}=converted;
  const part=p=>p.type==='text'?{type:'text',text:p.text}:p.type==='image'?{type:'image_url',image_url:{url:p.source.type==='base64'?`data:${p.source.media_type};base64,${p.source.data}`:p.source.url}}:(()=>{throw Error('Chat Completions 不支持此内容');})();
  const messages=[];
  if(c.system?.length)messages.push({role:'system',content:c.system.map(p=>p.text).join('\n')});

@@ -1,3 +1,4 @@
+import {startCloudRelay,CLOUD_ORIGIN} from './cloud-network-relay.mjs';
 import updaterPackage from 'electron-updater';
 import {createUpdateChannel} from './updates.mjs';
 import {readNetwork,saveNetwork,applyNetwork} from './network-settings.mjs';
@@ -28,6 +29,7 @@ const DESKTOP_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..');
 
 const children = [];
+let cloudRelay;
 let mainWindow = null;
 let startedServer = false;
 let startedSidecar = false;
@@ -223,6 +225,7 @@ function createWindow(port) {
 }
 
 async function stopChildren() {
+  cloudRelay?.close();
   // Only stop processes we started this session
   for (const child of children) {
     if (!child.killed && child.exitCode == null) {
@@ -253,7 +256,7 @@ let mediaStartup={ok:false,message:'本地媒体尚未启动'};
 async function boot() {
   let originPort;
   const network=readNetwork(app.getPath('userData'));applyNetwork(network,process.env);
-  if(network.mode!=='environment')await session.defaultSession.setProxy(network.mode==='direct'?{mode:'direct'}:{mode:'fixed_servers',proxyRules:network.proxy,proxyBypassRules:'<local>;127.0.0.1;localhost;[::1]'});
+  if(network.mode!=='environment')await session.defaultSession.setProxy(network.mode==='system'?{mode:'system'}:network.mode==='direct'?{mode:'direct'}:{mode:'fixed_servers',proxyRules:network.proxy,proxyBypassRules:'<local>;127.0.0.1;localhost;[::1]'});
   if(app.isPackaged){
     configurePackagedRuntime(REPO_ROOT,app.getPath('userData'));
     process.env.PORT=String(await packagedPort(app.getPath('userData')));
@@ -265,6 +268,7 @@ async function boot() {
   }else loadEnvFile(path.join(REPO_ROOT, '.env'));
   const port = Number(process.env.PORT || 4317);
 
+  if(network.mode!=='environment'){cloudRelay=await startCloudRelay((url,options)=>session.defaultSession.fetch(url,options));process.env.ZORA_CLOUD_RELAY=cloudRelay.url;}
   const server = await ensureAppServer(port);
   createWindow(originPort||port);
   if(process.env.ZORA_OM_INIT_ERROR)mediaStartup={ok:false,message:process.env.ZORA_OM_INIT_ERROR};
@@ -290,6 +294,16 @@ app.whenReady().then(() => {
   ipcMain.handle('zora:network',async(event,value)=>{
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('来源无效');
     return value?saveNetwork(app.getPath('userData'),value):readNetwork(app.getPath('userData'));
+  });
+  ipcMain.handle('zora:network-test',async event=>{
+    if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('来源无效');
+    try {
+      const response=await fetch((cloudRelay?.url||CLOUD_ORIGIN)+'/api/models',{signal:AbortSignal.timeout(15000)});
+      const data=await response.json();
+      if(!response.ok)throw Error(typeof data.error==='string'?data.error:`HTTP ${response.status}`);
+      if(!Array.isArray(data.models))throw Error('模型目录格式无效');
+      return {ok:true,message:'当前后台云服务连接正常。若刚修改设置，请重启后再检测。'};
+    }catch(error){return {ok:false,message:'后台网络检测失败：'+String(error.message).slice(0,300)};}
   });
   ipcMain.handle('zora:choose-voice',async event=>{
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('来源无效');

@@ -17,12 +17,15 @@ export function toClaude(body) {
  if (body.previous_response_id) throw invalid('Claude 需要完整会话历史，不支持 previous_response_id');
  const names = new Map(), tools = [], system = [], messages = [];
  function addTools(items, namespace) {
-  for (const tool of items || []) {
+  for (let tool of items || []) {
    // OpenAI-hosted search cannot execute on Messages. Zora supplies browser_search/read
    // as ordinary local tools; retain those instead of inventing a paid hosted tool.
    if (tool.type === 'web_search' || tool.type === 'web_search_preview') continue;
    if (tool.type === 'namespace') {addTools(tool.tools, tool.name); continue;}
-   if (!['function','custom'].includes(tool.type)) throw invalid('Claude 暂不支持此工具类型：' + tool.type);
+   if (tool.type === 'tool_search' && tool.execution !== 'client') throw invalid('暂不支持服务端工具搜索');
+   if (!['function','custom','tool_search'].includes(tool.type)) throw invalid('Claude 暂不支持此工具类型：' + tool.type);
+   if (tool.type === 'tool_search') tool = {...tool,name:'tool_search'};
+   if ([...names.values()].some(s=>s.name===tool.name&&s.namespace===namespace&&s.type===tool.type)) continue;
    const alias = 'tool_' + tools.length;
    names.set(alias, {name:tool.name,namespace,type:tool.type});
    tools.push({name:alias,description:(namespace ? namespace+'.' : '')+tool.name+'\n'+(tool.description || ''),
@@ -30,6 +33,9 @@ export function toClaude(body) {
   }
  }
  addTools(body.tools);
+ for (const item of Array.isArray(body.input)?body.input:[]) {
+  if (item.type === 'tool_search_output' && item.execution === 'client') addTools(item.tools);
+ }
  const aliasFor = item => {
   for (const [alias, spec] of names) if (spec.name === item.name && spec.namespace === item.namespace) return alias;
   throw invalid('Claude 会话中的工具已不可用：' + item.name);
@@ -42,7 +48,13 @@ export function toClaude(body) {
  if (body.instructions) system.push({type:'text',text:body.instructions});
  for (const item of typeof body.input === 'string' ? [{role:'user',content:body.input}] : body.input || []) {
   if (item.type === 'reasoning') continue; // Provider-specific encrypted state is not portable.
-  if (item.type === 'function_call' || item.type === 'custom_tool_call') {
+  if (item.type === 'tool_search_call') {
+   if (item.execution !== 'client' || !item.call_id) throw invalid('工具搜索调用缺少本机执行标识');
+   push('assistant',[{type:'tool_use',id:item.call_id,name:aliasFor({name:'tool_search'}),input:item.arguments}]);
+  } else if (item.type === 'tool_search_output') {
+   if (item.execution !== 'client' || !item.call_id) throw invalid('工具搜索结果缺少本机执行标识');
+   push('user',[{type:'tool_result',tool_use_id:item.call_id,content:content(JSON.stringify(item.tools))}]);
+  } else if (item.type === 'function_call' || item.type === 'custom_tool_call') {
    let input;
    try { input = item.type === 'custom_tool_call' ? {input:item.input} : JSON.parse(item.arguments); }
    catch { throw invalid('工具调用参数不是有效 JSON：' + item.name); }
@@ -72,6 +84,7 @@ function outputItem(block, names, itemId = id('item_')) {
  const spec = names.get(block.name);
  if (!spec) throw Error('Claude 返回了未知工具：' + block.name);
  const common = {id:itemId,call_id:block.id,name:spec.name,...spec.namespace ? {namespace:spec.namespace} : {},status:'completed'};
+ if (spec.type === 'tool_search') return {id:itemId,call_id:block.id,status:'completed',type:'tool_search_call',execution:'client',arguments:block.input};
  if (spec.type === 'custom') {
   if (typeof block.input?.input !== 'string') throw Error('Claude 返回的自定义工具参数无效');
   return {...common,type:'custom_tool_call',input:block.input.input};

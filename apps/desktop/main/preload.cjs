@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('zoraDesktop', {
   mediaStartup: retry => ipcRenderer.invoke('zora:media-startup', Boolean(retry)),
   chooseVoice: () => ipcRenderer.invoke('zora:choose-voice'),
   network: value => ipcRenderer.invoke('zora:network', value),
+  networkTest: () => ipcRenderer.invoke('zora:network-test'),
   installVCRuntime: () => ipcRenderer.invoke('zora:install-vcredist'),
   platform: process.platform,
   shell: 'electron',
