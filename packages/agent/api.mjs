@@ -3,9 +3,13 @@
  */
 
 const ALLOWED = [
+  { method: 'POST', pattern: /^\/api\/h3\/(preview|tasks)$/ },
+  { method: 'GET', pattern: /^\/api\/h3\/tasks\/[a-zA-Z0-9_-]{16,100}$/ },
   { method: 'GET', pattern: /^\/api\/local-runtime$/ },
   { method: 'POST', pattern: /^\/api\/local-runtime\/(propose|workflows)$/ },
   { method: 'GET', pattern: /^\/api\/models$/ },
+  { method: 'POST', pattern: /^\/api\/seedance\/assets\/prepare$/ },
+  { method: 'GET', pattern: /^\/api\/seedance\/assets\/[a-zA-Z0-9_-]{16,100}$/ },
   { method: 'GET', pattern: /^\/api\/agent\/status$/ },
   { method: 'GET', pattern: /^\/api\/agent\/tools$/ },
   { method: 'GET', pattern: /^\/api\/duoyuanx\/status$/ },
@@ -19,6 +23,10 @@ const ALLOWED = [
   { method: 'GET', pattern: /^\/api\/rh\/tasks\/[^/]+$/ },
   { method: 'GET', pattern: /^\/api\/om\/status$/ },
   { method: 'GET', pattern: /^\/api\/om\/tools$/ },
+  { method: 'GET', pattern: /^\/api\/om\/tools\/[a-z0-9_]+$/ },
+  { method: 'GET', pattern: /^\/api\/om\/pipelines(?:\/[a-z0-9-]+)?$/ },
+  { method: 'POST', pattern: /^\/api\/om\/pipelines\/prepare$/ },
+  { method: 'POST', pattern: /^\/api\/om\/media\/import$/ },
   { method: 'GET', pattern: /^\/api\/om\/skills$/ },
   { method: 'GET', pattern: /^\/api\/om\/skills\/.+$/ },
   { method: 'GET', pattern: /^\/api\/om\/projects$/ },
@@ -41,7 +49,8 @@ export function isAllowedAgentApi(method, path) {
   const p = String(path || '');
   if (!p.startsWith('/api/')) return false;
   if(m==='POST'&&p.startsWith('/api/duoyuanx/'))return false;
-  return ALLOWED.some((rule) => rule.method === m && rule.pattern.test(p));
+  const target=m==='GET'&&/^\/api\/om\/(tools|skills)\?/.test(p)?p.split('?')[0]:p;
+  return ALLOWED.some((rule) => rule.method === m && rule.pattern.test(target));
 }
 
 export function createLocalApiCaller({ port, host = '127.0.0.1' }) {

@@ -4,7 +4,7 @@ import net from 'node:net';
 import {randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 
-export function configurePackagedRuntime(root,userData,env=process.env){
+export function configurePackagedRuntime(root,userData,env=process.env,{link=fs.linkSync}={}){
   const manifest=JSON.parse(fs.readFileSync(path.join(root,'runtime/runtime-manifest.json'),'utf8'));
   env.ZORA_DATA_DIR=path.join(userData,'data');
   env.ZORA_WORKSPACE_ROOT=path.join(userData,'workspace');
@@ -15,7 +15,8 @@ export function configurePackagedRuntime(root,userData,env=process.env){
   env.OM_AUTO_SIDECAR='false';
   env.OM_VENDOR_ROOT=path.join(root,'vendor/openmontage');
   const bundleFile=path.join(env.OM_VENDOR_ROOT,'bundle.json');
-  if(fs.existsSync(bundleFile)){
+  delete env.ZORA_OM_INIT_ERROR;
+  try { if(fs.existsSync(bundleFile)){
     const bundle=JSON.parse(fs.readFileSync(bundleFile,'utf8'));
     if(!/^[a-f0-9]{64}$/.test(bundle.engineDigest))throw Error('OpenMontage 包清单无效');
     const omData=path.join(userData,'openmontage');
@@ -33,10 +34,16 @@ export function configurePackagedRuntime(root,userData,env=process.env){
         if(copied.error||copied.status>=8)throw Error('OpenMontage 首次初始化失败：'+(copied.error?.message||copied.stdout));
       }else fs.cpSync(engineSource,temporary,{recursive:true,filter:source=>path.relative(engineSource,source)!=='config.yaml'});
       // Same-profile hard link keeps the config file stable across versioned engines.
-      fs.linkSync(configFile,path.join(temporary,'config.yaml'));
+      try{link(configFile,path.join(temporary,'config.yaml'));}
+      catch(error){if(!['EPERM','EACCES','ENOTSUP','EXDEV','ENOSYS'].includes(error.code))throw error;fs.copyFileSync(configFile,path.join(temporary,'config.yaml'));fs.writeFileSync(path.join(temporary,'.zora-config-copy'),'1');}
       fs.writeFileSync(path.join(temporary,'.zora-bundle-ready.json'),JSON.stringify({engineDigest:bundle.engineDigest}));
       fs.renameSync(temporary,engine);
     }
+    const pointer=path.join(omData,'last-engine.json');
+    if(fs.existsSync(pointer)){const previous=JSON.parse(fs.readFileSync(pointer,'utf8')).digest;if(/^[a-f0-9]{64}$/.test(previous)&&previous!==bundle.engineDigest){const old=path.join(omData,'engines',previous);if(fs.existsSync(path.join(old,'.zora-config-copy')))fs.copyFileSync(path.join(old,'config.yaml'),configFile);}}
+    if(fs.existsSync(path.join(engine,'.zora-config-copy'))&&!fs.existsSync(pointer))fs.copyFileSync(configFile,path.join(engine,'config.yaml'));
+    else if(fs.existsSync(path.join(engine,'.zora-config-copy'))&&JSON.parse(fs.readFileSync(pointer,'utf8')).digest!==bundle.engineDigest)fs.copyFileSync(configFile,path.join(engine,'config.yaml'));
+    fs.writeFileSync(pointer,JSON.stringify({digest:bundle.engineDigest}));
     env.OM_ENGINE_ROOT=engine;
     env.OM_STATE_DIR=path.join(omData,'state');
     env.OM_PROJECTS_ROOT=path.join(omData,'projects');
@@ -49,6 +56,7 @@ export function configurePackagedRuntime(root,userData,env=process.env){
     // Never inherit a developer sidecar's origin or authentication into an installed build.
     for(const key of ['OM_API_BASE','OM_API_TOKEN','OM_LOCAL_TOOL_AUTHORITY','OM_API_PORT'])delete env[key];
   }
+  }catch(error){env.OM_AUTO_SIDECAR='false';env.OM_ENABLED='false';env.ZORA_OM_INIT_ERROR='本地媒体初始化失败：'+error.message;}
   env.PATH=path.dirname(path.join(root,manifest.nodeRelativePath))+path.delimiter+(env.PATH||'');
   for(const directory of [env.ZORA_DATA_DIR,env.ZORA_WORKSPACE_ROOT])fs.mkdirSync(directory,{recursive:true});
 }

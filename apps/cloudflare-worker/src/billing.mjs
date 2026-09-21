@@ -1,3 +1,4 @@
+import {resolveModelCapability,publishModelCapability} from '../../../packages/contracts/model-capability.mjs';
 /**
  * Billing and D1 database operations for Cloudflare Workers
  */
@@ -193,29 +194,7 @@ const KNOWN_MODEL_METAS = {
 
 export function attachModelCapabilities(model) {
   if (!model) return model;
-  const known = KNOWN_MODEL_METAS[model.id] || {};
-  const isVideo = model.kind === 'video';
-  const isImage = model.kind === 'image';
-  return {
-    ...model,
-    ratios: model.ratios || known.ratios || (isVideo ? ['16:9', '9:16', '1:1', '4:3', '21:9'] : ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9']),
-    resolutions: model.resolutions || known.resolutions || (isVideo ? ['720P', '1080P', '2K'] : ['1K', '2K', '4K']),
-    modes: model.modes || known.modes || (isVideo ? [
-      { id: 't2v', name: '文生视频', enabled: true },
-      { id: 'i2v', name: '首帧生视频', enabled: true },
-      { id: 'fl', name: '首尾帧', enabled: true },
-      { id: 'ref', name: '全能参考', enabled: true },
-      { id: 'v2v', name: '参考视频', enabled: true }
-    ] : [
-      { id: 't2i', name: '文生图', enabled: true },
-      { id: 'i2i', name: '图生图', enabled: true },
-      { id: 'ref', name: '全能参考', enabled: true }
-    ]),
-    durations: model.durations || known.durations || (isVideo ? [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] : undefined),
-    durationRange: model.durationRange || known.durationRange || (isVideo ? { min: 4, max: 15, step: 1 } : undefined),
-    maxCount: model.maxCount || (isImage ? 4 : 2),
-    maxConcurrency: model.maxConcurrency || 2
-  };
+  return publishModelCapability(model);
 }
 
 /**
@@ -223,7 +202,7 @@ export function attachModelCapabilities(model) {
  */
 export async function getServerModels(db) {
   const { results } = await db.prepare(
-    `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
+    `SELECT id, name, kind, enabled, provider, route, config, query_route as queryRoute,
             quota_cost_per_unit as quotaCostPerUnit,
             max_concurrency as maxConcurrency,
             vip_only as vipOnly, updated_at as updatedAt
@@ -240,7 +219,7 @@ export async function getServerModels(db) {
  */
 export async function getAllServerModels(db) {
   const { results } = await db.prepare(
-    `SELECT id, name, kind, enabled, provider, route, query_route as queryRoute,
+    `SELECT id, name, kind, enabled, provider, route, config, query_route as queryRoute,
             quota_cost_per_unit as quotaCostPerUnit,
             max_concurrency as maxConcurrency,
             vip_only as vipOnly, updated_at as updatedAt
@@ -248,7 +227,7 @@ export async function getAllServerModels(db) {
      ORDER BY kind ASC, name ASC`
   ).all();
 
-  return results || [];
+  return (results || []).map(attachModelCapabilities);
 }
 
 /**
@@ -270,26 +249,21 @@ export async function upsertServerModel(db, model) {
   let route = (model.route || '').trim();
   let queryRoute = (model.queryRoute || model.query_route || '').trim();
 
-  // Auto-fill canonical routes if not provided
-  if (!route) {
-    if (kind === 'video') {
-      route = (provider === 'minimax' || id === 'MiniMax-H3') ? '/v2/video_generation' : '/v1/videos';
-    } else if (kind === 'image') {
-      route = '/v1/images/generations';
-    } else {
-      route = '/v1/chat/completions';
-    }
-  }
+  const defaults=resolveModelCapability({id,kind,provider,capability:model.capability});
+  if(!route)route=defaults.route||'';
+  if(!queryRoute&&kind==='video')queryRoute=defaults.queryRoute||'';
 
-  if (!queryRoute && kind === 'video') {
-    queryRoute = (provider === 'minimax' || id === 'MiniMax-H3')
-      ? '/v2/query/video_generation/{task_id}'
-      : '/v1/videos/{task_id}';
-  }
-
-  await db.prepare(
-    `INSERT INTO server_models (id, name, kind, enabled, provider, route, query_route, quota_cost_per_unit, max_concurrency, vip_only, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const previous=await db.prepare('SELECT * FROM server_models WHERE id = ?').bind(id).first();
+  const previousConfig=previous?.config?JSON.parse(previous.config):null;
+  const historical=previous?null:await db.prepare('SELECT MAX(revision) AS revision FROM model_config_history WHERE model_id = ?').bind(id).first();
+  const revision=(previousConfig?.revision||historical?.revision||0)+1;
+  if(model.expectedRevision!==undefined && model.expectedRevision!==(previousConfig?.revision||0))throw Object.assign(Error('配置已被其他管理员修改，请刷新后重试'),{status:409});
+  const resolved=resolveModelCapability({id,name,kind,provider,route,queryRoute,capability:model.capability||previousConfig});
+  if(resolved.status!=='ready'&&enabled)throw Object.assign(Error(resolved.reason),{status:400});
+  const config=JSON.stringify({...resolved,revision});
+  const statement=db.prepare(
+    `INSERT INTO server_models (id, name, kind, enabled, provider, route, query_route, quota_cost_per_unit, max_concurrency, vip_only, created_at, updated_at, config)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        kind = excluded.kind,
@@ -300,10 +274,13 @@ export async function upsertServerModel(db, model) {
        quota_cost_per_unit = excluded.quota_cost_per_unit,
        max_concurrency = excluded.max_concurrency,
        vip_only = excluded.vip_only,
-       updated_at = excluded.updated_at`
-  ).bind(id, name, kind, enabled, provider, route, queryRoute || null, quotaCostPerUnit, maxConcurrency, vipOnly, now, now).run();
+       updated_at = excluded.updated_at,
+       config = excluded.config`
+  ).bind(id, name, kind, enabled, provider, route, queryRoute || null, quotaCostPerUnit, maxConcurrency, vipOnly, now, now, config);
+  const snapshot={id,name,kind,enabled,provider,route,queryRoute,quotaCostPerUnit,maxConcurrency,vipOnly,capability:JSON.parse(config)};
+  await db.batch([statement,db.prepare('INSERT INTO model_config_history (model_id,revision,snapshot_json,created_at) VALUES (?,?,?,?)').bind(id,revision,JSON.stringify(snapshot),now)]);
 
-  return { id, name, kind, enabled, provider, route, queryRoute, quotaCostPerUnit, maxConcurrency, vipOnly, updatedAt: now };
+  return publishModelCapability({...snapshot,updatedAt:now});
 }
 
 /**

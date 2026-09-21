@@ -1,6 +1,9 @@
 import { changeMembership } from './membership-lifecycle.mjs';
 import {agentResponses} from './agent-responses.mjs';
+import {prepareSeedanceAssets,querySeedanceAssets,resolveSeedanceReferences} from './seedance-assets.mjs';
+import {MODEL_TEMPLATES,publishModelCapability,resolveModelCapability,assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
 import {generateImages,readImageReceipt} from './image-generation.mjs';
+import {previewH3Task,submitH3Task,queryH3Task} from './h3-tasks.mjs';
 import {
   hashPassword,
   verifyPassword,
@@ -141,6 +144,21 @@ export default {
         return jsonResponse({ ok: true, stats }, 200, cors);
       }
 
+      if (path === '/api/admin/model-templates' && method === 'GET') {
+        await verifyAdminRequest(request,env);
+        return jsonResponse({version:1,templates:MODEL_TEMPLATES},200,cors);
+      }
+      if (path === '/api/admin/models/validate' && method === 'POST') {
+        await verifyAdminRequest(request,env);
+        const body=await request.json();
+        const capability=resolveModelCapability(body);
+        return jsonResponse({ok:capability.status==='ready',capability},capability.status==='ready'?200:400,cors);
+      }
+      if (path === '/api/admin/models/history' && method === 'GET') {
+        await verifyAdminRequest(request,env);
+        const {results}=await env.DB.prepare('SELECT revision,snapshot_json,created_at FROM model_config_history WHERE model_id = ? ORDER BY revision DESC LIMIT 20').bind(url.searchParams.get('id')).all();
+        return jsonResponse({ok:true,history:(results||[]).map(r=>({revision:r.revision,createdAt:r.created_at,model:JSON.parse(r.snapshot_json)}))},200,cors);
+      }
       if (path === '/api/admin/models' && method === 'GET') {
         await verifyAdminRequest(request, env);
         const models = await getAllServerModels(env.DB);
@@ -296,7 +314,7 @@ export default {
       // ----------------------------------------------------
       if (path === '/api/models' && method === 'GET') {
         const models = await getServerModels(env.DB);
-        return jsonResponse({ ok: true, models }, 200, cors);
+        return jsonResponse({ ok: true, capabilityVersion:1, models }, 200, {...cors,'Cache-Control':'no-store'});
       }
 
       // ----------------------------------------------------
@@ -637,7 +655,7 @@ export default {
       // ----------------------------------------------------
       if(method==='GET'&&path.startsWith('/api/generation-tasks/')){
         const {user}=await authenticateRequest(request,env);
-        const task=await readImageReceipt(env,user.id,path.split('/').pop());
+        const task=await queryH3Task(path.split('/').pop(),user,env)||await readImageReceipt(env,user.id,path.split('/').pop());
         return jsonResponse(task?{task}:{error:'未找到此账号的生成回执；旧任务未保存结果，禁止自动重提'},task?200:404,cors);
       }
       if (method === 'GET' && (path.startsWith('/v2/query/video_generation/') || path.startsWith('/api/tasks/'))) {
@@ -653,9 +671,29 @@ export default {
       // ----------------------------------------------------
       // 8. Upstream Proxy (Generate & Chat)
       // ----------------------------------------------------
+      if(['/api/h3/preview','/api/h3/tasks'].includes(path)&&method==='POST'){
+        const {user}=await authenticateRequest(request,env);
+        const body=await request.json();
+        return jsonResponse(await (path.endsWith('/preview')?previewH3Task:submitH3Task)(body,user,env),200,cors);
+      }
+      if(path.startsWith('/api/h3/tasks/')&&method==='GET'){
+        const {user}=await authenticateRequest(request,env);
+        const task=await queryH3Task(path.split('/').pop(),user,env);
+        return jsonResponse(task?{ok:true,task}:{error:'未找到此账号的 H3 任务'},task?200:404,cors);
+      }
+      if(path==='/api/seedance/assets/prepare'&&method==='POST'){
+        const {user}=await authenticateRequest(request,env);
+        return jsonResponse({ok:true,receipt:await prepareSeedanceAssets(await request.json(),user,env)},200,cors);
+      }
+      if(path.startsWith('/api/seedance/assets/')&&method==='GET'){
+        const {user}=await authenticateRequest(request,env);
+        return jsonResponse({ok:true,receipt:await querySeedanceAssets(path.split('/').pop(),user,env)},200,cors);
+      }
       if (path === '/api/generate' && method === 'POST') {
         const { user } = await authenticateRequest(request, env);
-        const body = await request.json().catch(() => ({}));
+        let body = await request.json().catch(() => ({}));
+        if(!body.assetReceiptId&&body.references?.some(r=>String(r?.contentUrl||'').startsWith('asset://')))return errorResponse('素材库引用需要当前账号的已审核回执',403,cors);
+        if(body.assetReceiptId)body=await resolveSeedanceReferences(body,user,env);
         const prompt = body.prompt;
         const model = body.model || body.modelId || 'flux-schnell';
         const kind = body.type || body.kind || (body.duration ? 'video' : 'image');
@@ -671,20 +709,23 @@ export default {
         if (env.DB) {
           try {
             modelInfo = await env.DB.prepare(
-              'SELECT id, name, kind, provider, route, query_route, enabled FROM server_models WHERE id = ?'
+              'SELECT * FROM server_models WHERE id = ?'
             ).bind(model).first();
           } catch {}
         }
 
-        if (modelInfo && (modelInfo.enabled === 0 || modelInfo.enabled === false)) {
+        if (!modelInfo || modelInfo.enabled === 0 || modelInfo.enabled === false) {
           return errorResponse(`模型 ${model} 已下架或暂停开放`, 403, cors);
         }
 
-        const provider = body.provider || modelInfo?.provider || (model === 'MiniMax-H3' ? 'minimax' : 'duoyuanx');
-        const route = body.route || modelInfo?.route || null;
-        const queryRoute = body.queryRoute || body.query_route || modelInfo?.query_route || null;
+        if(modelInfo.provider==='duoyuanx'&&resolveModelCapability(modelInfo).template==='minimax')return jsonResponse(await submitH3Task({...body,modelId:model,requestId:body.requestId||crypto.randomUUID(),h3Operation:'generate'},user,env),200,cors);
 
-        const cost = await calculateQuotaCost(env.DB, { modelId: model, kind, count: 1 });
+        const capability=assertConfiguredOperation(modelInfo,{...body,kind});
+        const provider = modelInfo.provider || (model === 'MiniMax-H3' ? 'minimax' : 'duoyuanx');
+        const route = capability.route;
+        const queryRoute = capability.queryRoute;
+
+        const cost = await calculateQuotaCost(env.DB, { modelId: model, kind, count: body.count??body.n??1 });
         const currentBalance = user.quotaBalance || 0;
 
         // Quota Pre-check
@@ -703,12 +744,13 @@ export default {
           env,
           provider,
           route,
-          queryRoute
+          queryRoute,
+          modelInfo:publishModelCapability(modelInfo)
         });
 
         // Extract result URL / Task ID
-        const outputUrl = upstreamData.data?.[0]?.url || upstreamData.url || null;
-        const taskId = upstreamData.task_id || upstreamData.taskId || `task-${Date.now()}`;
+        const outputUrl = upstreamData.data?.[0]?.url || upstreamData.video_url || upstreamData.url || null;
+        const taskId = upstreamData.id || upstreamData.task_id || upstreamData.taskId || `task-${Date.now()}`;
         const status = upstreamData.status || (outputUrl ? 'success' : 'processing');
 
         // Atomic balance deduction & log
@@ -746,17 +788,19 @@ export default {
         if (env.DB) {
           try {
             modelInfo = await env.DB.prepare(
-              'SELECT id, name, kind, provider, route, enabled FROM server_models WHERE id = ?'
+              'SELECT * FROM server_models WHERE id = ?'
             ).bind(model).first();
           } catch {}
         }
 
-        if (modelInfo && (modelInfo.enabled === 0 || modelInfo.enabled === false)) {
+        if (!modelInfo || modelInfo.enabled === 0 || modelInfo.enabled === false) {
           return errorResponse(`模型 ${model} 已下架或暂停开放`, 403, cors);
         }
 
-        const provider = body.provider || modelInfo?.provider || null;
-        const route = body.route || modelInfo?.route || null;
+        if(modelInfo.kind!=='agent')return errorResponse('此模型不是文字模型',400,cors);
+        const capability=assertConfiguredOperation(modelInfo,body);
+        const provider = modelInfo.provider || 'duoyuanx';
+        const route = capability.route;
 
         const cost = await calculateQuotaCost(env.DB, { modelId: model, kind: 'agent', count: 1 });
         const currentBalance = user.quotaBalance || 0;

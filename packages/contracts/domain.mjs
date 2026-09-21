@@ -3,6 +3,7 @@ import {validateRouteSelection} from '../duoyuanx/route-capabilities.mjs';
 
 function allowedDurations(model) {
   if (!model) return [];
+  if (model.capability?.durations?.length) return model.capability.durations;
   if (model.fixedSeconds != null) return [model.fixedSeconds];
   if (Array.isArray(model.durations) && model.durations.length) return model.durations;
   const range = model.durationRange;
@@ -18,16 +19,16 @@ function allowedDurations(model) {
  * Validate a creation draft against the live catalog.
  * @param {object} input
  */
-export function validateDraft(input = {}) {
+export function validateDraft(input = {}, resolveModel = getModel) {
   const modelId = String(input.modelId || '');
-  const model = getModel(modelId);
+  const model = resolveModel(modelId);
   if (!model || model.enabled === false) {
     return { ok: false, error: '模型不可用或不存在' };
   }
   const prompt = String(input.prompt || '').trim();
   if (!prompt) return { ok: false, error: '请填写创作需求' };
   const references=input.references??[];
-  if(!Array.isArray(references)||references.length>(model.family==='minimax'?15:6))return {ok:false,error:'参考素材数量超出模型限制'};
+  if(!Array.isArray(references)||references.length>(['minimax','minimax-openai'].includes(model.family)?15:6))return {ok:false,error:'参考素材数量超出模型限制'};
   const assetReference=r=>model.family==='seedance'&&/^asset:\/\/[A-Za-z0-9_-]+$/.test(r.contentUrl)&&/^(image|video|audio)\//.test(r.type||'');
   if(references.some(r=>!r||typeof r.contentUrl!=='string'||!(/^(https?:\/\/|data:(image\/(png|jpeg|webp)|video\/mp4|audio\/(mpeg|wav));base64,)/.test(r.contentUrl)||assetReference(r))))return {ok:false,error:'参考素材格式无效'};
 
@@ -96,7 +97,7 @@ export function validateDraft(input = {}) {
     videoMode,
     ...(input.operation!==undefined?{operation:input.operation}:{}),
     ...(input.apiRoute!==undefined?{apiRoute:input.apiRoute}:{}),
-    ...(model.family==='minimax'?{videoMode:routeSelection.mode,operation:routeSelection.selected.operation,apiRoute:routeSelection.selected.apiRoute,route:routeSelection.selected.apiRoute,queryRoute:routeSelection.queryRoute}:{}),
+    ...(['minimax','minimax-openai'].includes(model.family)?{videoMode:routeSelection.mode,operation:routeSelection.selected.operation,apiRoute:routeSelection.selected.apiRoute,route:routeSelection.selected.apiRoute,queryRoute:routeSelection.queryRoute}:{}),
     createdAt: new Date().toISOString(),
     paused: false,
   };

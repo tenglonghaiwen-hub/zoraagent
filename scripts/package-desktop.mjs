@@ -5,6 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
 import {bundleOpenMontage} from './bundle-openmontage.mjs';
+import {VC_REDIST} from '../packages/prerequisites.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const require=createRequire(path.join(root,'apps/desktop/package.json'));
@@ -23,7 +24,7 @@ function copy(relative,target=relative){
 }
 const files=execFileSync('git',['ls-files','--cached','--others','--exclude-standard','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
 for(const file of new Set(files)){
-  if(/^(apps\/(client|server)\/|apps\/desktop\/main\/|packages\/|skills\/)/.test(file)||file==='scripts/windows-desktop.ps1'||/^vendor\/openmontage\/(tool-catalog|skill-catalog)\.json$/.test(file)){
+  if(/^(apps\/(client|server)\/|apps\/desktop\/main\/|packages\/|skills\/)/.test(file)||['scripts/windows-desktop.ps1','scripts/validate-pptx.mjs'].includes(file)||/^vendor\/openmontage\/(tool-catalog|skill-catalog)\.json$/.test(file)){
     if(/(^|\/)(\.env[^/]*|node_modules|outputs)(\/|$)|\.(dpapi|db|log)$|\.local\./i.test(file))throw Error('不允许的打包文件：'+file);
     copy(file);
   }
@@ -51,6 +52,8 @@ function copyTree(relative,target=relative){
   }
 }
 copyTree('runtime/codex');
+if(createHash('sha256').update(fs.readFileSync(path.join(root,VC_REDIST.file))).digest('hex')!==VC_REDIST.sha256)throw Error('Microsoft C++ 运行库安装程序校验失败');
+copy(VC_REDIST.file);
 copyTree('vendor/openmontage/runtime/ffmpeg','runtime/ffmpeg');
 bundleOpenMontage({root,stage});
 for(const [rel,hash] of [[manifest.nodeRelativePath,manifest.nodeSha256],[manifest.codexRelativePath,manifest.codexSha256]]){
@@ -62,7 +65,8 @@ const npm=path.join(path.dirname(node),'node_modules/npm/bin/npm-cli.js');
 execFileSync(node,[npm,'ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund'],{cwd:stage,stdio:'inherit',windowsHide:true});
 }
 if(process.argv.includes('--stage-only')){console.log(JSON.stringify({stage,output}));process.exit(0);}
-const artifacts=await build({targets:Platform.WINDOWS.createTarget(['nsis'],Arch.x64),projectDir:stage,config:{
+if(process.argv.includes('--reuse-unpacked')&&!suppliedStage)throw Error('--reuse-unpacked 需要显式指定本项目的 --from-stage');
+const artifacts=await build({publish:'never',targets:Platform.WINDOWS.createTarget(['nsis'],Arch.x64),projectDir:stage,prepackaged:process.argv.includes('--reuse-unpacked')?path.join(output,'release/win-unpacked'):undefined,config:{
   appId:'com.zora.agent',productName:'Zora',asar:false,npmRebuild:false,compression:'normal',
   electronVersion:require('electron/package.json').version,
   electronDist:path.join(root,'apps/desktop/node_modules/electron/dist'),
@@ -71,7 +75,7 @@ const artifacts=await build({targets:Platform.WINDOWS.createTarget(['nsis'],Arch
   extraResources:[{from:path.join(stage,'runtime'),to:'app/runtime'},{from:path.join(stage,'vendor/openmontage'),to:'app/vendor/openmontage'}],
   win:{target:['nsis'],signAndEditExecutable:false,artifactName:'Zora-${version}-win-x64-openmontage-setup.${ext}'},
   nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false,runAfterFinish:false,createDesktopShortcut:true},
-  publish:null
+  publish:{provider:'github',owner:'tenglonghaiwen-hub',repo:'zoraagent',releaseType:'release'}
 }});
 const hashes=artifacts.filter(file=>fs.statSync(file).isFile()).map(file=>({file:path.basename(file),bytes:fs.statSync(file).size,sha256:createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
 fs.writeFileSync(path.join(output,'SHA256SUMS.json'),JSON.stringify(hashes,null,2));

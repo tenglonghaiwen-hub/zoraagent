@@ -1,5 +1,7 @@
 # 造境 Zora
 
+Windows 0.1.1 新电脑准备、运行库安装与兼容修复见 [新电脑使用说明](docs/NEW-PC-READINESS.md)，更新维护见 [桌面更新通道](docs/DESKTOP-UPDATES.md)。
+
 Zora 是面向本地创作与多阶段任务的 Windows 桌面客户端。它以**包内开源 Codex 0.154.0 的 app-server** 为 Agent 执行内核，将对话、素材、文件、图像与视频生成、OpenMontage 工具和部分桌面操作连接到同一工作流程。
 
 Zora 自行启动包内 Codex 进程，不依赖电脑其他目录的 Codex 安装或桌面会话服务。模型推理仍依赖所配置的上游 API。
@@ -193,6 +195,7 @@ Codex 原生沙箱与 Docker 工具执行是不同路径，Docker 就绪不代�
 ## 进一步阅读
 
 - [文档索引](docs/README.md)
+- [模型能力配置与自动路由方案（本地实现及发布步骤）](docs/MODEL-CAPABILITY-PLAN.md)
 - [文件交付与 PPTX 检查](docs/FILE-DELIVERY.md)
 - [项目约定](AGENTS.md)
 - [包内运行时](docs/bundled-runtime.md)

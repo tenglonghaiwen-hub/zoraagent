@@ -10,6 +10,9 @@
  *   - custom: Custom OneAPI / NewAPI / Relay
  */
 import { getSystemConfig } from './billing.mjs';
+import {packGenerateRequest} from '../../../packages/duoyuanx/generation-adapters.mjs';
+import {safeRoute} from '../../../packages/contracts/model-capability.mjs';
+import {toClaude} from './claude-responses.mjs';
 
 const PROVIDER_DEFAULTS = {
   minimax: {
@@ -131,7 +134,7 @@ function buildMiniMaxContent(body) {
 /**
  * Proxy video or image generation to upstream provider
  */
-export async function proxyGeneration({ body, env, provider = null, route = null, queryRoute = null }) {
+export async function proxyGeneration({ body, env, provider = null, route = null, queryRoute = null, modelInfo=null }) {
   const modelId = body.model || body.modelId || 'flux-schnell';
   
   // Auto-detect provider if not explicitly given
@@ -166,7 +169,10 @@ export async function proxyGeneration({ body, env, provider = null, route = null
       targetRoute = '/v1/images/generations';
     }
   }
-  const endpoint = `${baseUrl}${targetRoute.startsWith('/') ? targetRoute : '/' + targetRoute}`;
+  safeRoute(targetRoute);
+  let packed;
+  if(modelInfo&&targetProvider!=='minimax')packed=packGenerateRequest({...body,modelId,count:body.count??1},modelInfo);
+  const endpoint = `${baseUrl.replace(/\/v1$/,'')}${packed?.path||targetRoute}`;
 
   // 1. MiniMax Official Protocol
   if (targetProvider === 'minimax') {
@@ -207,13 +213,20 @@ export async function proxyGeneration({ body, env, provider = null, route = null
   }
 
   // 2. Duoyuanx / OpenAI / SiliconFlow / Custom Protocol
+  let requestBody=JSON.stringify(packed?.body||body);
+  const requestHeaders={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  if(packed?.contentType==='multipart'){
+    const form=new FormData();
+    for(const [key,value] of Object.entries(packed.fields))for(const item of Array.isArray(value)?value:[value]){
+      if(key===packed.fileField){const match=/^data:([^;]+);base64,(.+)$/.exec(item);if(!match)throw Object.assign(Error('此模板的文件参考需要内嵌素材'),{status:400});form.append(key,new Blob([Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0))],{type:match[1]}),'reference');}
+      else form.append(key,String(item));
+    }
+    requestBody=form;delete requestHeaders['Content-Type'];
+  }
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
+    headers: requestHeaders,
+    body: requestBody
   });
 
   const data = await upstreamRes.json().catch(() => ({}));
@@ -224,9 +237,10 @@ export async function proxyGeneration({ body, env, provider = null, route = null
     );
   }
 
+  if(modelInfo?.family==='minimax-openai'&&(!data.id||typeof data.id!=='string'))throw Object.assign(Error('MiniMax 未返回网关任务 id，提交结果未知，请勿重复提交'),{status:502});
   return {
     ...data,
-    route: targetRoute
+    route: packed?.path||targetRoute
   };
 }
 
@@ -251,10 +265,11 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', queryRoute 
     }
   }
 
+  safeRoute(targetQueryRoute.replace('{taskId}','{task_id}'),{query:true});
   const queryPath = targetQueryRoute
     .replace('{task_id}', encodeURIComponent(taskId))
     .replace('{taskId}', encodeURIComponent(taskId));
-  const endpoint = `${baseUrl}${queryPath.startsWith('/') ? queryPath : '/' + queryPath}`;
+  const endpoint = `${baseUrl.replace(/\/v1$/,'')}${queryPath}`;
 
   const upstreamRes = await fetch(endpoint, {
     method: 'GET',
@@ -291,7 +306,9 @@ export async function proxyQueryTask({ taskId, provider = 'minimax', queryRoute 
     ok: true,
     taskId,
     status: data.status || 'processing',
-    url: data.url || data.output_url || (data.data && data.data[0]?.url) || null,
+    url: data.video_url || data.metadata?.url || data.url || data.output_url || (data.data && data.data[0]?.url) || null,
+    progress: data.progress,
+    error: data.error?.message || data.error,
     provider: normProvider,
     route: targetQueryRoute,
     upstream: data
@@ -361,7 +378,8 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
   }
 
   const targetRoute = route || '/v1/chat/completions';
-  const endpoint = `${baseUrl}${targetRoute.startsWith('/') ? targetRoute : '/' + targetRoute}`;
+  if(!['/v1/chat/completions','/v1/responses','/v1/messages'].includes(targetRoute))throw Object.assign(Error('不支持的文字协议路由'),{status:400});
+  const endpoint = `${baseUrl.replace(/\/v1$/,'')}${targetRoute}`;
   let messages = Array.isArray(body.messages)
     ? [...body.messages]
     : [{ role: 'user', content: String(body.message || '') }];
@@ -374,18 +392,21 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
     messages.unshift({ role: 'system', content: systemIdentityRule });
   }
 
-  const payload = {
+  let payload = {
     model: modelId,
     messages,
     stream: false,
     ...(body.temperature !== undefined ? { temperature: body.temperature } : {})
   };
 
+  if(targetRoute==='/v1/responses')payload={model:modelId,input:messages,stream:false,...(body.temperature!==undefined?{temperature:body.temperature}:{})};
+  if(targetRoute==='/v1/messages')payload=toClaude({model:modelId,input:messages,stream:false}).request;
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
+      ,...(targetRoute==='/v1/messages'?{'anthropic-version':'2023-06-01'}:{})
     },
     body: JSON.stringify(payload)
   });
@@ -398,7 +419,8 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
     );
   }
 
-  let reply = data.choices?.[0]?.message?.content || '(无回复)';
+  let reply = targetRoute==='/v1/responses'?data.output?.flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''):targetRoute==='/v1/messages'?data.content?.filter(x=>x.type==='text').map(x=>x.text).join(''):data.choices?.[0]?.message?.content;
+  if(!reply)throw Object.assign(Error('上游未返回可显示的文字内容'),{status:502});
   reply = sanitizeAgentReply(userQuery, reply);
 
   return {
@@ -487,4 +509,3 @@ export async function testProviderConnectivity({ provider, apiKey = null, baseUr
     };
   }
 }
-

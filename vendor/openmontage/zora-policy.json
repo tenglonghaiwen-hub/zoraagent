@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "mode": "local-media-tools",
+  "independentAgent": false,
+  "gpuRental": false,
+  "modelConfiguration": false,
+  "remoteModelGeneration": false,
+  "allowedTools": [
+    "audio_energy", "audio_mixer", "audio_probe", "auto_reframe", "color_grade",
+    "composition_validator", "direct_clip_search", "edit_plan", "export_bundle",
+    "frame_sampler", "hyperframes_compose", "material_ledger", "piper_tts",
+    "remotion_caption_burn", "scene_detect", "silence_cutter", "subtitle_gen",
+    "transcriber", "video_compose", "video_stitch", "video_trimmer"
+  ],
+  "allowedSkills": [
+    "core/color-grading", "core/ffmpeg", "core/hyperframes", "core/remotion",
+    "core/subtitle-sync", "core/whisperx", "creative/video-editing",
+    "creative/video-stitching", "creative/scene-detect-usage", "creative/sound-design",
+    "creative/typography", "creative/storytelling", "meta/checkpoint-protocol", "meta/reviewer"
+  ]
+}

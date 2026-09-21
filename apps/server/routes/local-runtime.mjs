@@ -2,6 +2,7 @@ import { AGENT_TOOL_DEFS } from '../../../packages/agent/tools.mjs';
 import { MAIN_AGENT_TOOL_DEFS } from '../../../packages/agent/media-subagents.mjs';
 import { disabledTools, setToolEnabled } from '../../../packages/agent/tool-preferences.mjs';
 import { peekKernel } from '../../../packages/agent/codex-kernel.mjs';
+import {approvalModes,readDeviceApprovalMode,saveDeviceApprovalMode} from '../../../packages/agent/approval-policy.mjs';
 
 /**
  * Handle /api/local-runtime/* routes.
@@ -50,12 +51,8 @@ export async function handleLocalRuntimeRoutes(req, res, url, { sendJson, readJs
   // Approval mode
   if (url.pathname === '/api/local-runtime/codex/approval-mode') {
     const kernel = peekKernel();
-    if (!kernel) {
-      sendJson(res, 503, { error: 'Codex 尚未初始化' });
-      return true;
-    }
     if (req.method === 'GET') {
-      sendJson(res, 200, { mode: kernel.getApprovalMode() });
+      sendJson(res, 200, { mode: kernel?.getApprovalMode() || readDeviceApprovalMode() });
       return true;
     }
     if (req.method === 'POST') {
@@ -64,7 +61,10 @@ export async function handleLocalRuntimeRoutes(req, res, url, { sendJson, readJs
         return true;
       }
       const body = await readJson(req);
-      sendJson(res, 200, kernel.setApprovalMode(body.mode));
+      if(!Object.hasOwn(approvalModes,body.mode)){sendJson(res,400,{error:'审批模式无效'});return true;}
+      saveDeviceApprovalMode(body.mode);
+      kernel?.loaded.clear();
+      sendJson(res, 200, {mode:body.mode,effective:'next-task'});
       return true;
     }
   }
@@ -79,6 +79,7 @@ export async function handleLocalRuntimeRoutes(req, res, url, { sendJson, readJs
   // Interrupt running task
   if (req.method === 'POST' && url.pathname === '/api/local-runtime/codex/interrupt') {
     const body = await readJson(req);
+    runtime().cancelConversation?.(body.conversationId);
     sendJson(res, 200, await peekKernel()?.interrupt(body.conversationId));
     return true;
   }
@@ -121,11 +122,11 @@ export async function handleLocalRuntimeRoutes(req, res, url, { sendJson, readJs
       sendJson(res, 200, peekKernel().decide(action[1], action[2], await readJson(req)));
       return true;
     }
-    if (!['approve', 'deny', 'delete'].includes(action[2])) {
+    if (!['approve', 'deny', 'delete', 'cancel'].includes(action[2])) {
       sendJson(res, 400, { error: '此记录不支持该操作' });
       return true;
     }
-    const result = action[2] === 'delete'
+    const result = action[2] === 'cancel' ? runtime().cancel(action[1]) : action[2] === 'delete'
       ? runtime().deleteRecord(action[1])
       : action[2] === 'approve'
         ? await runtime().approve(action[1])

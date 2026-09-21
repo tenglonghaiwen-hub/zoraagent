@@ -1,8 +1,113 @@
+## 2026-09-21 无 Docker 本机脚本授权（本地未提交）
+
+- `exec` 新增 `runtime: node/python`，`command` 为完整脚本，通过 stdin 交给包内运行程序，固定工作目录；旧 shell 命令保持 Docker 语义，不暗中改用宿主 shell。
+- 新增会话内授权弹窗：完整脚本、工作目录、30 秒上限及当前用户权限说明；允许本次、拒绝、稍后处理。关闭不是批准，未提供整会话脚本免审。
+- 逐步工作流继续复用一次性审批账本；拒绝不执行，中断不自动重放，运行程序或超时配置变化需重新申请。
+- 限制输出为 64 KiB，保留失败日志，手动中止/超时请求终止进程树；对话停止也中止关联本机脚本。环境不透传 API 密钥；这不是文件或网络沙箱，脚本仍拥有当前用户权限。
+- 本机 Node 和包内 Python 实际执行、文件回传、审批拒绝、超时、子进程停止已验证；`scripts/verify-native-approval.mjs` 使用 Chromium + 真实本机 HTTP 验证弹窗、稍后处理、批准、中止与会话隔离。
+- 未重新打包，现有 0.1.1 安装包不包含此轮修改；未提交或推送。源码运行需重启后台并重新加载客户端。
+
 # 造境 Zora 开发交接
 
-更新时间：2026-09-20。本文件以当前代码和已取得的验证结果为准，替代旧交接中的版本号、测试数量及“全面完成”表述。
+### 2026-09-21 新电脑阻塞项修复与 0.1.1（本地未提交）
+
+- OM 初始化/启动失败不再阻断主界面，独立浏览器与桌面桥失败也隔离；设置显示媒体启动状态并可重试。硬链接不支持时复制配置，跨引擎版本保留用户修改。
+- 持久端口冲突时更换后台监听端口，用 Electron 协议转发保持旧浏览器 origin，保留 localStorage/IndexedDB。真实 Electron 验证会话和 Blob 原素材、POST 与 Range；并用最终 payload 模拟端口占用+坏 OM 引擎，普通界面与更新入口均可加载，outputs/port-origin-smoke.json、device-boot-smoke.json。
+- 补入 PPTX 校验脚本、绝对调用路径及 PptxGenJS/ExcelJS/docx/pdf-lib 固定版本。源码、stage、最终 payload 实际生成并检查四种文档，outputs/document-*-smoke.txt；未宣称 Office/WPS 视觉验收。无 Docker 的 native exec 改为明确失败，提示使用可用的原生命令工具，不再未执行却报告成功。
+- 设置新增转录模型检查/下载进度/重试与 CPU 加载验证，音色选择并复制到用户数据目录；Tiny 已真实下载并验证，测试缓存留在 outputs，不随包分发。修复进度析构迟到消息覆盖 ready 的问题。
+- 增加环境变量/直连/指定 HTTP(S) 代理设置，保存后重启生效；Node 后台使用 NODE_USE_ENV_PROXY，Agent 显式继承代理变量，回环直连。真实本地代理验证通过，outputs/network-proxy-smoke.txt。
+- DLL 静态检查发现语音依赖 MSVCP140/140_1；附入微软签名有效的 VC++ x64 14.44.35211 官方安装程序，固定 SHA256，用户点击并确认后打开安装向导，未在本机执行安装。Python 探测改为真实 import，不能以模块文件存在冒充可用。
+- 最终全量 348/348、Chromium 设置交互通过，outputs/portability-final-regression.txt、device-setup-final-ui.txt。版本升为 0.1.1，包含更新通道；安装包已完成：outputs/desktop-package-2026-09-21T11-25-17-890Z/release/Zora-0.1.1-win-x64-openmontage-setup.exe，894429890 字节，SHA256 8ba19d7e87b8a14edb0a1d66984cc4a09ae55327fdb2d002cb1f2351dbd8b912。latest.yml、blockmap 与包内更新源已生成，发布只读检查通过（outputs/portability-release-check.txt）；安装包签名状态 NotSigned。
+- 未发布 GitHub、未提交 Git、未签名、未真实异机/跨版本安装、未用真实账号执行收费任务。旧包、素材、会话和测试中间文件均保留。说明 docs/NEW-PC-READINESS.md。
+
+### 2026-09-21 稳定版更新通道（源码补齐，未发布）
+
+- 安装版设置增加软件更新：检查、下载进度、显式确认退出并安装；网页/开发模式禁用。electron-updater 固定 6.6.2，禁止自动下载、退出自动安装、预发行和降级，安装前清理应用拥有的后台。
+- 打包配置写入现有 GitHub 仓库稳定通道，构建 publish:never；新增 scripts/publish-desktop-release.mjs 校验版本、安装包大小与 SHA512，仅显式 --publish 创建草稿，需中文发布说明。
+- 更新状态专项 4/4，全量 343/343 通过，outputs/desktop-updates-regression.txt；未执行真实跨版本覆盖安装。旧包无更新模块，必须完整重打并手动安装引导版本；未上传 Release、未改变线上或当前运行程序。详见 docs/DESKTOP-UPDATES.md。
+
+更新时间：2026-09-21。本文件以当前代码和已取得的验证结果为准，替代旧交接中的版本号、测试数量及“全面完成”表述。
 
 ## 本次本地提交范围与后续操作
+
+### 2026-09-21 包内语音运行库补齐
+
+- 包内 Python 新增独立 media-site，安装 faster-whisper 1.2.1、Piper 1.8.0、CTranslate2、ONNX Runtime、PyAV 等依赖。speech-requirements.lock 固定版本和 wheel SHA256，scripts/install-om-speech.ps1 用于首次准备；不修改用户系统 Python。
+- Piper 从包内 Python API 调用，避免 pip 启动器写死开发机路径；修复嵌入式 Python 不自动包含辅助脚本目录的问题。打包时保留 media-site 搜索路径、辅助脚本和许可证，并增加语音运行库导入预检。
+- 本机状态接口实际返回 fasterWhisper=true、piper=true；WhisperX 说话人分离仍未安装，不影响基础转录。配音仍需要音色文件；安装包不包含测试模型或音色权重。
+- 使用 outputs 下单独下载的测试音色和 Base 模型：包内 Piper 实际生成中文 WAV，faster-whisper 在 CPU 上返回文字与时间戳。转录有同音字误差，不宣称识别准确率保证。scripts/verify-bundled-speech.mjs 可验证隔离目录中的程序调用；全量回归 339/339 通过，outputs/om-speech-regression.txt。
+- 已生成安装包 outputs/desktop-package-2026-09-21T10-10-47-618Z/release/Zora-0.1.0-win-x64-openmontage-setup.exe，858942725 字节，SHA256：2e90e6634ca3e175184a62b4f54877da24cc6664bf0058fdd2669230fc447e4c。使用较快压缩级别 1；完整记录 outputs/om-speech-package-delivery.txt。
+- 暂存目录及最终 win-unpacked/resources/app 中的包内 Python 均完成中文配音和 CPU 转录验证，不借用开发目录依赖。最终运行目录中 OM sidecar 能启动，但健康返回 degraded，不声称全部可选能力 ready。记录 outputs/om-speech-relocated-check.txt、outputs/om-speech-final-payload-check.txt、outputs/om-speech-sidecar-check.txt。
+- 同轮按用户截图把转录模型原生下拉框改为自定义菜单，统一背景、圆角、选中态，支持方向键、Esc、点击外部关闭。Chromium 保存恢复与键盘验证通过；安装包内 JS/CSS 已与源文件核对一致。
+- 构建脚本并行计算运行库文件哈希；新增受本项目 outputs 路径约束的 --reuse-unpacked，用于修改已验证应用目录后重新封装。未提交 Git，未发布云端，未自动替用户安装。
+
+### 2026-09-21 OM 本地媒体设置与用户自带素材服务密钥（本地未提交）
+
+- 设置新增“本地媒体能力”面板：4 类能力开关、默认转录模型、Piper 音色路径、素材来源、真实依赖检查及管线说明。配置持久化，后续工具调用执行限制；不取消在途任务，不自动下载安装。
+- 用户追加要求允许自己申请并填入 Pexels 等密钥，已接 Pexels/Unsplash；Windows DPAPI 按当前账户加密，本机同源接口，只返回是否配置。按所选检索来源注入对应子进程，Agent 和云端不接收明文。其他生成模型密钥与 OM GPU/独立大模型策略不变。
+- 新增 om-preferences.mjs、om-credentials.mjs、依赖探测脚本及素材兼容 hooks；打包脚本纳入辅助文件。Pexels 更新视频检索路径，Unsplash 下载事件上报，保留素材来源、作者和许可。
+- 本机依赖实际检测：FFmpeg/FFprobe/Python/requests 存在；faster-whisper/WhisperX/Piper 缺失，页面显示缺项。没有真实服务密钥，未验证线上素材检索或音色推理，未付费或注册。
+- 全量 339/339 通过；Chromium 验证实际本地 HTTP、测试密钥加密保存/重载/清除、无明文回显和桌面/窄窗口布局。记录 outputs/om-settings-regression.txt、outputs/om-settings-ui.txt。文档 docs/OPENMONTAGE-PIPELINES.md。
+- 开发客户端需退出重启加载，未强制中止原进程；旧安装包未重打，无云端发布，Git 未提交。
+
+### 2026-09-21 OM 按用户意图选择管线，媒体生成复用已配置 API（本地未提交）
+
+- Zora 主 Agent 判断是否使用 OM，选择管线并建立项目；需要新媒体时通过 delegate_media_task 调用 Zora 已配置 API，query_generation_task 查询真实结果，再导入项目进行本地后期。普通问答和单独生成不强制走 OM，付费步骤保留授权约束。
+- 新增 9 条管线及工具参数查询、项目准备、媒体副本导入工具。当前为 Zora Agent 编排，非 OM 独立大模型执行器；计划落盘不代表管线已经执行。
+- 新增 vendor/openmontage/zora-policy.json，限制 21 个本地工具和 14 个技能；Node/Python 双入口拒绝 OM 模型生成和 GPU 管理能力，Python 只加载允许的目标模块，子进程过滤主服务密钥。保留本地剪辑、字幕、ASR、Piper，以及 Zora 主 Agent 和媒体 API；未批量删除上游源码。
+- 修复 OM 工具/技能列表带查询参数时被 Agent API 白名单误拒绝的问题；打包脚本包含新策略文件。
+- 全量回归 336/336，通过真实本地 FFmpeg 裁剪和输出探测，原视频字节不变。上游生成下载使用模拟回执，没有真实付费生成；未逐项实测全部 ASR/TTS 依赖。记录 outputs/om-pipelines-regression.txt、outputs/om-pipelines-tests.txt。
+- 文档 docs/OPENMONTAGE-PIPELINES.md。当前源码修改需重启开发客户端加载，旧安装包未重打；未强制中断现有进程，Git 未提交。本次 OM 改动不需要云端部署。
+
+### 2026-09-21 多元 MiniMax 官方格式全部创建操作与 Agent 选择（已部署）
+
+- 新增 H3-Context-IR `/v2/h3_context_ir`、视频再生成 `/v2/video_regeneration`；原视频生成 `/v2/video_generation` 和查询 `/v2/query/video_generation/{task_id}` 统一使用异步持久回执。供应商 duoyuanx，模板 minimax。
+- Agent 按指令选择工具，已接入视频专业 Agent 工具白名单与提示规则。增强只返回文本；再生成支持本账号已完成源任务或一个源视频+提示词，输出固定 2K。查询不重提。
+- 新增后台独立价格输入，用户明确确认增强/再生成均为每次 5 积分，后续可分别修改。线上 MiniMax-H3 能力 revision=5，原常规生成价格 100 积分未更改。实际提交核对 expectedCost，旧报价不能按新价静默扣费。
+- 复用 generation_receipts，无新增迁移；保存源任务归属、原供应商地址、路由、输出类型。事务预留积分、失败仅退回一次，超时/缺失 task_id 保持 unknown，不自动重复扣费或重提。旧任务无持久回执时使用源视频方式。客户端桥接保留真实回执 id。
+- 专项与全量回归 331/331 通过；后台价格字段 Chromium 页面验证通过；Worker dry-run 通过。验收记录 outputs/h3-operations-*.txt；HTTP 分发到客户端结果使用隔离 SQLite 和模拟上游，未真实付费生成。
+- 已部署 Worker 版本 77f6944c-1157-4d4c-a5ff-11cfdbfb41b8；health/admin 200，线上目录显示两项已启用且均 5 积分。生产配置备份 outputs/h3-model-before.json，更新结果 outputs/h3-price-update-result.json，线上验证 outputs/h3-operations-smoke.json。
+- 本机现有开发客户端监听 14317（不是 4317），进程尚未加载新工具；未强制终止，退出客户端并重新启动后生效。一次启动检查遇到已有端口占用，未影响原进程。
+- 说明 docs/MINIMAX-OFFICIAL-OPERATIONS.md。OpenAI v1 Remix 仍不在本次范围；旧安装包未重打，Git 未提交。本段覆盖下方“Remix 未接入”的旧说明，但只指多元官方格式 v2。
+
+
+### 2026-09-21 MiniMax 多元 OpenAI 格式已补充并部署
+
+- 新模板 `minimax-openai` 对应 duoyuanx 的 `/v1/videos` 与 `/v1/videos/{task_id}`；现有 `minimax` 仍是 v2 content 格式。没有自动修改线上模型、收费或权限配置。
+- `packages/duoyuanx/minimax-openai.mjs` 独立组装 prompt/duration/size/images/metadata，ratio 放 metadata 中。1–2 张图片选择多模态参考时明确拒绝，防止网关自动识别为首尾帧；图生模式强制 adaptive。
+- 云端查询补充 video_url、metadata.url、progress 和错误解析，生成优先读取网关 id；新模板缺失 id 返回结果未知。
+- 修复后台切换供应商后因模型 ID 是 MiniMax-H3 将 v1 覆盖成 v2 的问题。选择新模板自动设置正确路由、清空旧 JSON。
+- 321 项测试全部通过；模板选择/供应商切换/保存的 Chromium 页面验收通过；Worker dry-run 通过。记录见 `outputs/minimax-openai-*.txt`。
+- 已发布版本 `e57e9df0-a069-4587-86a5-b64da7c0ecbe`；health/admin 200，线上页面已包含新模板和 v1 查询路径。未付费生成、未提交 Git、未重打客户端包。
+- 用户需刷新后台选择新模板并保存；旧客户端需更新以使用新预览与 Agent 校验。操作说明 `docs/MINIMAX-OPENAI.md`。Remix 仍未接入，通用媒体持久回执仍待后续补齐。
+
+### 2026-09-21 生产后端已部署（覆盖下方旧的未部署状态）
+
+- 用户明确要求部署后，已执行远程 `model-capabilities.sql`、`seedance-assets.sql` 两份增量迁移，未重置数据库。
+- Worker `zora-api` 发布成功，版本 `a39aa91f-ecd4-4896-9ab4-9856f07153d1`，地址 `https://zora-api.tenglonghaiwen.workers.dev`。
+- 线上验证：health 200；模型目录 capabilityVersion=1，7 个启用模型均 ready；后台页面包含素材库开关；未登录请求素材查询返回 401。没有提交付费生成或真实上传。
+- 模型配置备份 `outputs/model-config-before-deploy-20260921.json`；发布前版本列表 `outputs/deployments-before-20260921.txt`；发布输出 `outputs/deploy-20260921.txt`；验证结果 `outputs/deploy-smoke-20260921.json`。
+- 当前线上没有 Seedance 模型，未自动新增或启用；素材库接口已部署但需后台配置对应模型与工作流。
+- 客户端安装包尚未重新打包，Git 尚未提交。下方“未部署”仅为开发当时记录，现在后端已部署，旧客户端仍需升级才能使用新增 Agent 工具。
+
+### 2026-09-21 续作：Seedance 素材库（本地未提交、未部署）
+
+- 上一节方案的素材库缺口已补入源码：创建组 → 内嵌文件签名上传/公网 HTTPS 导入 → GetAsset 审核查询 → 全部 Active 后生成使用 asset 引用。
+- 新模块 `apps/cloudflare-worker/src/seedance-assets.mjs`，新增账号隔离的 `seedance_asset_receipts`。增量迁移 `apps/cloudflare-worker/seedance-assets.sql`，新库 schema 已包含；发布前两份增量 SQL 都要执行。
+- 后台模型表单新增启用选项，只允许 `duoyuanx + seedance`；能力配置为 `assetWorkflow: seedance-library-v1`，默认未启用。Agent 新增 `prepare_seedance_assets`、`query_seedance_assets`，生成工具新增 `assetReceiptId`。
+- 准备操作分步骤返回，不挂长连接。持久状态和并发租约防重复创建；响应丢失/重启后未知状态不盲目补发。审核查询失败保留原 taskId，原素材更换后拒绝复用旧素材。直接 asset 引用必须通过所属账号已审核回执解析。
+- 专项测试使用真实隔离 SQLite 和模拟上游，覆盖持久恢复、并发、签名上传凭据隔离与失败状态；没有真实上传、付费生成、生产迁移或发布。完整测试与打包结果见 `outputs/seedance-assets-regression.txt`、`outputs/seedance-assets-ui.txt`、`outputs/seedance-assets-build.txt`。
+- 后续仍需推进所有媒体家族的统一持久回执/生成路由快照；本次素材回执不是通用视频生成回执。旧安装包仍不包含当前修改。
+
+### 2026-09-21 模型能力配置与自动路由（本地未提交、未部署）
+
+- 方案与边界：`docs/MODEL-CAPABILITY-PLAN.md`。后台维护版本化协议模板、生成模式和参数限制；客户端、云端 Agent 草稿和工具使用云端目录。未知能力不自动开放。
+- 新增 `packages/contracts/model-capability.mjs`、Chat Completions → Responses 桥、后台配置历史/恢复。普通聊天按三种协议组装；生成及聊天请求不能覆盖后台供应商与路由。
+- D1 增量文件 `apps/cloudflare-worker/model-capabilities.sql` 必须在发布 Worker 前执行；新库 schema 已包含该表。未执行生产迁移，未改生产配置、未付费生成，旧安装包没有这些改动。
+- 本地回归 **312/312 通过**，`outputs/model-capability-regression.txt`；隔离 Chromium 验证模板显示、历史恢复、版本保留、保存与跨模型历史清理通过，`outputs/model-capability-ui.txt`。增加弹窗内部滚动，确保小窗口也能操作保存按钮。
+- Wrangler 4 dry-run 打包通过，记录 `outputs/model-capability-build.txt`。本地代码尚未 git commit/push。
+- 尚未实现：Seedance 素材组创建/审核至 Active 的专用工作流、所有媒体家族统一的持久回执与原始路由快照、mask/remix 等新操作。不能声称已支持供应商所有接口。当前视频云端单次一个任务；更新旧任务使用的路由前先等待它们完成。
+- 保留前一轮审批设置修复：安装端无需本地开发密钥即可读取/保存设备审批偏好；失败支持重试，详见下方记录。
 
 ### OpenMontage 内置安装包（本次本地提交）
 

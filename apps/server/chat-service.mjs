@@ -64,7 +64,12 @@ export function createChatService({
       };
     }
 
-    const models = getModels();
+    let models=getModels();
+    if(cloudAgentContext.getStore()){
+      const catalog=await callApi({method:'GET',path:'/api/models'});
+      if(!catalog?.ok||!Array.isArray(catalog.data?.models))throw Object.assign(Error('云端模型能力目录读取失败，未使用过期本地配置'),{status:503});
+      models=catalog.data.models.filter(m=>m.available!==false);
+    }
     if (!models.some((m) => m.kind === 'agent')) {
       throw Object.assign(Error('Agent 模型未开放'), { status: 400 });
     }
@@ -132,6 +137,7 @@ export function createChatService({
     const mediaModels = models
       .filter((m) => m.kind === 'video' || m.kind === 'image')
       .map((m) => ({
+        ...m,
         id: m.id,
         name: m.name,
         kind: m.kind,
@@ -272,7 +278,7 @@ export function createChatService({
         const checked = validateDraft({
           ...raw,
           duration: raw.duration == null ? undefined : raw.duration,
-        });
+        },id=>models.find(model=>model.id===id));
         if (!checked.ok) {
           // Skip invalid task drafts rather than failing the whole turn
           continue;

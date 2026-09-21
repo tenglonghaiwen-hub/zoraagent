@@ -1,6 +1,7 @@
 import {calculateQuotaCost,deductUserQuota} from './billing.mjs';
 import {proxyGeneration} from './proxy.mjs';
 import {imageRequest} from './image-request.mjs';
+import {assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
 export async function readImageReceipt(env,userId,requestId){
  const row=await env.DB.prepare('SELECT task_json FROM generation_receipts WHERE user_id = ? AND request_id = ?').bind(userId,requestId).first();
  if(!row)return null;
@@ -17,6 +18,7 @@ export async function generateImages(body,user,env,deps={}){
  if(!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId))throw Object.assign(Error('无效生成请求编号'),{status:400});
  const model=await env.DB.prepare('SELECT * FROM server_models WHERE id = ?').bind(packed.model).first();
  if(!model||!model.enabled||model.kind!=='image')throw Object.assign(Error('图片模型未开放'),{status:403});
+ assertConfiguredOperation({id:packed.model,...model},body);
  if(model.vip_only&&(!user.isVip||user.vipExpiresAt&&Number(user.vipExpiresAt)<Date.now()))throw Object.assign(Error('此模型需要 VIP'),{status:403});
  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(packed))));
  const fingerprint=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');

@@ -9,6 +9,7 @@ const skipped=name=>name==='__pycache__'||name==='.cache'||name==='direct_url.js
 
 export function bundleOpenMontage({root,stage}){
   const vendor=path.join(root,'vendor/openmontage');
+  execFileSync(path.join(vendor,'runtime/python/python.exe'),['-c','import faster_whisper, piper, onnxruntime, ctranslate2; print("Speech runtime preflight OK")'],{windowsHide:true});
   // Resolve the single explicitly configured development junction, then copy real files.
   const engine=fs.realpathSync(path.join(vendor,'engine'));
   const destination=path.join(stage,'vendor/openmontage');
@@ -35,7 +36,7 @@ export function bundleOpenMontage({root,stage}){
     const copied=spawnSync('robocopy.exe',[source,target,'/E','/MT:16','/R:1','/W:1','/NFL','/NDL','/NJH','/NJS','/NP','/XD','__pycache__','.cache','/XF','*.pyc','*.pyo','*.log','*.dpapi','direct_url.json','.env','.env.*'],{windowsHide:true,encoding:'utf8'});
     if(copied.error||copied.status>=8)throw Error('运行时复制失败：'+relative+' '+(copied.error?.message||copied.stdout));
     const python=path.join(vendor,'runtime/python/python.exe');
-    const hashScript="import sys,json,hashlib,os\nrows=[]\nfor name in json.load(sys.stdin):\n p=os.path.join(sys.argv[1],name)\n h=hashlib.sha256()\n with open(p,'rb') as f:\n  for block in iter(lambda:f.read(1048576),b''):h.update(block)\n rows.append({'file':sys.argv[2]+'/'+name,'bytes':os.path.getsize(p),'sha256':h.hexdigest()})\nprint(json.dumps(rows))";
+    const hashScript="import sys,json,hashlib,os\nfrom concurrent.futures import ThreadPoolExecutor\ndef row(name):\n p=os.path.join(sys.argv[1],name)\n h=hashlib.sha256()\n with open(p,'rb') as f:\n  for block in iter(lambda:f.read(1048576),b''):h.update(block)\n return {'file':sys.argv[2]+'/'+name,'bytes':os.path.getsize(p),'sha256':h.hexdigest()}\nwith ThreadPoolExecutor(max_workers=16) as pool: rows=list(pool.map(row,json.load(sys.stdin)))\nprint(json.dumps(rows))";
     inventory.push(...JSON.parse(execFileSync(python,['-c',hashScript,target,relative],{input:JSON.stringify(files),encoding:'utf8',maxBuffer:32*1024*1024,windowsHide:true})));
     console.log('Verified runtime:',relative);
   }
@@ -56,9 +57,9 @@ export function bundleOpenMontage({root,stage}){
   tree(path.join(engine,'remotion-composer/node_modules'),'engine/remotion-composer/node_modules');
   tree(path.join(vendor,'runtime/python'),'runtime/python');
   tree(path.join(vendor,'runtime/hyperframes'),'runtime/hyperframes');
-  for(const file of ['tool-catalog.json','skill-catalog.json','scripts/invoke-registry-tool.py'])copyFile(path.join(vendor,file),file);
+  for(const file of ['speech-requirements.lock','tool-catalog.json','skill-catalog.json','zora-policy.json','scripts/invoke-registry-tool.py','scripts/probe-local-media.py','scripts/zora_stock_hooks.py','scripts/zora_local_speech.py','scripts/prepare_transcription.py'])copyFile(path.join(vendor,file),file);
   // Embedded Python must not inherit a source checkout through its ._pth file.
-  fs.writeFileSync(path.join(destination,'runtime/python/python312._pth'),'python312.zip\n.\nimport site\n');
+  fs.writeFileSync(path.join(destination,'runtime/python/python312._pth'),'python312.zip\nmedia-site\n.\nimport site\n');
   const pythonPth=inventory.find(row=>row.file==='runtime/python/python312._pth');
   const pthBytes=fs.readFileSync(path.join(destination,pythonPth.file));
   pythonPth.bytes=pthBytes.length;pythonPth.sha256=createHash('sha256').update(pthBytes).digest('hex');

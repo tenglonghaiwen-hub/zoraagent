@@ -6,6 +6,8 @@
 
 - Studio API、工具注册表、工具实现、技能、流程定义、模板和模式文件。
 - Python 3.12.10 及当前已安装依赖。
+- 语音运行库位于 Python 的 `media-site`：faster-whisper 1.2.1、Piper 1.8.0、CTranslate2、ONNX Runtime、PyAV 等。版本及 wheel SHA256 固定在 `speech-requirements.lock`，构建前检查能否导入；缺失则打包失败。使用 `scripts/install-om-speech.ps1 -PipPython <构建机带 pip 的 Python>` 可首次准备依赖，不依赖用户安装 Python。
+- Piper 通过包内 Python API 执行，不使用写死开发机路径的 pip 启动器。安装目录换位置后仍可调用。安装包不含语音模型权重：Whisper 首次运行可能下载所选模型，Piper 仍需用户提供已有音色文件及配置。
 - HyperFrames 0.8.12、配套 Chromium headless shell、Remotion composer 与本地 npm 依赖。
 - 复用 Zora 已携带的 Node、Codex、FFmpeg 和 FFprobe，不重复放置另一套二进制。
 - OpenMontage 原始许可证、组件许可证以及 `bundle.json` / `bundle-files.json` 来源和逐文件校验清单。

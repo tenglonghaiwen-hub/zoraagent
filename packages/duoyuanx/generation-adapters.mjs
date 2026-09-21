@@ -1,4 +1,5 @@
 import {selectH3} from './h3-routing.mjs';
+import {packMinimaxOpenAI} from './minimax-openai.mjs';
 import { getModel } from './catalog.mjs';
 import {validateRouteSelection} from './route-capabilities.mjs';
 function mapExactImageSize(ratio = '1:1', resolution = '1K') {
@@ -50,6 +51,7 @@ export function packGenerateRequest(draft, model = getModel(draft.modelId)) {
 
 function packAdapterRequest(draft, model) {
   if (!model) throw new Error('模型不存在');
+  if(model.family==='minimax-openai')return packMinimaxOpenAI(draft,model);
   const route = model.route || (model.kind === 'video' ? '/v1/videos' : '/v1/images/generations');
   const refs=draft.references||[];
   const images=refs.filter(r=>r.type?.startsWith('image/')).map(r=>r.contentUrl),videos=refs.filter(r=>r.type?.startsWith('video/')).map(r=>r.contentUrl),audios=refs.filter(r=>r.type?.startsWith('audio/')).map(r=>r.contentUrl);

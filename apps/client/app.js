@@ -2301,6 +2301,7 @@ const DEFAULT_VIDEO_RESOLUTIONS = ['720P', '1080P', '2K'];
 
 function normalizeModel(m) {
   if (!m || typeof m !== 'object') return m;
+  if(m.capability?.version>1 || m.available===false)return {...m,available:false,modes:[]};
   const isVideo = m.kind === 'video';
   const isImage = m.kind === 'image';
   if (isVideo) {
@@ -2349,7 +2350,7 @@ $('#model').onchange=()=>{modelChanged();saveModelPref($('#creation-kind').value
 function wireOptionPrefSaves(){for(const id of ['video-mode','ratio','resolution','duration','concurrency','count']){const el=$('#'+id);if(!el||el.dataset.prefWired)continue;el.dataset.prefWired='1';el.addEventListener('change',()=>saveOptionPrefsForKind());}}
 wireOptionPrefSaves();
 $('#creation-kind').dataset.prevKind=$('#creation-kind').value;
-try{const response=await authFetch('/api/models');if(!response.ok)throw Error();models=((await response.json()).models||[]).map(normalizeModel);kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
+try{const response=await authFetch('/api/models');if(!response.ok)throw Error();models=((await response.json()).models||[]).map(normalizeModel).filter(m=>m.available!==false);kindChanged();}catch{toast('模型目录加载失败，请启动本地服务后重试');}
 /* legacy files.onchange replaced by incremental handler below */
 function renderTasks(){
   $('#task-count').textContent=drafts.reduce((n,d)=>n+(Number(d.count)||1),0);
@@ -3156,7 +3157,7 @@ $('#creation-kind').addEventListener('change',updateModeControls);updateModeCont
 
 // Refresh backend-owned capabilities on focus; retain only still-supported values.
 async function refreshModelCatalog(){
- try{const response=await authFetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=(data.models||[]).map(normalizeModel);window.models=models;
+ try{const response=await authFetch('/api/models',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();const before={};for(const id of ['creation-kind','model','ratio','resolution','duration','count','concurrency','video-mode'])before[id]=$('#'+id)?.value;models=(data.models||[]).map(normalizeModel).filter(m=>m.available!==false);window.models=models;
  options($('#creation-kind'),[{id:'agent',name:'Agent 模式'},{id:'video',name:'视频生成'},{id:'image',name:'图片生成'}]);
  if([...$('#creation-kind').options].some(o=>o.value===before['creation-kind']))$('#creation-kind').value=before['creation-kind'];kindChanged();if(models.some(m=>m.id===before.model&&m.kind===$('#creation-kind').value)){$('#model').value=before.model;modelChanged();}
  for(const id of ['ratio','resolution','duration','video-mode']){const el=$('#'+id);if(el&&[...el.options].some(o=>o.value===before[id]))el.value=before[id];else if(el&&!el.value&&el.options.length)el.value=el.options[0].value;}applyOptionPrefs($('#creation-kind').value);applyBackendLimits();syncPickers();updateModeControls();saveOptionPrefsForKind();$('#send-prompt').disabled=!models.length;$('#preview').disabled=!models.length;$('#preview').title=models.some(m=>m.kind!=='agent')?'校验当前视频/图片参数，并打开任务清单':'模型目录异常时仍可打开任务页；视频/图片预览需有效模型';

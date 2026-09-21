@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {runNativeScript} from './native-script.mjs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
@@ -23,6 +24,9 @@ export function createLocalRuntime({
   dockerImage = 'alpine:3.20',
   execFileImpl = runFile,
   backend = 'docker',
+  nativeNode = process.execPath,
+  nativePython = path.join(projectRoot, 'vendor/openmontage/runtime/python/python.exe'),
+  nativeTimeout = 30000,
 } = {}) {
   if (!directory || !workspaceRoot) throw Error('必须配置独立审批目录与独立运行工作区');
   const ledger = path.resolve(directory), workspace = path.resolve(workspaceRoot);
@@ -35,6 +39,7 @@ export function createLocalRuntime({
   fs.mkdirSync(ledger, { recursive: true });
   fs.mkdirSync(workspace, { recursive: true });
   const records = new Map();
+  const active = new Map();
   const persist = (record) => {
     const target = path.join(ledger, record.id + '.json'),
       tmp = target + '.' + randomUUID() + '.tmp';
@@ -93,14 +98,14 @@ export function createLocalRuntime({
   async function status() {
     checkWorkspace();
     if (backend === 'native') {
-      return { available: true, backend: 'native', workspaceRoot: workspace, network: 'none' };
+      return { available: true, backend: 'native', workspaceRoot: workspace, network: 'host', isolation: 'none', scriptRuntimes: ['node', ...(fs.existsSync(nativePython) ? ['python'] : [])] };
     }
     if (backend === 'auto') {
       const dockerOk = await probeDocker();
       if (dockerOk) {
         return { available: true, backend: 'docker', dockerImage, workspaceRoot: workspace, network: 'none' };
       }
-      return { available: true, backend: 'native', workspaceRoot: workspace, network: 'none', fallbackFromDocker: true };
+      return { available: true, backend: 'native', workspaceRoot: workspace, network: 'host', isolation: 'none', scriptRuntimes: ['node', ...(fs.existsSync(nativePython) ? ['python'] : [])], fallbackFromDocker: true };
     }
     // backend === 'docker'
     try {
@@ -121,6 +126,17 @@ export function createLocalRuntime({
         throw Error('命令长度需为 1–8000 字符');
       }
       request.command = input.command;
+      if (input.runtime !== undefined) {
+        if (!['node', 'python'].includes(input.runtime)) throw Error('脚本运行环境仅支持 node 或 python');
+        if (backend === 'docker') throw Error('当前为 Docker 专用模式，不允许本机脚本');
+        request.runtime = input.runtime;
+        request.execution = 'native';
+        request.isolation = 'none';
+        request.network = 'host';
+        request.executable = input.runtime === 'node' ? nativeNode : nativePython;
+        request.timeoutMs = nativeTimeout;
+        if (!fs.existsSync(request.executable)) throw Error('包内脚本运行程序缺失');
+      }
     } else {
       request.path = ['list', 'search'].includes(input.kind) && (input.path === undefined || input.path === '.') ? '.' : safePath(input.path);
       if (input.kind === 'write') {
@@ -158,6 +174,12 @@ export function createLocalRuntime({
     return view(next);
   }
 
+  function cancel(id) {
+    const controller = active.get(id);
+    if (!controller) throw Error('该操作当前没有可中止的本机脚本');
+    controller.abort();
+    return {id, status: 'stopping'};
+  }
   let executing = false;
   async function approve(id) {
     if (executing) throw Error('已有本地操作正在执行，请等待完成');
@@ -169,7 +191,7 @@ export function createLocalRuntime({
     }
   }
 
-  async function executeNative(request) {
+  async function executeNative(request, signal) {
     const targetPath = request.path ? path.resolve(workspace, request.path) : workspace;
     if (!inside(workspace, targetPath)) {
       throw Error('操作路径越界，禁止访问工作区外文件');
@@ -245,10 +267,8 @@ export function createLocalRuntime({
     }
 
     if (request.kind === 'exec') {
-      return {
-        stdout: '',
-        stderr: '提示：当前处于本地原生工作区模式。执行外部容器脚本需安装并启动 Docker。如需读写或管理素材，请使用文件操作。',
-      };
+      if (request.runtime) return runNativeScript(request.runtime === 'node' ? nativeNode : nativePython, request.command, {cwd: workspace, signal, timeout: nativeTimeout});
+      throw Error('当前本地工作区不执行容器脚本；请使用 Agent 原生命令工具并遵守审批，或安装并启动 Docker。脚本未执行。');
     }
 
     throw Error(`不支持的原生操作类型: ${request.kind}`);
@@ -271,10 +291,11 @@ export function createLocalRuntime({
     }
 
     checkWorkspace();
+    if (record.request.execution === 'native' && (backend === 'docker' || record.request.executable !== (record.request.runtime === 'node' ? nativeNode : nativePython) || record.request.timeoutMs !== nativeTimeout)) throw Error('运行配置已改变，请重新申请授权');
     const next = { ...record, status: 'consumed', consumedAt: new Date().toISOString() };
     persist(next);
 
-    const ready = await status();
+    const ready = record.request.execution === 'native' ? {available: true, backend: 'native'} : await status();
     if (!ready.available) {
       Object.assign(next, { status: 'blocked', error: ready.error, finishedAt: new Date().toISOString() });
       persist(next);
@@ -290,11 +311,13 @@ export function createLocalRuntime({
     }
 
     const request = record.request;
+    const controller = new AbortController();
+    if (request.execution === 'native') active.set(id, controller);
 
     // Use native execution if backend resolved to native
     if (ready.backend === 'native') {
       try {
-        const result = await executeNative(request);
+        const result = await executeNative(request, controller.signal);
         Object.assign(next, {
           status: 'completed',
           stdout: String(result.stdout || '').slice(0, MAX_OUTPUT),
@@ -304,7 +327,7 @@ export function createLocalRuntime({
         Object.assign(next, {
           status: 'failed',
           error: String(e.message || e).slice(0, 4000),
-          stdout: '',
+          stdout: String(e.stdout || '').slice(0, MAX_OUTPUT),
           stderr: String(e.stderr || '').slice(0, MAX_OUTPUT),
         });
       }
@@ -380,6 +403,7 @@ export function createLocalRuntime({
         next.artifactWarning = '操作完成，但文件清单暂不可用';
       }
     }
+    active.delete(id);
     next.finishedAt = new Date().toISOString();
     persist(next);
     return view(next);
@@ -403,6 +427,11 @@ export function createLocalRuntime({
     approve,
     deny,
     deleteRecord,
+    cancel,
+    cancelConversation(conversationId) {
+      if (!conversationId) return [];
+      return [...active.keys()].filter(id => records.get(id)?.conversationId === conversationId).map(cancel);
+    },
   };
 }
 

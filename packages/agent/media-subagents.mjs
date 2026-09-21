@@ -3,8 +3,9 @@ import { AGENT_TOOL_DEFS } from './tools.mjs';
 import { getRouteCapabilities } from '../duoyuanx/route-capabilities.mjs';
 import { buildMediaSubagentPrompt } from './prompts/media-subagent.mjs';
 
-const childNames = new Set(['list_media_models', 'preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite']);
-const blockedMain = new Set(['preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite', 'call_api']);
+const h3Names = new Set(['enhance_video_prompt','remix_video','query_h3_task']);
+const childNames = new Set(['list_media_models', 'preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite',...h3Names]);
+const blockedMain = new Set(['preview_task', 'submit_generation', 'preview_image_suite', 'submit_image_suite', 'enhance_video_prompt','remix_video','call_api']);
 
 export const MAIN_AGENT_TOOL_DEFS = [
   ...AGENT_TOOL_DEFS.filter((t) => !blockedMain.has(t.name)),
@@ -56,6 +57,7 @@ export function createMediaDelegator({
         return { ok: false, error: '此子 Agent 无权调用该工具' };
       }
       if(kind!=='image'&&name.endsWith('_image_suite'))return {ok:false,error:'视频 Agent 不能提交整套图片'};
+      if(kind!=='video'&&h3Names.has(name))return {ok:false,error:'H3 工具仅用于视频任务'};
       if (name === 'list_media_models') {
         return { models: allowedModels, count: allowedModels.length };
       }
@@ -92,7 +94,7 @@ export function createMediaDelegator({
           messageId,
           skills,
           roleInstructions,
-          tools: AGENT_TOOL_DEFS.filter((t) => childNames.has(t.name)),
+          tools: AGENT_TOOL_DEFS.filter((t) => childNames.has(t.name)&&(kind==='video'||!h3Names.has(t.name))),
           toolRunner: childRunner,
           images,
           maxRounds: 4,
