@@ -37,10 +37,8 @@ test('1. Server Models /api/models capability enrichment', async () => {
     maxConcurrency: 2
   };
   const enrichedImage = attachModelCapabilities(rawImageModel);
-  assert.ok(Array.isArray(enrichedImage.modes) && enrichedImage.modes.length > 0, 'Image model should have modes');
-  assert.ok(enrichedImage.modes.some(m => m.id === 't2i'), 'Should include text-to-image mode');
-  assert.ok(enrichedImage.modes.some(m => m.id === 'i2i'), 'Should include image-to-image mode');
-  assert.ok(enrichedImage.ratios.includes('1:1'), 'Should include 1:1 ratio');
+  assert.equal(enrichedImage.available,false,'Unknown models must not advertise unimplemented modes');
+  assert.deepEqual(enrichedImage.modes,[]);
 });
 
 test('2. Client normalizeModel and refreshModelCatalog integrity', () => {

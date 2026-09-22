@@ -1,3 +1,4 @@
+import {dataPath,workspacePath} from '../../packages/runtime-paths.mjs';
 import { loadStoredMinimaxKey } from './minimax-credentials.mjs';
 import { loadStoredAgentKey } from './agent-credentials.mjs';
 import { startCodexKernel } from './codex-agent.mjs';
@@ -71,14 +72,14 @@ const CLIENT_DIR =
   process.env.ZORA_CLIENT_DIR ||
   path.resolve(__dirname, '..', 'client') ||
   path.resolve(ROOT, 'apps', 'client');
-const WORKSPACE_ROOT = process.env.ZORA_WORKSPACE_ROOT || path.join(ROOT, 'workspace');
+const WORKSPACE_ROOT = workspacePath();
 
 // ─── Service singletons (lazy) ─────────────────────────────────────────────
 
 const callApi = createLocalApiCaller({ port: PORT });
 const handleChat = createChatService({
   callApi,
-  storageDirectory: process.env.ZORA_CHAT_STORE_DIR || path.join(ROOT, 'data', 'chat-sessions'),
+  storageDirectory: process.env.ZORA_CHAT_STORE_DIR || dataPath('chat-sessions'),
 });
 
 let localRuntime;
@@ -87,7 +88,7 @@ let generationTasks;
 
 function runtime() {
   return (localRuntime ||= createLocalRuntime({
-    directory: path.join(ROOT, 'data', 'local-approvals'),
+    directory: dataPath('local-approvals'),
     workspaceRoot: WORKSPACE_ROOT,
     dockerImage: process.env.ZORA_SANDBOX_IMAGE || 'node:24-bookworm-slim',
     backend: process.env.ZORA_RUNTIME_BACKEND || 'auto',
@@ -96,7 +97,7 @@ function runtime() {
 
 function workflows() {
   return (localWorkflows ||= createWorkflowStore({
-    directory: path.join(ROOT, 'data', 'local-workflows'),
+    directory: dataPath('local-workflows'),
     runtime: runtime(),
   }));
 }
@@ -106,7 +107,7 @@ function taskStore() {
     const base = (process.env.DUOYUANX_BASE_URL || 'https://duoyuanx.com').replace(/\/$/, '');
     const key = process.env.DUOYUANX_API_KEY || '';
     generationTasks = createGenerationTaskStore({
-      directory: process.env.ZORA_TASK_STORE_DIR || path.join(ROOT, 'data', 'generation-tasks'),
+      directory: process.env.ZORA_TASK_STORE_DIR || dataPath('generation-tasks'),
       getModel,
       base,
       key,
@@ -177,7 +178,7 @@ server.on('listening', () => {
 
 let workflowTimer;
 server.on('listening', () => {
-  if (fs.existsSync(path.join(ROOT, 'data', 'local-workflows'))) workflows();
+  if (fs.existsSync(dataPath('local-workflows'))) workflows();
   workflowTimer = setInterval(() => {
     localWorkflows?.tick().catch((e) => console.error('Workflow scheduler:', e.message));
   }, 1000);
@@ -197,7 +198,7 @@ server.on('close', () => {
 // ─── Entrypoint ─────────────────────────────────────────────────────────────
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  server.listen(PORT, () => {
+  server.listen(PORT, process.env.ZORA_SERVER_HOST || '127.0.0.1', () => {
     const configured = Boolean(process.env.DUOYUANX_API_KEY);
     const agent = agentStatus();
     console.log(`Zora server listening on http://127.0.0.1:${PORT}`);

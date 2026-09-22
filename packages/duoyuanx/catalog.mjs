@@ -784,7 +784,7 @@ export const MODELS = [
     resolutions: ['1K', '2K'],
     modes: IMAGE_MODES,
     maxConcurrency: 4,
-    maxCount: 8,
+    maxCount: 4,
   },
   {
     id: 'grok-4-2-image',

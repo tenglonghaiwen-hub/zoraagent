@@ -310,6 +310,8 @@ export function renderAdminHtml() {
       border-radius: var(--radius);
       padding: 1.75rem;
       max-width: 520px;
+      max-height: calc(100dvh - 40px);
+      overflow-y: auto;
       width: 90%;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     }
@@ -813,6 +815,21 @@ export function renderAdminHtml() {
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
+            <label for="m_template">协议模板</label>
+            <select id="m_template"><option value="">按已有模型识别</option><option value="responses">responses</option><option value="claude-messages">claude-messages</option><option value="chat-completions">chat-completions</option><option value="openai-image">openai-image</option><option value="gpt-image">gpt-image</option><option value="grok-image">grok-image</option><option value="seedream">seedream</option><option value="qwen-image">qwen-image</option><option value="gemini-image">gemini-image</option><option value="grok-video">grok-video</option><option value="veo">veo</option><option value="minimax">minimax（官方格式 v2）</option><option value="minimax-openai">minimax-openai（多元 OpenAI 格式 v1）</option><option value="omni">omni</option><option value="seedance">seedance</option></select>
+            <div id="m_h3_prices">
+              <label for="m_h3_enhance_cost">H3 提示词增强 · 每次积分</label>
+              <input id="m_h3_enhance_cost" type="number" min="0" step="1" placeholder="留空不开放">
+              <label for="m_h3_remix_cost">H3 再生成 · 每次积分</label>
+              <input id="m_h3_remix_cost" type="number" min="0" step="1" placeholder="留空不开放">
+              <p>仅用于多元 MiniMax 官方格式；0 表示用户免费。价格由管理员核定，设置后 Agent 可按指令选择操作。</p>
+            </div>
+            <label for="m_capability">能力参数（JSON，可留空使用模板默认值）</label>
+            <textarea id="m_capability" rows="5" placeholder='{"version":1,"modes":["t2i","i2i"],"ratios":["1:1","9:16"],"maxCount":4}'></textarea>
+            <p>同协议模型复用模板；素材库、蒙版和再生成需要对应能力配置。保存前校验，不执行付费调用。</p>
+            <label><input type="checkbox" id="m_asset_workflow">启用多元 Seedance 素材库工作流（需先迁移素材回执表）</label>
+            <button type="button" class="btn btn-secondary" id="m_history_load">查看历史版本</button>
+            <select id="m_history" hidden><option value="">选择要恢复到表单的版本</option></select>
             <label for="m_route">API 请求路由 (Route)</label>
             <input type="text" id="m_route" placeholder="/v2/video_generation 或 /v1/images/generations">
             <div class="form-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">MiniMax为 /v2/video_generation，通用生图为 /v1/images/generations</div>
@@ -962,6 +979,8 @@ export function renderAdminHtml() {
     function openLoginModal() { document.getElementById('loginModal').classList.add('active'); }
     function closeLoginModal() { document.getElementById('loginModal').classList.remove('active'); }
     function openModelModal(data = null) {
+      document.getElementById('m_history').hidden=true;
+      document.getElementById('m_history').innerHTML='';
       const isEdit = !!data;
       document.getElementById('modelModalTitle').textContent = isEdit ? '编辑模型配置' : '新增服务模型';
       document.getElementById('m_id').value = data ? data.id : '';
@@ -970,6 +989,13 @@ export function renderAdminHtml() {
       document.getElementById('m_kind').value = data ? data.kind : 'image';
       document.getElementById('m_cost').value = data ? data.quotaCostPerUnit : '10';
       document.getElementById('m_provider').value = data ? data.provider : 'duoyuanx';
+      document.getElementById('m_template').value=data?.capability?.template||'';
+      document.getElementById('m_capability').value=data?.capability?JSON.stringify(data.capability,null,2):'';
+      document.getElementById('m_h3_enhance_cost').value=data?.capability?.h3OperationCosts?.enhance??'';
+      document.getElementById('m_h3_remix_cost').value=data?.capability?.h3OperationCosts?.remix??'';
+      document.getElementById('m_h3_prices').hidden=data?.capability?.template!=='minimax';
+      document.getElementById('m_asset_workflow').checked=data?.capability?.assetWorkflow==='seedance-library-v1';
+      document.getElementById('modelForm').dataset.revision=String(data?.capability?.revision||0);
       document.getElementById('m_route').value = data ? (data.route || '') : '';
       document.getElementById('m_query_route').value = data ? (data.queryRoute || data.query_route || '') : '';
       document.getElementById('m_concurrency').value = data ? data.maxConcurrency : '2';
@@ -984,6 +1010,14 @@ export function renderAdminHtml() {
       const id = document.getElementById('m_id').value.trim();
       const routeInput = document.getElementById('m_route');
       const queryInput = document.getElementById('m_query_route');
+
+      const template=document.getElementById('m_template').value;
+      if(template==='minimax-openai'){
+        routeInput.value='/v1/videos';queryInput.value='/v1/videos/{task_id}';return;
+      }
+      if(template==='seedance'){
+        routeInput.value='/v1/video/generations';queryInput.value='/v1/video/generations/{task_id}';return;
+      }
 
       if (provider === 'minimax' || id === 'MiniMax-H3') {
         if (!routeInput.value || routeInput.value === '/v1/videos' || routeInput.value === '/v1/images/generations') {
@@ -1145,6 +1179,12 @@ export function renderAdminHtml() {
       }
     };
 
+    document.getElementById('m_template').onchange=()=>{document.getElementById('m_h3_prices').hidden=document.getElementById('m_template').value!=='minimax';document.getElementById('m_h3_enhance_cost').value='';document.getElementById('m_h3_remix_cost').value='';document.getElementById('m_capability').value='';const route={'minimax-openai':'/v1/videos',minimax:'/v2/video_generation',responses:'/v1/responses','claude-messages':'/v1/messages','chat-completions':'/v1/chat/completions'}[document.getElementById('m_template').value];if(route)document.getElementById('m_route').value=route;const template=document.getElementById('m_template').value;if(template==='minimax-openai'||template==='minimax'){document.getElementById('m_query_route').value=template==='minimax-openai'?'/v1/videos/{task_id}':'/v2/query/video_generation/{task_id}';document.getElementById('m_asset_workflow').checked=false;}};
+    let capabilityHistory=[];
+    document.getElementById('m_history_load').onclick=async()=>{
+      try{const response=await adminFetch('/api/admin/models/history?id='+encodeURIComponent(document.getElementById('m_id').value));const data=await response.json();if(!response.ok)throw Error(data.error||'历史读取失败');capabilityHistory=data.history||[];const select=document.getElementById('m_history');select.replaceChildren(new Option('选择要恢复到表单的版本',''),...capabilityHistory.map((h,i)=>new Option('版本 '+h.revision,i)));select.hidden=false;if(!capabilityHistory.length)showToast('暂无配置历史');}catch(e){showToast(e.message,'error');}
+    };
+    document.getElementById('m_history').onchange=e=>{if(e.target.value==='')return;const revision=document.getElementById('modelForm').dataset.revision;openModelModal(capabilityHistory[Number(e.target.value)].model);document.getElementById('modelForm').dataset.revision=revision;showToast('历史配置已载入表单，点击保存后生效');};
     // Save Model Submit
     document.getElementById('modelForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1161,6 +1201,19 @@ export function renderAdminHtml() {
         enabled: document.getElementById('m_enabled').checked ? 1 : 0
       };
       try {
+        const raw=document.getElementById('m_capability').value.trim();
+        const template=document.getElementById('m_template').value;
+        if(raw||template)model.capability={...(raw?JSON.parse(raw):{}),version:1,...(template?{template}:{})};
+        if(document.getElementById('m_asset_workflow').checked){
+          if(template!=='seedance'||model.provider!=='duoyuanx')throw new Error('素材库需要 seedance 模板与 duoyuanx 供应商');
+          model.capability.assetWorkflow='seedance-library-v1';
+        }else if(model.capability){delete model.capability.assetWorkflow;}
+        if(template==='minimax'&&model.provider==='duoyuanx'){
+          const costs={};
+          for(const key of ['enhance','remix']){const value=document.getElementById('m_h3_'+key+'_cost').value.trim();if(value!=='')costs[key]=Number(value);}
+          model.capability.h3OperationCosts=costs;
+        }else if(model.capability){delete model.capability.h3OperationCosts;}
+        model.expectedRevision=Number(document.getElementById('modelForm').dataset.revision||0);
         const res = await adminFetch('/api/admin/models', {
           method: 'POST',
           body: JSON.stringify(model)

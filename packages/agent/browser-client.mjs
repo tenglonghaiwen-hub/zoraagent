@@ -1,6 +1,7 @@
+import {bridgePath} from '../runtime-paths.mjs';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
-const descriptor=fileURLToPath(new URL('../../data/browser-bridge.json',import.meta.url));
+const descriptor=bridgePath('browser-bridge.json');
 export async function callBrowser(input,{fetchImpl=fetch,descriptorPath=descriptor}={}){
  if(!['open','search','read'].includes(input.action))return {ok:false,error:'不支持的浏览器操作'};
  try{

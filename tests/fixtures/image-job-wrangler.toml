@@ -1,0 +1,10 @@
+name = "zora-image-job-local-test"
+main = "image-job-worker.mjs"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+[[durable_objects.bindings]]
+name = "IMAGE_JOBS"
+class_name = "MockImageJob"
+[[migrations]]
+tag = "test-v1"
+new_sqlite_classes = ["MockImageJob"]

@@ -1,3 +1,4 @@
+import {membershipState,membershipAction,renderMembershipActions} from './membership-state.js?v=studio202';
 /**
  * Login page handler
  */
@@ -418,10 +419,25 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
   const customInput = document.querySelector('#recharge-custom-input');
   const customCalc = document.querySelector('#recharge-custom-calc');
 
+  function updateRechargeSelection() {
+    tierCards.forEach(card => {
+      const selected = card.classList.contains('active');
+      card.setAttribute('aria-pressed', String(selected));
+      let status = card.querySelector('.credit-selection');
+      if (!status) {
+        status = document.createElement('span');status.className = 'credit-selection';card.append(status);
+      }
+      status.textContent = selected ? '✓ 已选择' : '选择此套餐';
+    });
+  }
+  updateRechargeSelection();
+
+
   tierCards.forEach((card) => {
     card.addEventListener('click', () => {
       tierCards.forEach((c) => c.classList.remove('active'));
       card.classList.add('active');
+      updateRechargeSelection();
       if (customInput) customInput.value = '';
 
       const amount = Number(card.dataset.amount) || 10;
@@ -449,6 +465,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
 
       tierCards.forEach((c) => c.classList.remove('active'));
 
+      updateRechargeSelection();
       const baseQuota = val * 10; // 1 元 = 10 积分
       let gift = 0;
       if (val >= 200) gift = 150;
@@ -530,6 +547,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
         gift: Number(customOptions.gift) || 0,
         method: customOptions.method || 'alipay',
         membershipTier: customOptions.tier || 'monthly',
+        requestId: crypto.randomUUID(),
         membershipDays: customOptions.days != null ? customOptions.days : 30,
         concurrency: customOptions.concurrency || 2
       };
@@ -539,7 +557,10 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
       if (checkoutItemName) checkoutItemName.textContent = activeCheckout.title;
       if (checkoutPoints) {
         const periodStr = activeCheckout.membershipDays === -1 ? '终身永久' : `${activeCheckout.membershipDays}天`;
-        checkoutPoints.textContent = `赠送 ${activeCheckout.gift} 积分 · ${periodStr} VIP 特权`;
+        const action = membershipAction(user, activeCheckout.membershipTier);
+        checkoutPoints.textContent = action.kind === 'downgrade'
+          ? `到期次日生效 · ${periodStr}权益及 ${activeCheckout.gift} 赠送积分届时到账`
+          : `赠送 ${activeCheckout.gift} 积分 · ${periodStr} VIP 特权`;
       }
       const isWechat = activeCheckout.method === 'wechat';
       if (checkoutMethodName) {
@@ -653,7 +674,8 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
           const res = await upgradeMembership({
             days: activeCheckout.membershipDays,
             giftQuota: activeCheckout.gift,
-            tier: activeCheckout.membershipTier
+            tier: activeCheckout.membershipTier,
+            requestId: activeCheckout.requestId
           });
 
           // Update balances & VIP status
@@ -668,7 +690,9 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
           if (checkoutSuccessView) {
             checkoutSuccessView.hidden = false;
             if (checkoutSuccessDesc) {
-              checkoutSuccessDesc.textContent = `🎉 恭喜！已成功开通【${activeCheckout.title}】，赠送 ${activeCheckout.gift} 积分已入账，VIP 尊享特权与满血并发已全面生效！`;
+              checkoutSuccessDesc.textContent = res.scheduled
+                ? `已预约【${activeCheckout.title}】，北京时间 ${new Date(res.effectiveAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'})} 生效。现有会员有效期与权益保留，赠送积分将在新套餐生效时到账。[演示操作]`
+                : `【${activeCheckout.title}】${res.action === 'renew' ? '续费成功' : '已生效'}，赠送 ${res.giftQuota} 积分已入账。[演示操作]`;
             }
           }
 
@@ -679,9 +703,7 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
             onRechargeSuccess();
           }
 
-          setTimeout(() => {
-            closeCheckout();
-          }, 1800);
+          // Keep the confirmed effective date visible until the user closes it.
         } else {
           const totalPoints = currentRecharge.quota + currentRecharge.gift;
           const res = await topupDemoQuota(totalPoints);
@@ -741,6 +763,8 @@ export function initCheckoutSystem(onRechargeSuccess = () => {}) {
  * Synchronize VIP status across Membership view, Account center, and Header toolbar
  */
 export function updateUserVipUI(user = getUser()) {
+  user={...(getUser()||{}),...(user||{})};
+  renderMembershipActions(user);
   const isVip = Boolean(user && user.isVip);
   const vipExpiresAt = Number(user && user.vipExpiresAt) || 0;
   const now = Date.now();
@@ -786,7 +810,7 @@ export function updateUserVipUI(user = getUser()) {
       concurrencyTextEl.textContent = `${user.concurrencyLimit || 4} 任务 (满血并发)`;
     }
     if (quickActionBtn) {
-      quickActionBtn.textContent = '续费 VIP';
+      quickActionBtn.textContent = membershipState(user).rank===4?'查看会员权益':'续费 / 管理会员';
     }
   } else {
     if (statusBadgeEl) {
@@ -874,6 +898,7 @@ export function initMembershipPanel() {
   function updateSelectedTier(card) {
     tierCards.forEach((c) => c.classList.remove('active'));
     card.classList.add('active');
+    renderMembershipActions(getUser());
 
     const tier = card.dataset.tier || 'monthly';
     const days = parseInt(card.dataset.days, 10);
@@ -906,6 +931,17 @@ export function initMembershipPanel() {
     });
   });
 
+  document.querySelector('.membership-tier-grid')?.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
+    const available = [...tierCards].filter(card => !card.disabled);
+    if (!available.length) return;
+    event.preventDefault();
+    const current = available.indexOf(document.activeElement);
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1
+      : (current + (['ArrowLeft','ArrowUp'].includes(event.key) ? -1 : 1) + available.length) % available.length;
+    updateSelectedTier(available[index]);available[index].focus();
+  });
+
   // Scroll to tiers button in hero
   if (scrollTiersBtn) {
     scrollTiersBtn.addEventListener('click', () => {
@@ -919,6 +955,8 @@ export function initMembershipPanel() {
   // Trigger Checkout
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
+      const action=membershipAction(getUser(),selectedTier.tier);
+      if(action.disabled)return;
       const selectedRadio = document.querySelector('input[name="membership-payment"]:checked');
       const method = selectedRadio ? selectedRadio.value : 'alipay';
 

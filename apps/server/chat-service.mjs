@@ -5,6 +5,7 @@ import { validateDraft } from '../../packages/contracts/domain.mjs';
 import { getModels } from '../../packages/duoyuanx/catalog.mjs';
 import { runCodex, agentStatus } from './codex-agent.mjs';
 import { createToolRunner } from '../../packages/agent/tools.mjs';
+import {describeReferenceChange,REFERENCE_REVIEW_INSTRUCTION} from '../../packages/agent/reference-change.mjs';
 import { MAIN_AGENT_TOOL_DEFS, createMediaDelegator } from '../../packages/agent/media-subagents.mjs';
 import { getRouteCapabilities } from '../../packages/duoyuanx/route-capabilities.mjs';
 import { createSessionStore } from '../../packages/agent/session-store.mjs';
@@ -63,7 +64,12 @@ export function createChatService({
       };
     }
 
-    const models = getModels();
+    let models=getModels();
+    if(cloudAgentContext.getStore()){
+      const catalog=await callApi({method:'GET',path:'/api/models'});
+      if(!catalog?.ok||!Array.isArray(catalog.data?.models))throw Object.assign(Error('云端模型能力目录读取失败，未使用过期本地配置'),{status:503});
+      models=catalog.data.models.filter(m=>m.available!==false);
+    }
     if (!models.some((m) => m.kind === 'agent')) {
       throw Object.assign(Error('Agent 模型未开放'), { status: 400 });
     }
@@ -117,12 +123,13 @@ export function createChatService({
     skills = selectTaskSkills(input.message, skills);
 
     // Binary image data belongs only in the multimodal input, never in text history.
+    const referenceReview=describeReferenceChange(references,session.history);
     const user = {
       role: 'user',
       text: input.message,
-      references: references.map(({ contentUrl, ...ref }) => ({
+      references: referenceReview.current.map((ref) => ({
         ...ref,
-        hasContent: Boolean(contentUrl),
+        hasContent: true,
       })),
       skills: skills.map((s) => s.name),
     };
@@ -130,6 +137,7 @@ export function createChatService({
     const mediaModels = models
       .filter((m) => m.kind === 'video' || m.kind === 'image')
       .map((m) => ({
+        ...m,
         id: m.id,
         name: m.name,
         kind: m.kind,
@@ -145,6 +153,10 @@ export function createChatService({
       }));
 
     const promptLines = buildMainAgentPrompt();
+    promptLines.push(REFERENCE_REVIEW_INSTRUCTION,JSON.stringify({referenceChange:referenceReview.change}));
+    promptLines.push(references.length
+      ? '本轮可用参考素材已由宿主读取并附加，专业子 Agent 和生成工具共享这些原始素材。用户继续修改或确认生成时，不因本轮未重新上传就要求重传。以当前 references 清单为准，不用历史同名素材替换。'
+      : '本轮没有启用参考素材。历史中的素材名称不表示文件已丢失；需要历史素材时请提示用户在当前会话重新 @ 或开启沿用参考，不应直接要求重新上传。仅在工具明确报告原文件不可读取时说明缺失。');
     promptLines.push(
       JSON.stringify({
         skills,
@@ -211,6 +223,7 @@ export function createChatService({
         skills,
         images: imageInputs,
         context: {
+          referenceChange:referenceReview.change,
           history: [...session.history, user],
           videoAnalysis: videoAnalysis.summary,
           references: references.map(({ contentUrl, ...r }) => ({
@@ -265,7 +278,7 @@ export function createChatService({
         const checked = validateDraft({
           ...raw,
           duration: raw.duration == null ? undefined : raw.duration,
-        });
+        },id=>models.find(model=>model.id===id));
         if (!checked.ok) {
           // Skip invalid task drafts rather than failing the whole turn
           continue;
@@ -307,7 +320,7 @@ export function createChatService({
         modelId: result.model || input.modelId || status.model,
       };
 
-      session.history.push(user, { role: 'assistant', reply: answer.reply, tasks: answer.tasks });
+      session.history.push(user, { role: 'assistant', reply: answer.reply, tasks: answer.tasks, generationTasks });
       const sessionPersistenceWarning = sessionStore.save(session);
 
       return {
@@ -326,7 +339,7 @@ export function createChatService({
         ? '生成提交结果待确认，Agent 后续回复未完成；正在查询原任务，请勿重复提交。'
         : '生成任务已提交，但 Agent 后续回复未完成；请以任务状态为准。';
 
-      session.history.push(user, { role: 'assistant', reply, tasks: [] });
+      session.history.push(user, { role: 'assistant', reply, tasks: [], generationTasks });
       const sessionPersistenceWarning = sessionStore.save(session);
 
       return {

@@ -53,10 +53,11 @@ test('style.css defines luxury dark-gold styling and day mode contrast for membe
   assert.match(css, /\.membership-privileges-grid/);
   assert.match(css, /\.membership-compare-table/);
 
-  // Day theme overrides
-  assert.match(css, /html\[data-theme="day"\]\s+\.membership-hero-wrap/);
-  assert.match(css, /html\[data-theme="day"\]\s+\.membership-tier-card/);
-  assert.match(css, /html\[data-theme="day"\]\s+\.membership-compare-table/);
+  // Both themes inherit scoped membership tokens; performance mode is opaque and tinted.
+  assert.match(css, /html\[data-theme="day"\] #membership\{--member-surface:rgba/);
+  assert.match(css, /html\.low-memory-mode\[data-theme="day"\] #membership\{--member-surface:#eaf0f2/);
+  assert.match(css, /#membership \.membership-tier-card\.active\{border-color:var\(--tier-accent\)/);
+
 });
 
 test('login-handler.js implements membership initialization and VIP state sync', () => {

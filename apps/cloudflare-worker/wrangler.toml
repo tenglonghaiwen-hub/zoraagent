@@ -1,11 +1,21 @@
 name = "zora-api"
-main = "src/index.mjs"
+main = "src/worker.mjs"
 compatibility_date = "2024-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "IMAGE_JOBS"
+class_name = "ImageGenerationJob"
+
+[[migrations]]
+tag = "image-jobs-v1"
+new_sqlite_classes = ["ImageGenerationJob"]
 
 [vars]
 DUOYUANX_BASE_URL = "https://duoyuanx.com"
 ENVIRONMENT = "production"
+# Requires membership-state.sql before deployment.
+MEMBERSHIP_SCHEDULING = "true"
 
 # Cloudflare D1 关系型数据库绑定
 # 执行 wrangler d1 create zora-db 后将返回的 database_id 填入此处

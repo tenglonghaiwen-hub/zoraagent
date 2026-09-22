@@ -16,7 +16,7 @@ test('OM project read and local structured options reach sidecar',async()=>{
   assert.equal((await getProject('project-test')).ok,true);
   assert.equal((await executeTool('project-test',{tool:'transcriber',args:{language:'zh',diarize:false,attachments:[{path:'clip.mp4'}]},idempotencyKey:'same-task'})).ok,true);
   assert.equal(requests[0].url,'/api/v1/projects/project-test');
-  assert.equal(requests[1].body.instruction,'@transcriber {"language":"zh","diarize":false}');
+  assert.equal(requests[1].body.instruction,'@transcriber {"language":"zh","diarize":false,"model_size":"base"}');
   assert.equal(requests[1].body.idempotency_key,'same-task');
   assert.deepEqual(requests[1].body.attachments,[{path:'clip.mp4'}]);
  }finally{for(const k of ['OM_API_BASE','OM_API_TOKEN','OM_LOCAL_TOOL_AUTHORITY']){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}await new Promise(r=>server.close(r));}

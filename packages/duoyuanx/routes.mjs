@@ -29,6 +29,10 @@ export const DUOYUANX_ROUTE_PATTERNS = [
   'GET /mj/image/{id}',
   'POST /v1beta/models/{model}:generateContent',
   // Videos
+  'POST /v2/h3_context_ir',
+  'POST /v2/video_generation',
+  'POST /v2/video_regeneration',
+  'GET /v2/query/video_generation/{task_id}',
   'POST /v1/videos',
   'GET /v1/videos/{task_id}',
   'GET /v1/videos/{task_id}/content',

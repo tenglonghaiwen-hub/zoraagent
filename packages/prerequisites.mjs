@@ -1,0 +1,1 @@
+export const VC_REDIST={file:'runtime/prerequisites/vc_redist.x64.exe',sha256:'cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b',source:'https://aka.ms/vs/17/release/vc_redist.x64.exe'};

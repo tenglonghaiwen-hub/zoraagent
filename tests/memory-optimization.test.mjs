@@ -28,11 +28,12 @@ test('app.js implements smart backdrop pausing and history memory controls', () 
   assert.match(appJs, /updateStorageUsageDisplay/);
 });
 
-test('style.css guarantees crystal clear contrast in day mode', () => {
+test('opaque day surfaces apply only in performance mode', () => {
   const css = fs.readFileSync(path.join(ROOT, 'apps/client/style.css'), 'utf8');
-  assert.match(css, /html\[data-theme="day"\] \.studio-centered \.prompt-card/);
-  assert.match(css, /html\[data-theme="day"\] \.studio-centered \.compact-composer #prompt/);
-  assert.match(css, /html\[data-theme="day"\] \.studio-centered \.content/);
+  assert.match(css, /html\.low-memory-mode\[data-theme="day"\] \.studio-centered \.prompt-card/);
+  assert.match(css, /html\.low-memory-mode\[data-theme="day"\] \.studio-centered \.compact-composer #prompt/);
+  assert.match(css, /html\.low-memory-mode\[data-theme="day"\] \.studio-centered \.content/);
+  assert.doesNotMatch(css, /html\[data-theme="day"\] \.studio-centered \.content\s*\{\s*background:\s*#ffffff/);
 });
 
 test('app.js ensures backdrop failure flags are reset and playback resumes when low-memory mode is turned off', () => {
@@ -44,5 +45,4 @@ test('app.js ensures backdrop failure flags are reset and playback resumes when 
   assert.match(appJs, /requestAnimationFrame/);
   assert.match(appJs, /dispatchEvent\(new Event\(['"]resize['"]\)\)/);
 });
-
 

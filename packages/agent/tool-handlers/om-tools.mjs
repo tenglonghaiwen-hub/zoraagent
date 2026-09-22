@@ -6,6 +6,9 @@ export async function handleOMTool(name, args, callApi) {
   if (typeof callApi !== 'function') {
     return { error: 'API 层未就绪' };
   }
+  if(name==='om_list_pipelines')return callApi({method:'GET',path:'/api/om/pipelines'});
+  if(name==='om_get_pipeline')return callApi({method:'GET',path:'/api/om/pipelines/'+encodeURIComponent(args.pipelineId||'')});
+  if(name==='om_describe_tool')return callApi({method:'GET',path:'/api/om/tools/'+encodeURIComponent(args.tool||'')});
 
   if (name === 'om_status') {
     return callApi({ method: 'GET', path: '/api/om/status' });

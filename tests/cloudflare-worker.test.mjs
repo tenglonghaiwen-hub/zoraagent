@@ -350,6 +350,7 @@ function createMockD1() {
   }
 
   return {
+    async batch(statements) {const results=[];for(const statement of statements)results.push(await statement.run());return results;},
     prepare(query) {
       return createStatement(query);
     }
@@ -445,6 +446,9 @@ test('Cloudflare Worker - Endpoints & Ledger Integration', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts) => {
     if (typeof url === 'string' && (url.includes('api.chat-plugin.top') || url.includes('duoyuanx'))) {
+      if (url.includes('/responses')) {
+        return Response.json({output:[{type:'message',content:[{type:'output_text',text:'Hello from Cloudflare Worker!'}]}]});
+      }
       if (url.includes('/chat/completions')) {
         return new Response(JSON.stringify({
           choices: [{ message: { role: 'assistant', content: 'Hello from Cloudflare Worker!' } }]
@@ -608,6 +612,7 @@ test('Cloudflare Worker - Visual Admin Dashboard & Management APIs', async () =>
     },
     body: JSON.stringify({
       id: 'custom-flux-ultra',
+      capability:{version:1,template:'openai-image'},
       name: 'Custom Flux Ultra',
       kind: 'image',
       quotaCostPerUnit: 35,
@@ -755,7 +760,7 @@ test('Cloudflare Worker - Multi-Provider & MiniMax Official Direct Routing Test'
     assert.ok(!interceptedCalls.some(c => c.url.includes('duoyuanx.com')));
 
     // 4. Poll task status via gateway endpoint
-    const pollRes = await worker.fetch(new Request('http://localhost/api/generation-tasks/minimax-task-987654321?provider=minimax'), env);
+    const pollRes = await worker.fetch(new Request('http://localhost/api/tasks/minimax-task-987654321?provider=minimax'), env);
     assert.equal(pollRes.status, 200);
     const pollData = await pollRes.json();
     assert.equal(pollData.ok, true);
@@ -1131,4 +1136,3 @@ test('Client UI - Out-of-the-Box Setup & Messages Red Dot Integration', async ()
   const authJs = fs.readFileSync(path.join(ROOT, 'apps/client/auth.js'), 'utf8');
   assert.match(authJs, /export async function fetchMessages/, 'auth.js must export fetchMessages');
 });
-

@@ -1,20 +1,21 @@
 import {selectH3} from './h3-routing.mjs';
+import {selectMinimaxOpenAI} from './minimax-openai.mjs';
 /** Only routes backed by the existing generation adapters; not provider discovery. */
-const implementedFamilies=new Set(['gpt-image','grok-image','seedream','qwen-image','gemini-image','grok-video','veo','minimax','omni','seedance']);
+const implementedFamilies=new Set(['openai-image','gpt-image','grok-image','seedream','qwen-image','gemini-image','grok-video','veo','minimax','minimax-openai','omni','seedance']);
 export function getRouteCapabilities(model){
  if(!model||!['image','video'].includes(model.kind)||!implementedFamilies.has(model.family)||!model.route)return [];
- if(model.family==='minimax')return [{operation:'generate',apiRoute:'/v2/video_generation',description:'t2v，无素材'}, {operation:'reference',apiRoute:'/v2/video_generation',description:'i2v/fl 使用 adaptive；ref 通过 reference_* 角色明确指定素材'}];
- // H3 仅开放多参 reference；其他生成模式停用。
+ const modes=model.modes?.filter(m=>m.enabled!==false).map(m=>m.id);
+ const allows=ids=>!modes||modes.some(m=>ids.includes(m));
  return [
-  ...(model.family==='minimax'?[{operation:'reference',apiRoute:'/v2/video_generation',requiresReferences:true,description:'reference_image + reference_video + reference_audio; videoMode=ref'}]:[]),
-  {operation:'generate',apiRoute:model.route,requiresReferences:false},
-  {operation:'reference',apiRoute:model.family==='qwen-image'?'/v1/images/edits':model.route,requiresReferences:true},
+  ...(allows(['t2i','t2v'])?[{operation:'generate',apiRoute:model.route,requiresReferences:false}]:[]),
+  ...(allows(['i2i','i2v','fl','ref','v2v'])?[{operation:'reference',apiRoute:model.family==='qwen-image'?'/v1/images/edits':model.route,requiresReferences:true}]:[]),
  ];
 }
 
 export function validateRouteSelection(input,model){
  const hasOperation=input.operation!==undefined,hasRoute=input.apiRoute!==undefined;
  if(model?.family==='minimax')return selectH3(input);
+ if(model?.family==='minimax-openai')return selectMinimaxOpenAI(input);
  if(!hasOperation&&!hasRoute)return {ok:true};
  if(hasOperation&&!['generate','reference'].includes(input.operation))return {ok:false,error:'operation 仅支持 generate 或 reference'};
  if(hasRoute&&(typeof input.apiRoute!=='string'||!input.apiRoute))return {ok:false,error:'apiRoute 必须是当前模型目录中的相对路由'};
