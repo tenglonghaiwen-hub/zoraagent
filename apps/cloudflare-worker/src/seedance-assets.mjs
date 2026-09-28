@@ -1,3 +1,4 @@
+import {fetchWithoutRedirect} from './upstream-fetch.mjs';
 import {resolveProviderConfig} from './proxy.mjs';
 import {resolveModelCapability} from '../../../packages/contracts/model-capability.mjs';
 const prefix='/v1/seedance/asset/';
@@ -26,7 +27,9 @@ function normalizeReferences(references){
 }
 async function modelConfig(env,user,modelId,deps){
  const model=await env.DB.prepare('SELECT * FROM server_models WHERE id = ?').bind(modelId).first();
- if(!model||!model.enabled||resolveModelCapability(model).assetWorkflow!=='seedance-library-v1')throw fail('此模型尚未开放 Seedance 素材库工作流',403);
+ if(!model||!model.enabled)throw fail('此模型尚未开放 Seedance 素材库工作流',403);
+ const capability=resolveModelCapability(model);
+ if(!('assetWorkflow' in capability)||capability.assetWorkflow!=='seedance-library-v1')throw fail('此模型尚未开放 Seedance 素材库工作流',403);
  if(model.vip_only&&(!user.isVip||user.vipExpiresAt&&new Date(user.vipExpiresAt).getTime()<Date.now()))throw fail('此模型需要 VIP',403);
  const config=await (deps.config||resolveProviderConfig)(env,model.provider||'duoyuanx');
  if(!config.apiKey)throw fail('服务端未配置素材接口凭据',503);
@@ -47,7 +50,7 @@ async function runLocked(env,userId,row,work){
  finally{await env.DB.prepare('UPDATE seedance_asset_receipts SET lease_until = 0, lease_token = NULL WHERE user_id = ? AND request_id = ? AND lease_token = ?').bind(userId,state.id,token).run();}
 }
 async function request(config,action,body,deps){
- const response=await (deps.fetch||fetch)(config.baseUrl+prefix+action,{method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000),redirect:'error'});
+ const response=await fetchWithoutRedirect(deps.fetch||fetch,config.baseUrl+prefix+action,{method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
  const data=await response.json();
  if(!response.ok||data.error||data.state!==1)throw fail(String(data.error?.message||data.error||'素材接口失败 '+response.status),response.ok?502:response.status);
  if(!data.data||typeof data.data!=='object')throw fail('素材接口返回格式无效',502);
@@ -78,9 +81,9 @@ export async function prepareSeedanceAssets(body,user,env,deps={}){
     if(!asset.url){
      const content=references[index].contentUrl,match=/^data:([^;]+);base64,(.+)$/.exec(content);
      const fetcher=deps.fetch||fetch;
-     const response=await fetcher(config.baseUrl+'/v1/file/upload',{method:'PUT',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify({headers:{'Content-Type':match[1]},params:{}}),signal:AbortSignal.timeout(15000),redirect:'error'});
+     const response=await fetchWithoutRedirect(fetcher,config.baseUrl+'/v1/file/upload',{method:'PUT',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify({headers:{'Content-Type':match[1]},params:{}}),signal:AbortSignal.timeout(15000)});
      const signed=await response.json();if(!response.ok)throw fail('申请素材上传地址失败',response.status);publicHttps(signed.upload_url);publicHttps(signed.download_url);
-     const uploaded=await fetcher(signed.upload_url,{method:'PUT',headers:{'Content-Type':match[1]},body:Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0)),signal:AbortSignal.timeout(15000),redirect:'error'});
+     const uploaded=await fetchWithoutRedirect(fetcher,signed.upload_url,{method:'PUT',headers:{'Content-Type':match[1]},body:Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0)),signal:AbortSignal.timeout(15000)});
      if(!uploaded.ok)throw fail('素材上传失败',uploaded.status);asset.url=signed.download_url;
     }else{
      const data=await request(config,'CreateAsset',{GroupId:state.groupId,URL:asset.url,AssetType:asset.type.startsWith('image/')?'Image':asset.type.startsWith('video/')?'Video':'Audio',Name:asset.name},deps);

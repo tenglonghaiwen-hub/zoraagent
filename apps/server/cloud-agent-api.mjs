@@ -2,6 +2,8 @@ import {cloudAgentContext,CLOUD_AGENT_GATEWAY} from './cloud-agent-context.mjs';
 import {isAllowedAgentApi} from '../../packages/agent/api.mjs';
 import {cloudMediaTasks} from './cloud-media-tasks.mjs';
 import {validateDraft} from '../../packages/contracts/domain.mjs';
+import {packGenerateRequest} from '../../packages/duoyuanx/generation-adapters.mjs';
+import {previewWanReferences} from '../../packages/duoyuanx/wan-reference.mjs';
 export function cloudToolApi(localCall){
  return async args=>{
   const context=cloudAgentContext.getStore();
@@ -14,8 +16,19 @@ export function cloudToolApi(localCall){
    const res=await fetch(CLOUD_AGENT_GATEWAY+'/api/models',{signal:AbortSignal.timeout(15000)});
    if(!res.ok)return {ok:false,status:503,error:'云端能力目录读取失败'};
    const {models}=await res.json();
-   const result=validateDraft(args.body,id=>models.find(m=>m.id===id&&m.available!==false));
-   return {ok:result.ok,status:result.ok?200:400,data:result,error:result.error};
+   const selected=models.find(m=>m.id===(args.body?.modelId||args.body?.model));
+   let previewBody=args.body;
+   if(selected?.family==='lk-wan3'){
+    try{previewBody={...args.body,references:previewWanReferences(args.body.references||[])};}
+    catch(error){return {ok:false,status:error.status||400,error:error.message};}
+   }
+   const result=validateDraft(previewBody,id=>models.find(m=>m.id===id&&m.available!==false));
+   if(!result.ok)return {ok:false,status:400,error:result.error};
+   let packed;
+   try{const descriptor=packGenerateRequest(result.draft,result.model);packed={method:descriptor.method,path:descriptor.path,queryRoute:descriptor.queryRoute,contentType:descriptor.contentType};}
+   catch(error){return {ok:false,status:400,error:String(error.message||error)};}
+   const {references:previewReferences,...safeDraft}=result.draft;
+   return {ok:true,status:200,data:{draft:{...safeDraft,referenceCount:previewReferences?.length||0},message:result.message,packed}};
   }
   if(context&&args.method==='GET'&&/^\/api\/generation-tasks\/[a-zA-Z0-9_-]{16,100}$/.test(args.path)){
    try{return {ok:true,status:200,data:{task:await cloudMediaTasks.get(context,args.path.split('/').pop())}};}catch(error){return {ok:false,status:error.status||502,data:{error:error.message}};}

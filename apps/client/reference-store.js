@@ -9,14 +9,16 @@ function open(){
 }
 export async function saveReference(ref){
  if(!(ref.file instanceof Blob))return;
- ref.storageId||=crypto.randomUUID();
- if(pending.has(ref.storageId))return pending.get(ref.storageId);
- const work=(async()=>{const db=await open();await new Promise((resolve,reject)=>{
-  const tx=db.transaction('files','readwrite');tx.objectStore('files').put(ref.file,ref.storageId);
+ const file=ref.file;
+ const storageId=ref.storageId||crypto.randomUUID();
+ ref.storageId=storageId;
+ const cached=pending.get(storageId);
+ const work=cached?.file===file?cached.promise:(async()=>{if(cached)await cached.promise.catch(()=>{});const db=await open();await new Promise((resolve,reject)=>{
+  const tx=db.transaction('files','readwrite');tx.objectStore('files').put(file,storageId);
   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
  });})();
- pending.set(ref.storageId,work);
- try{await work;}catch(error){pending.delete(ref.storageId);throw error;}
+ if(cached?.file!==file)pending.set(storageId,{file,promise:work});
+ try{await work;}catch(error){const current=pending.get(storageId);if(current?.promise===work)pending.delete(storageId);if((!current||current.promise===work)&&ref.storageId===storageId&&ref.file===file)delete ref.storageId;throw error;}
 }
 export async function restoreReference(ref){
  if(!ref.storageId)return false;

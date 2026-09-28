@@ -1,3 +1,7 @@
+import {packLkWan3} from './lk-wan3.mjs';
+import {packLkH3} from './lk-minimax-h3.mjs';
+import {packLkSeedance} from './lk-seedance.mjs';
+import {packTtImage} from './tt-image.mjs';
 import {selectH3} from './h3-routing.mjs';
 import {packMinimaxOpenAI} from './minimax-openai.mjs';
 import { getModel } from './catalog.mjs';
@@ -51,6 +55,10 @@ export function packGenerateRequest(draft, model = getModel(draft.modelId)) {
 
 function packAdapterRequest(draft, model) {
   if (!model) throw new Error('模型不存在');
+  if(model.family==='lk-wan3')return packLkWan3(draft,model);
+  if(model.family==='lk-minimax-h3')return packLkH3(draft,model);
+  if(['lk-seedance-media','lk-seedance-ark'].includes(model.family))return packLkSeedance(draft,model);
+  if(model.family==='tt-image')return packTtImage(draft,model);
   if(model.family==='minimax-openai')return packMinimaxOpenAI(draft,model);
   const route = model.route || (model.kind === 'video' ? '/v1/videos' : '/v1/images/generations');
   const refs=draft.references||[];
@@ -89,7 +97,7 @@ function packAdapterRequest(draft, model) {
     const content=[{type:'text',text:draft.prompt},...refs.map((r,i)=>{const type=r.type.split('/')[0]+'_url';return {type,[type]:{url:r.contentUrl},role:type==='image_url'?(selected.mode==='fl'?(i===0?'first_frame':'last_frame'):selected.mode==='i2v'?'first_frame':'reference_image'):type==='video_url'?'reference_video':'reference_audio'};})];
     if(!draft.prompt?.trim())throw Error('H3 提示词不能为空');
     const body={model:model.id,content,duration:draft.duration,resolution:draft.resolution,ratio:draft.ratio||'adaptive',aigc_watermark:false};
-    if(Buffer.byteLength(JSON.stringify(body))>64*1024*1024)throw Error('MiniMax 官方请求体上限为64MB，请改用公网素材URL');
+    if(new TextEncoder().encode(JSON.stringify(body)).byteLength>64*1024*1024)throw Error('MiniMax 官方请求体上限为64MB，请改用公网素材URL');
     return {method:'POST',path:selected.selected.apiRoute,provider:'minimax-official',authorizationScheme:'bearer',contentType:'json',body,queryRoute:selected.queryRoute};
   }
   if(model.family==='omni'){

@@ -1,3 +1,6 @@
+import path from 'node:path';
+import {handleOmArtifacts} from './om-artifacts.mjs';
+import {probeOpenMontageRuntime} from '../../../packages/adapters/openmontage.mjs';
 import {
   openMontageStatus,
   listProjects as omListProjects,
@@ -21,11 +24,12 @@ import {saveStockCredentials} from '../../../packages/adapters/om-credentials.mj
  */
 export async function handleOpenMontageRoutes(req, res, url, { sendJson, readJson }) {
   if (!url.pathname.startsWith('/api/om/')) return false;
+  if(url.pathname.startsWith('/api/om/artifacts/'))return handleOmArtifacts(req,res,url,{sendJson,readJson,projectsRoot:process.env.OM_PROJECTS_ROOT||path.join(probeOpenMontageRuntime().engineRoot,'projects')});
   if(['/api/om/transcription-model','/api/om/capabilities','/api/om/preferences','/api/om/credentials'].includes(url.pathname)&&(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)||req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)){
     sendJson(res,403,{ok:false,error:'仅允许本机同源访问媒体设置'});return true;
   }
   if(url.pathname==='/api/om/transcription-model'&&['GET','POST'].includes(req.method)){
-    try{const input=req.method==='GET'?{model:url.searchParams.get('model'),action:'status'}:await readJson(req);sendJson(res,200,transcriptionPreparation(input.model,input.action));}catch(error){sendJson(res,400,{error:error.message});}return true;
+    try{const input=req.method==='GET'?{model:url.searchParams.get('model'),action:'status'}:await readJson(req);sendJson(res,200,await transcriptionPreparation(input.model,input.action));}catch(error){sendJson(res,400,{error:error.message});}return true;
   }
   if(req.method==='PUT'&&url.pathname==='/api/om/credentials'){
     try{sendJson(res,200,{ok:true,credentials:saveStockCredentials(await readJson(req))});}

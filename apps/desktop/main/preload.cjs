@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('zoraDesktop', {
   downloadMedia: (url, name) => ipcRenderer.invoke('zora:download-media', {url, name}),
   update: action => ipcRenderer.invoke('zora:update', action),
   mediaStartup: retry => ipcRenderer.invoke('zora:media-startup', Boolean(retry)),
+  chooseOutputDirectory: () => ipcRenderer.invoke('zora:choose-output-directory'),
   chooseVoice: () => ipcRenderer.invoke('zora:choose-voice'),
   network: value => ipcRenderer.invoke('zora:network', value),
   networkTest: () => ipcRenderer.invoke('zora:network-test'),

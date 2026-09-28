@@ -178,7 +178,10 @@ server.on('listening', () => {
 
 let workflowTimer;
 server.on('listening', () => {
-  if (fs.existsSync(dataPath('local-workflows'))) workflows();
+  if (fs.existsSync(dataPath('local-workflows'))) {
+    try { workflows(); }
+    catch (error) { console.error('Workflow scheduler initialization:', error.message); }
+  }
   workflowTimer = setInterval(() => {
     localWorkflows?.tick().catch((e) => console.error('Workflow scheduler:', e.message));
   }, 1000);

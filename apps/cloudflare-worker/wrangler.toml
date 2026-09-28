@@ -7,6 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 name = "IMAGE_JOBS"
 class_name = "ImageGenerationJob"
 
+[[r2_buckets]]
+binding = "REFERENCE_MEDIA"
+bucket_name = "zora-wan-reference-media"
+
 [[migrations]]
 tag = "image-jobs-v1"
 new_sqlite_classes = ["ImageGenerationJob"]

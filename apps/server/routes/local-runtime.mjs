@@ -97,8 +97,20 @@ export async function handleLocalRuntimeRoutes(req, res, url, { sendJson, readJs
 
   // Propose local action
   if (req.method === 'POST' && url.pathname === '/api/local-runtime/propose') {
-    sendJson(res, 200, runtime().propose(await readJson(req)));
+    const record = runtime().propose(await readJson(req));
+    sendJson(res, 200, ['read', 'list', 'search'].includes(record.request.kind)
+      ? await runtime().approve(record.id) : record);
     return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/local-runtime/approve-batch') {
+    if (req.headers['x-zora-approval'] !== 'user') {
+      sendJson(res, 403, {error: '需要用户点击批准本批操作'}); return true;
+    }
+    const {conversationId, ids} = await readJson(req);
+    const results = await runtime().approveBatch({conversationId, ids});
+    await workflows().tick();
+    sendJson(res, 200, {results}); return true;
   }
 
   // Create workflow

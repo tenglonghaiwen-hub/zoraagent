@@ -18,7 +18,7 @@ export function mountRuntimePanel(root,{fetchImpl=window.fetch.bind(window)}={})
  let data={requests:[]},files=[],busy=false,disposed=false,actionBusy=false;
  const body=r=>r.request||r;
  const owner=r=>r.conversationId||body(r).conversationId;
- const describe=r=>{const b=body(r);return [`类型：${b.kind||'操作'}`,b.path&&`路径：${b.path}`,b.runtime&&`本机运行环境：${b.runtime}（当前用户权限，无容器隔离）`,b.workspaceRoot&&`工作目录：${b.workspaceRoot}`,b.command&&`脚本或命令：${b.command}`,b.query&&`搜索：${b.query}`,b.content!=null&&`写入内容：\n${b.content}`,r.error&&`错误：${r.error}`,r.stdout&&`输出：\n${r.stdout}`,r.stderr&&`错误输出：\n${r.stderr}`].filter(Boolean).join('\n');};
+ const describe=r=>{const b=body(r);return [`类型：${b.kind||'操作'}`,b.path&&`路径：${b.path}`,b.runtime&&`本机运行环境：${b.runtime}（当前用户权限，无容器隔离）`,b.workspaceRoot&&`工作目录：${b.workspaceRoot}`,b.command&&`脚本或命令：${b.command}`,b.query&&`搜索：${b.query}`,b.content!=null&&`写入内容：\n${b.content}`,r.metadata&&`文件状态：${r.metadata.type} · ${r.metadata.size} 字节${r.metadata.empty?' · 空文件，不代表工程有效':''}`,r.error&&`错误：${r.error}`,r.stdout&&`输出：\n${r.stdout}`,r.stderr&&`错误输出：\n${r.stderr}`].filter(Boolean).join('\n');};
  const json=async(url,options={})=>{const response=await fetchImpl(url,{credentials:'same-origin',cache:'no-store',...options});const result=await response.json();if(!response.ok)throw Error(result.error?.message||result.error||'请求失败');return result;};
  const fileLink=file=>{const row=el('p');row.append(el('span',`${file.name||file.path} · ${Number(file.size)||0} 字节 `));try{const u=new URL(file.url,location.origin);if(u.origin===location.origin&&u.protocol===location.protocol){const a=el('a','下载文件');a.href=u.href;a.download=file.name||'';row.append(a);}}catch{}return row;};
  function renderConversation(){
@@ -30,29 +30,49 @@ export function mountRuntimePanel(root,{fetchImpl=window.fetch.bind(window)}={})
   log.querySelectorAll('.runtime-inline .agent-execution-process').forEach(panel=>panel.closest('.conversation-reply')?.append(panel));
   log.querySelectorAll('.agent-execution-process').forEach(panel=>panel.hidden=false);
   log.querySelector('#conversation-runtime')?.remove();log.querySelectorAll('.runtime-inline').forEach(n=>n.remove());
-  const current=window.__zoraConversationContext?.()?.conversationId;
-  const matching=(data.requests||[]).filter(r=>(current&&owner(r)===current)||(!owner(r)&&r.engine==='codex'&&r.status==='pending')); dock.replaceChildren();dock.hidden=true;positionDock();nativePrompt.sync(matching);
+  const context=window.__zoraConversationContext?.()||{};const current=context.conversationId;
+  const belongs=r=>current?owner(r)===current:!!r.messageId&&context.messageIds?.includes(r.messageId);
+  const matching=(data.requests||[]).filter(r=>belongs(r)); dock.replaceChildren();dock.hidden=true;positionDock();nativePrompt.sync(matching);
   const sessionFiles=current?files.filter(file=>(file.conversationIds||[]).includes(current)):[];
   const activities=(data.codexActivities||[]).filter(a=>current&&a.conversationId===current);
   if(!matching.length&&!sessionFiles.length&&!activities.length){restoreView();return;}
   const replies=[...log.querySelectorAll('.conversation-reply[data-message-created-at]')];
   const target=r=>replies.find(n=>r.messageId&&n.dataset.messageId===r.messageId)||replies.filter(n=>Number(n.dataset.messageCreatedAt)<=Date.parse(r.createdAt)).at(-1);
   const append=(node,record)=>{const execution=node.matches?.('.thinking-execution')?node:node.querySelector?.('.thinking-execution');if(execution)execution.querySelectorAll('details').forEach((detail,index)=>{if(detail.closest('.agent-execution-process'))return;bindExecutionDisclosure(detail,'runtime-child:'+record.threadId+':'+(record.turnId||record.messageId||record.createdAt)+':'+(detail.querySelector('summary')?.textContent?.replace(/（\d+条）/g,'')||index));});const reply=target(record);if(execution&&reply){const finalProcess=reply.querySelector('.agent-execution-process');if(finalProcess){if(finalProcess.querySelector('.agent-tool-step')){finalProcess.querySelector('summary').textContent='工具返回详情';execution.append(finalProcess);}else finalProcess.hidden=true;}if(reply.dataset.pending==='true'){const text=reply.querySelector('.agent-response-text');if(text)text.textContent=record.status==='running'?'正在执行任务…':'正在整理执行结果…';}}node.classList.add('runtime-inline');(reply||log).append(node);};
-  for(const activity of activities){const card=el('details');card.className='thinking-execution';bindExecutionDisclosure(card,'runtime:'+activity.threadId+':'+(activity.turnId||activity.messageId||activity.createdAt),activity.status==='running');const statusLabels={running:'进行中',completed:'已完成',failed:'失败',interrupted:'已停止',unknown:'状态待确认'};card.append(el('summary','思考与执行 · '+(activity.status==='running'&&activity.retrying?'连接异常，正在重试':statusLabels[activity.status]||activity.status)));if(activity.errors?.length){const recent=activity.errors.at(-1);const retry=el('p');retry.className='execution-retry-notice';retry.setAttribute('role','status');retry.textContent=(activity.status==='running'&&activity.retrying?'正在自动重试 · ':'最近请求错误 · ')+new Date(recent.at).toLocaleTimeString()+' · '+recent.message;card.append(retry);card.append(details('错误与重试记录（'+activity.errors.length+'条）',activity.errors.map(e=>new Date(e.at).toLocaleString()+' · '+(e.willRetry?'上游将自动重试':'上游不会自动重试')+'\n'+e.message+(e.details?'\n'+e.details:'')).join('\n\n')));}
+  for(const activity of activities){const card=el('details');card.className='thinking-execution';bindExecutionDisclosure(card,'runtime:'+activity.threadId+':'+(activity.turnId||activity.messageId||activity.createdAt),activity.status==='running');const awaiting=matching.some(r=>['pending','awaiting_approval'].includes(r.status)&&(!r.messageId||r.messageId===activity.messageId));const statusLabels={running:'进行中',completed:'本轮回复结束',failed:'失败',interrupted:'已停止',unknown:'状态待确认'};card.append(el('summary','思考与执行 · '+(awaiting?'等待批准':activity.status==='running'&&activity.retrying?'连接异常，正在重试':statusLabels[activity.status]||activity.status)));if(activity.errors?.length){const recent=activity.errors.at(-1);const retry=el('p');retry.className='execution-retry-notice';retry.setAttribute('role','status');retry.textContent=(activity.status==='running'&&activity.retrying?'正在自动重试 · ':'最近请求错误 · ')+new Date(recent.at).toLocaleTimeString()+' · '+recent.message;card.append(retry);card.append(details('错误与重试记录（'+activity.errors.length+'条）',activity.errors.map(e=>new Date(e.at).toLocaleString()+' · '+(e.willRetry?'上游将自动重试':'上游不会自动重试')+'\n'+e.message+(e.details?'\n'+e.details:'')).join('\n\n')));}
 if(activity.skills?.length)card.append(details('选用技能',activity.skills.map(s=>s.name+' · '+s.reason).join('\n')));if(activity.error)card.append(el('p',activity.error));const summaries=Object.values(activity.reasoningSummary||{}).filter(Boolean);if(summaries.length)card.append(details('上游推理摘要',summaries.join('\n\n')));if(activity.plan){const lines=activity.plan.map(p=>(p.status==='completed'?'✓ ':p.status==='inProgress'?'进行中 · ':'待执行 · ')+p.step);card.append(details('执行计划',lines.join('\n')));}if(activity.tools)card.append(details('工具调用',Object.values(activity.tools).map(t=>t.name+' · '+(statusLabels[t.status]||t.status)).join('\n')));if(activity.text)card.append(details('阶段输出',activity.text));if(!summaries.length&&!activity.plan&&!activity.tools&&!activity.text)card.append(el('p',activity.status==='running'?'正在等待上游返回执行信息…':'上游未返回摘要或执行详情。'));if(activity.status!=='running'){append(card,activity);continue;}const stop=el('button','停止执行');stop.type='button';stop.onclick=async()=>{stop.disabled=true;stop.textContent='正在停止…';try{await json('/api/local-runtime/codex/interrupt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:current})});stop.textContent='已请求停止，等待确认';await refresh();}catch(e){error.textContent=e.message;stop.textContent='停止失败，点击重试';stop.title=e.message;stop.disabled=false;}};
    let steer=steerForms.get(current);if(!steer){steer=el('form');const input=el('textarea');input.placeholder='补充当前任务的要求';const submit=el('button','补充指令');submit.type='submit';steer.append(input,submit);steer.onsubmit=async e=>{e.preventDefault();if(!input.value.trim())return;submit.disabled=true;try{await json('/api/local-runtime/codex/steer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:current,text:input.value})});input.value='';}catch(e){error.textContent=e.message;}finally{submit.disabled=false;}};steerForms.set(current,steer);}card.append(steer);const runningCard=el('div');runningCard.append(stop,card);append(runningCard,activity);}
+  const batch=matching.filter(r=>r.engine!=='codex'&&!String(r.id).startsWith('codex-')&&r.status==='pending');
+  if(current&&batch.length>1){
+    const card=el('section');
+    card.append(el('strong',`本批 ${batch.length} 项操作`),el('p','先查看本批详情，可一次批准当前列出的操作；执行失败即停止。后续新增脚本仍需确认。'));
+    card.append(details('查看本批全部路径和脚本',batch.map(describe).join('\n\n')));
+    const button=el('button',`批准并执行本批 ${batch.length} 项`);button.type='button';button.disabled=actionBusy||data.available!==true;
+    button.onclick=async()=>{
+      if(actionBusy||window.__zoraConversationContext?.().conversationId!==current)return;
+      actionBusy=true;renderConversation();error.textContent='';
+      try{
+        const result=await json('/api/local-runtime/approve-batch',{method:'POST',headers:{'Content-Type':'application/json','X-Zora-Approval':'user'},body:JSON.stringify({conversationId:current,ids:batch.map(r=>r.id)})});
+        const failure=result.results?.find(r=>r.status!=='completed');
+        if(failure)error.textContent='本批已停止：'+(failure.error||failure.status);
+      }catch(e){error.textContent=e.message;}
+      finally{actionBusy=false;await refresh();}
+    };
+    card.append(button);append(card,batch[0]);
+  }
   for(const request of matching){
-   const card=el('details');card.open=expandedApprovals.has(request.id)||body(request).execution==='native';card.addEventListener('toggle',()=>{if(!card.isConnected)return;if(card.open)expandedApprovals.add(request.id);else expandedApprovals.delete(request.id);});
+   const card=el('details');card.open=['pending','awaiting_approval'].includes(request.status)||expandedApprovals.has(request.id)||body(request).execution==='native';card.addEventListener('toggle',()=>{if(!card.isConnected)return;if(card.open)expandedApprovals.add(request.id);else expandedApprovals.delete(request.id);});
    const b=body(request);card.classList.add('approval-card');const reason=(b.execution==='native'?'本机脚本以当前用户权限执行，可访问文件与网络；仅允许本次，无容器隔离。':null)||request.params?.reason||request.params?.message||({command:'此命令需要你的授权后才能执行。',file:'此文件修改需要你的授权。',permissions:'任务需要额外访问权限。',questions:'需要你提供信息后继续。',mcp:'外部工具需要你确认或填写信息。'}[request.interaction])||'此操作需要你的确认。';const capsule=el('summary');capsule.append(el('span',request.status==='consumed'?'正在执行':'待审批'),el('span',reason));capsule.title=reason;card.append(capsule,el('p',reason),details('查看操作详情',describe(request)));
    if(['pending','awaiting_approval'].includes(request.status)){
-    if(request.engine==='codex'){card.append(interactionForm(request,decide));dock.append(card);dock.hidden=false;continue;}
+    if(request.engine==='codex'){card.append(interactionForm(request,decide));append(card,request);continue;}
     const approve=el('button','批准并执行此操作'),deny=el('button','拒绝');approve.type=deny.type='button';approve.disabled=actionBusy||(request.engine!=='codex'&&data.available!==true);deny.disabled=actionBusy;deny.style.marginLeft='8px';
     approve.onclick=()=>void decide(request,'approve');deny.onclick=()=>void decide(request,'deny');card.append(approve,deny);
     if(request.engine!=='codex'&&data.available!==true)card.append(el('p','执行环境未就绪，暂不能批准。'));
    }
 
    if(request.status==='consumed'&&b.execution==='native'){const stop=el('button','中止脚本');stop.onclick=()=>void decide(request,'cancel');card.append(el('p','本机脚本正在执行'),stop);append(card,request);}
-   if(['pending','awaiting_approval'].includes(request.status)){dock.append(card);dock.hidden=false;}
+   if(['pending','awaiting_approval'].includes(request.status)){append(card,request);}
+   else if(['completed','failed','denied','cancelled'].includes(request.status)){capsule.firstChild.textContent={completed:'操作已完成',failed:'操作失败',denied:'已拒绝',cancelled:'已取消'}[request.status];if(request.status==='completed')card.append(el('p','此操作已完成，可继续对话，让 Agent 查询执行结果并继续任务。'));append(card,request);}
   }
   for(const file of sessionFiles){const origin=(file.origins||[]).find(r=>r.conversationId===current);if(origin)append(fileLink(file),origin);}
   restoreView();
@@ -65,7 +85,7 @@ if(activity.skills?.length)card.append(details('选用技能',activity.skills.ma
   renderConversation();
  }
  async function decide(request,action,payload={}){
-  if((actionBusy&&action!=='cancel')||(action!=='delete'&&owner(request)&&owner(request)!==window.__zoraConversationContext?.()?.conversationId))return;
+  if((actionBusy&&action!=='cancel')||(action!=='delete'&&(()=>{const c=window.__zoraConversationContext?.()||{};return c.conversationId?owner(request)!==c.conversationId:!request.messageId||!c.messageIds?.includes(request.messageId);})()))return;
   actionBusy=true;renderConversation();error.textContent='';
   try{await json('/api/local-runtime/requests/'+encodeURIComponent(request.id)+'/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Zora-Approval':'user'},body:JSON.stringify(payload)});}
   catch(e){error.textContent=e.message;}

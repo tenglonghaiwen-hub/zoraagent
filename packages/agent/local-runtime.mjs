@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import {runNativeScript} from './native-script.mjs';
+import {executionOutcome} from './execution-outcome.mjs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
@@ -63,7 +64,12 @@ export function createLocalRuntime({
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (++count > 10000) throw Error('运行工作区文件数量超过检查上限');
         const file = path.join(dir, entry.name);
-        if (sensitive(entry.name) || entry.isSymbolicLink()) throw Error('运行工作区包含受限文件或链接，未挂载');
+        // Build tools create node_modules/.cache even when dependencies are external.
+        // Inspect its contents normally; direct file tools still reject this path.
+        const dependencyDirectory = entry.name.toLowerCase() === 'node_modules' && entry.isDirectory();
+        if ((sensitive(entry.name) && !dependencyDirectory) || entry.isSymbolicLink()) {
+          throw Error('运行工作区包含受限文件或链接，未挂载：' + path.relative(workspace, file));
+        }
         if (entry.isDirectory()) scan(file);
       }
     };
@@ -118,7 +124,7 @@ export function createLocalRuntime({
   }
 
   function propose(input = {}) {
-    if (!['read', 'write', 'exec', 'list', 'search'].includes(input.kind)) throw Error('不支持的本地操作');
+    if (!['read', 'write', 'mkdir', 'exec', 'list', 'search'].includes(input.kind)) throw Error('不支持的本地操作');
     checkWorkspace();
     const request = { kind: input.kind, workspaceRoot: workspace, dockerImage };
     if (input.kind === 'exec') {
@@ -151,6 +157,10 @@ export function createLocalRuntime({
         }
         request.query = input.query;
       }
+    }
+    if(typeof input.conversationId==='string'&&input.conversationId){
+      const existing=[...records.values()].find(r=>r.status==='pending'&&r.conversationId===input.conversationId.slice(0,100)&&r.requestHash===hash(request));
+      if(existing)return view(existing);
     }
     const record = {
       messageId: typeof input.messageId === 'string' ? input.messageId.slice(0, 100) : undefined,
@@ -209,9 +219,14 @@ export function createLocalRuntime({
       return {
         stdout: buf.toString('utf8', 0, Math.min(buf.length, MAX_OUTPUT)),
         stderr: '',
+        metadata:{path:request.path,type:'file',size:buf.length,empty:buf.length===0,truncated:buf.length>MAX_OUTPUT},
       };
     }
 
+    if (request.kind === 'mkdir') {
+      if(fs.existsSync(targetPath)&&!fs.statSync(targetPath).isDirectory())throw Error('目标已是文件，不能当作目录：'+request.path);
+      fs.mkdirSync(targetPath,{recursive:true});return {stdout:JSON.stringify({path:request.path,type:'directory'}),stderr:''};
+    }
     if (request.kind === 'write') {
       const dir = path.dirname(targetPath);
       fs.mkdirSync(dir, { recursive: true });
@@ -317,9 +332,12 @@ export function createLocalRuntime({
     // Use native execution if backend resolved to native
     if (ready.backend === 'native') {
       try {
-        const result = await executeNative(request, controller.signal);
+        const rawResult = await executeNative(request, controller.signal);
+        const result = request.kind === 'exec' ? executionOutcome(rawResult) : rawResult;
         Object.assign(next, {
-          status: 'completed',
+          status: result.status || 'completed',
+          ...(result.error ? {error: result.error} : {}),
+          ...(result.metadata?{metadata:result.metadata}:{}),
           stdout: String(result.stdout || '').slice(0, MAX_OUTPUT),
           stderr: String(result.stderr || '').slice(0, MAX_OUTPUT),
         });
@@ -364,6 +382,7 @@ export function createLocalRuntime({
         dockerImage,
       ];
       if (request.kind === 'exec') args.push('sh', '-lc', request.command);
+      else if (request.kind === 'mkdir') args.push('sh','-lc','mkdir -p -- "$1"','zora-mkdir',request.path);
       else if (request.kind === 'read') args.push('sh', '-lc', 'cat -- "$1"', 'zora-read', request.path);
       else if (request.kind === 'list') args.push('sh', '-lc', 'ls -la -- "$1"', 'zora-list', request.path);
       else if (request.kind === 'search') {
@@ -417,6 +436,20 @@ export function createLocalRuntime({
     return { ok: true, id };
   }
 
+  async function approveBatch({conversationId, ids}) {
+    if (!conversationId || !Array.isArray(ids) || !ids.length || ids.length > 50 || new Set(ids).size !== ids.length) throw Error('批次无效');
+    for (const id of ids) {
+      const record = records.get(id);
+      if (!record || record.conversationId !== conversationId || record.status !== 'pending') throw Error('审批批次已变化，请刷新后重试');
+    }
+    const results = [];
+    for (const id of ids) {
+      const result = await approve(id); results.push(result);
+      if (result.status !== 'completed') break;
+    }
+    return results;
+  }
+
   return {
     list: ({ includeDeleted = false } = {}) =>
       [...records.values()]
@@ -425,6 +458,7 @@ export function createLocalRuntime({
     status,
     propose,
     approve,
+    approveBatch,
     deny,
     deleteRecord,
     cancel,

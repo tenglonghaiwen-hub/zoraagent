@@ -1,9 +1,10 @@
 import { changeMembership } from './membership-lifecycle.mjs';
 import {agentResponses} from './agent-responses.mjs';
 import {prepareSeedanceAssets,querySeedanceAssets,resolveSeedanceReferences} from './seedance-assets.mjs';
-import {MODEL_TEMPLATES,publishModelCapability,resolveModelCapability,assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
+import {MODEL_TEMPLATES,publishModelCapability,resolveModelCapability,assertConfiguredOperation,normalizeGenerationInput} from '../../../packages/contracts/model-capability.mjs';
 import {generateImages,readImageReceipt} from './image-generation.mjs';
 import {previewH3Task,submitH3Task,queryH3Task} from './h3-tasks.mjs';
+import {serveWanReference} from './wan-reference-media.mjs';
 import {
   hashPassword,
   verifyPassword,
@@ -83,6 +84,7 @@ export default {
     const jwtSecret = env.JWT_SECRET || 'zora-default-secret-change-in-production';
 
     try {
+      if (path.startsWith('/api/wan-reference/')) return serveWanReference(request, env);
       if(path==='/api/agent/v1/responses' && method==='POST')return await agentResponses(request,env);
       // ----------------------------------------------------
       // 0. Visual Admin Console Dashboard (HTML)
@@ -674,7 +676,7 @@ export default {
       if(['/api/h3/preview','/api/h3/tasks'].includes(path)&&method==='POST'){
         const {user}=await authenticateRequest(request,env);
         const body=await request.json();
-        return jsonResponse(await (path.endsWith('/preview')?previewH3Task:submitH3Task)(body,user,env),200,cors);
+        return jsonResponse(await (path.endsWith('/preview')?previewH3Task:submitH3Task)(body,user,env,{publicOrigin:url.origin}),200,cors);
       }
       if(path.startsWith('/api/h3/tasks/')&&method==='GET'){
         const {user}=await authenticateRequest(request,env);
@@ -696,7 +698,7 @@ export default {
         if(body.assetReceiptId)body=await resolveSeedanceReferences(body,user,env);
         const prompt = body.prompt;
         const model = body.model || body.modelId || 'flux-schnell';
-        const kind = body.type || body.kind || (body.duration ? 'video' : 'image');
+        let kind;
 
         if(model==='gpt-image-2')return jsonResponse(await generateImages(body,user,env),200,cors);
 
@@ -718,7 +720,11 @@ export default {
           return errorResponse(`模型 ${model} 已下架或暂停开放`, 403, cors);
         }
 
-        if(modelInfo.provider==='duoyuanx'&&resolveModelCapability(modelInfo).template==='minimax')return jsonResponse(await submitH3Task({...body,modelId:model,requestId:body.requestId||crypto.randomUUID(),h3Operation:'generate'},user,env),200,cors);
+        body=normalizeGenerationInput(modelInfo,body);
+        kind=body.kind;
+        if(resolveModelCapability(modelInfo).template==='tt-image')return jsonResponse(await generateImages(body,user,env),200,cors);
+
+        if(['lk-minimax-h3','lk-wan3','lk-seedance-media','lk-seedance-ark'].includes(resolveModelCapability(modelInfo).template)||modelInfo.provider==='duoyuanx'&&resolveModelCapability(modelInfo).template==='minimax')return jsonResponse(await submitH3Task({...body,modelId:model,requestId:body.requestId||crypto.randomUUID(),h3Operation:'generate'},user,env,{publicOrigin:url.origin}),200,cors);
 
         const capability=assertConfiguredOperation(modelInfo,{...body,kind});
         const provider = modelInfo.provider || (model === 'MiniMax-H3' ? 'minimax' : 'duoyuanx');

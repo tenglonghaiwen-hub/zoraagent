@@ -15,7 +15,8 @@ const IMAGE_MODES = [
   { id: 'i2i', name: '图生图', enabled: true },
 ];
 
-/** @type {import('../../apps/server/types.js').ModelCap[]} */
+/** @typedef {{id:string,name:string,kind:string,family?:string,route?:string,queryRoute?:string,[key:string]:any}} ModelCap */
+/** @type {ModelCap[]} */
 export const MODELS = [
 
   // —— Agent / 文本 ——

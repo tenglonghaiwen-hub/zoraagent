@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {spawn, execFile} from 'node:child_process';
 
 // This is a user-approved host process, NOT a filesystem or network sandbox.
@@ -6,6 +7,8 @@ export function runNativeScript(file, script, {cwd, signal, timeout = 30000} = {
   for (const key of ['SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'LANG', 'HOME', 'USERPROFILE']) {
     if (process.env[key]) env[key] = process.env[key];
   }
+  // Only the selected bundled runtime and Windows system tools, never the host PATH.
+  env.PATH=[path.dirname(file),...(process.platform==='win32'&&process.env.SystemRoot?[path.join(process.env.SystemRoot,'System32')]:[])].join(path.delimiter);
   env.PYTHONUTF8 = '1';
   env.PYTHONNOUSERSITE = '1';
   return new Promise((resolve, reject) => {

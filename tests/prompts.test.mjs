@@ -19,8 +19,8 @@ test('main agent prompt contains required instructions', () => {
   assert.match(joined, /desktop_jianying/, 'should mention Jianying tool');
   assert.match(joined, /browser_search|browser_open/, 'should mention browser tools');
   assert.match(joined, /local_runtime_status|propose_local_action/, 'should mention local runtime');
-  assert.match(joined, /GPT Image 2|gpt-image-2/, 'should mention default image model');
-  assert.match(joined, /MiniMax H3|MiniMax-H3/, 'should mention default video model');
+  assert.match(joined, /启用目录中对应媒体类型的第一项/, 'should use the live enabled model order');
+  assert.doesNotMatch(joined, /默认使用 GPT Image 2|默认使用 MiniMax H3/, 'should not hardcode media defaults');
 
   // Check it does NOT mention removed features
   assert.doesNotMatch(joined, /RunningHub/, 'should not mention RunningHub');
@@ -28,19 +28,19 @@ test('main agent prompt contains required instructions', () => {
 });
 
 test('media subagent prompt differs for image and video', () => {
-  const imagePrompt = buildMediaSubagentPrompt('image');
-  const videoPrompt = buildMediaSubagentPrompt('video');
+  const imagePrompt = buildMediaSubagentPrompt('image',{id:'first-image',name:'首个图片模型'});
+  const videoPrompt = buildMediaSubagentPrompt('video',{id:'first-video',name:'首个视频模型'});
 
   assert.ok(typeof imagePrompt === 'string', 'should return a string');
   assert.ok(typeof videoPrompt === 'string', 'should return a string');
 
   // Check image-specific content
   assert.match(imagePrompt, /图片/, 'image prompt should mention images');
-  assert.match(imagePrompt, /gpt-image-2/, 'should mention default image model');
+  assert.match(imagePrompt, /modelId: first-image/, 'should mention the selected default image model');
 
   // Check video-specific content
   assert.match(videoPrompt, /视频/, 'video prompt should mention videos');
-  assert.match(videoPrompt, /MiniMax-H3/, 'should mention default video model');
+  assert.match(videoPrompt, /modelId: first-video/, 'should mention the selected default video model');
   assert.match(videoPrompt, /t2v|i2v|fl|ref/, 'should mention video modes');
 
   // Check common instructions

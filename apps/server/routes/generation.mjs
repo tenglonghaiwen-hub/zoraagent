@@ -68,10 +68,12 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
       sendJson(res, 400, { error: result.error });
       return true;
     }
-    let packed = null;
+    let packed;
     try {
-      packed = packGenerateRequest(result.draft, result.model);
-    } catch {}
+      const descriptor=packGenerateRequest(result.draft, result.model);
+      packed={method:descriptor.method,path:descriptor.path,queryRoute:descriptor.queryRoute,contentType:descriptor.contentType};
+    } catch(error){sendJson(res,400,{error:String(error.message||error)});return true;}
+    const {references:previewReferences,...safeDraft}=result.draft;
     let estimatedQuota = 1;
     try {
       estimatedQuota = await calculateQuotaCost({
@@ -80,7 +82,7 @@ export async function handleGenerationRoutes(req, res, url, { sendJson, readJson
         count: result.draft.count || 1,
       });
     } catch {}
-    sendJson(res, 200, { draft: result.draft, message: result.message, packed, estimatedQuota });
+    sendJson(res, 200, { draft:{...safeDraft,referenceCount:previewReferences?.length||0}, message: result.message, packed, estimatedQuota });
     return true;
   }
 

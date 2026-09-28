@@ -1,9 +1,11 @@
+import os from 'node:os';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 export const STOCK_SOURCES=['archive_org','nasa','wikimedia','pexels','unsplash'];
 export const TRANSCRIPT_MODELS=['tiny','base','small','medium','large-v2','large-v3'];
-const defaults={editing:true,transcription:true,voice:true,stock:true,transcriptModel:'base',voiceModel:'',sources:['archive_org','nasa','wikimedia']};
+const defaults={editing:true,transcription:true,voice:true,stock:true,transcriptModel:'base',voiceModel:'',outputDirectory:'',sources:['archive_org','nasa','wikimedia']};
 function location(){return path.join(process.env.OM_STATE_DIR||process.env.ZORA_DATA_DIR||fileURLToPath(new URL('../../runtime/',import.meta.url)),'om-preferences.json');}
 export function readOmPreferences(){
  if(!fs.existsSync(location()))return structuredClone(defaults);
@@ -16,6 +18,8 @@ export function validateOmPreferences(value){
  for(const key of ['editing','transcription','voice','stock'])if(typeof next[key]!=='boolean')throw new Error('能力开关必须为布尔值');
  if(!TRANSCRIPT_MODELS.includes(next.transcriptModel))throw new Error('不支持的转录模型');
  if(typeof next.voiceModel!=='string'||next.voiceModel.length>1024)throw new Error('音色路径无效');
+ if(typeof next.outputDirectory!=='string'||next.outputDirectory.length>1024||next.outputDirectory.trim()&&!path.isAbsolute(next.outputDirectory.trim()))throw new Error('保存目录需要绝对路径');
+ next.outputDirectory=next.outputDirectory.trim();
  next.voiceModel=next.voiceModel.trim();
  if(next.voiceModel&&(!path.isAbsolute(next.voiceModel)||!next.voiceModel.toLowerCase().endsWith('.onnx')))throw new Error('请填写本地 ONNX 音色文件的绝对路径');
  if(!Array.isArray(next.sources)||next.sources.some(s=>!STOCK_SOURCES.includes(s)))throw new Error('仅支持已开放的公共素材来源');
@@ -33,8 +37,11 @@ export function configureOmInputs(tool,args,preferences=readOmPreferences()){
  const inputs={...args};
  if(tool==='transcriber')inputs.model_size??=preferences.transcriptModel;
  if(tool==='piper_tts'){
+  if(typeof inputs.text!=='string'||!inputs.text.trim())throw new Error('Piper 缺少 args.text：请将用户要求朗读的原文放入 text 字段后重试，不能用 instruction/prompt 替代；尚未执行配音。');
   inputs.model||=preferences.voiceModel;
   if(!inputs.model||!path.isAbsolute(inputs.model)||!fs.existsSync(inputs.model)||!fs.existsSync(inputs.model+'.json'))throw new Error('请在本地媒体能力设置中配置已有的 .onnx 音色及同名 .onnx.json 文件');
+  const output=omOutputDirectory(preferences);fs.mkdirSync(output,{recursive:true});
+  inputs.output_path=path.join(fs.realpathSync(output),'voice-'+crypto.randomUUID()+'.wav');
  }
  if(tool==='direct_clip_search'){
   inputs.sources??=preferences.sources;
@@ -42,3 +49,5 @@ export function configureOmInputs(tool,args,preferences=readOmPreferences()){
  }
  return inputs;
 }
+
+export function omOutputDirectory(preferences=readOmPreferences()){return preferences.outputDirectory||path.join(os.homedir(),'Downloads','Zora');}

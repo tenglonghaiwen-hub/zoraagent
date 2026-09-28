@@ -1,3 +1,4 @@
+import {validateAnimationInvocation} from './om-animation-validation.mjs';
 /**
  * OpenMontage studio_api bridge — live loopback sidecar + vendor runtime probe.
  */
@@ -544,8 +545,10 @@ export async function executeTool(projectId, payload = {}) {
   const marker=path.join(projectRoot,id,'zora-pipeline.json');
   if(exists(marker)){
     const plan=JSON.parse(fs.readFileSync(marker,'utf8')),pipeline=findOmPipeline(plan.pipelineId);
+    try{validateAnimationInvocation(toolName,payload.args||payload.arguments||{},plan.originalInstruction||plan.instruction);}catch(error){return {ok:false,status:400,error:error.message};}
     if(!pipeline?.tools.includes(toolName))return {ok:false,status:403,error:'此工具不属于项目已选择的管线'};
   }
+  try{validateAnimationInvocation(toolName,payload.args||payload.arguments||{});}catch(error){return {ok:false,status:400,error:error.message};}
   let inputArgs;
   try{inputArgs=configureOmInputs(toolName,payload.args||payload.arguments||{});}catch(error){return {ok:false,status:400,error:error.message};}
   payload={...payload,args:inputArgs};
@@ -665,7 +668,7 @@ export async function localMediaCapabilities(){
 export function getOmPipeline(id){const pipeline=findOmPipeline(id);return pipeline?{ok:true,pipeline}:{ok:false,status:404,error:'未开放的 OM 管线'};}
 export function describeOmTool(name){return invokeRegistryTool(name,{},'describe');}
 
-export function prepareOmPipeline({pipelineId,requestId,instruction}={}){
+export function prepareOmPipeline({pipelineId,requestId,instruction,originalInstruction}={}){
  const pipeline=findOmPipeline(pipelineId);
  if(!pipeline)return {ok:false,status:400,error:'先从 om_list_pipelines 选择管线'};
  if(!/^[a-zA-Z0-9_-]{16,90}$/.test(requestId||''))return {ok:false,status:400,error:'需要16–90位稳定 requestId'};
@@ -677,7 +680,7 @@ export function prepareOmPipeline({pipelineId,requestId,instruction}={}){
  if(exists(projectPath)&&fs.lstatSync(projectPath).isSymbolicLink())return {ok:false,status:400,error:'项目目录不可为链接'};
  fs.mkdirSync(projectPath,{recursive:true});
  const marker=path.join(projectPath,'zora-pipeline.json');
- const plan={version:1,projectId,pipelineId,instruction,executor:'zora-agent',createdAt:Date.now(),status:'planned'};
+ const plan={version:1,projectId,pipelineId,instruction,originalInstruction:typeof originalInstruction==='string'?originalInstruction.slice(0,16000):instruction,executor:'zora-agent',createdAt:Date.now(),status:'planned'};
  try{fs.writeFileSync(marker,JSON.stringify(plan,null,2),{flag:'wx'});}catch(error){
   if(error.code!=='EEXIST')throw error;
   const saved=JSON.parse(fs.readFileSync(marker,'utf8'));

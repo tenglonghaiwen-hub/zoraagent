@@ -5,6 +5,16 @@ import os from 'node:os';
 import path from 'node:path';
 import {startCloudRelay,CLOUD_ORIGIN} from '../apps/desktop/main/cloud-network-relay.mjs';
 import {readNetwork,saveNetwork} from '../apps/desktop/main/network-settings.mjs';
+import {modelProxyEnvironment} from '../packages/adapters/om-model-preparation.mjs';
+test('model downloader receives current proxy and rejects unsupported SOCKS instead of silently bypassing',async()=>{
+ let current='PROXY 127.0.0.1:10808';
+ const relay=await startCloudRelay(()=>{throw Error('must stay local');},async url=>{assert.equal(url,'https://huggingface.co');return current;});
+ try{
+  let data=await (await fetch(relay.url+'/api/_local/model-proxy')).json();assert.equal(modelProxyEnvironment(data.proxy).HTTPS_PROXY,'http://127.0.0.1:10808');
+  current='DIRECT';data=await (await fetch(relay.url+'/api/_local/model-proxy')).json();assert.equal(modelProxyEnvironment(data.proxy).HTTPS_PROXY,'');
+  assert.throws(()=>modelProxyEnvironment('SOCKS5 127.0.0.1:10808'),/HTTP/);
+ }finally{relay.close();}
+});
 test('fresh install uses system proxy; manual settings and UTF8 BOM survive reload',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'zora-network-'));
  assert.equal(readNetwork(dir).mode,'system');saveNetwork(dir,{mode:'proxy',proxy:'http://127.0.0.1:10808'});

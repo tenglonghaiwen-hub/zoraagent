@@ -11,6 +11,14 @@ function fixture(options = {}) {
   const config = {directory: path.join(root, 'approvals'), workspaceRoot: path.join(root, 'workspace'), backend: 'native', ...options};
   return {root, config, runtime: createLocalRuntime(config)};
 }
+
+test('approved script can launch bundled node by name without inherited secrets', async () => {
+  const {runtime}=fixture();
+  const request=runtime.propose({kind:'exec',runtime:'node',command:"console.log(require('child_process').execFileSync('node',['-e','console.log(42)'],{encoding:'utf8',windowsHide:true}))"});
+  const result=await runtime.approve(request.id);
+  assert.equal(result.status,'completed',result.error);
+  assert.match(result.stdout,/42/);
+});
 test('script requires explicit approval, delivers real file and cannot replay', async () => {
   const {config, runtime} = fixture();
   const request = runtime.propose({kind: 'exec', runtime: 'node', command: "require('fs').writeFileSync('result.txt','created'); console.log('done')"});

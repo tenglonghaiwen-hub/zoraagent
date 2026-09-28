@@ -22,6 +22,16 @@ test('suite validation is free and each prompt includes only its own content and
  }
  assert.equal(planImageSuite({...args,items:[args.items[0],args.items[0]]}).ok,false);
 });
+test('suite validates a cloud-only enabled image model and rejects a disabled one',async()=>{
+ const custom={id:'cloud-first-image',name:'Cloud First Image',kind:'image',family:'gpt-image',enabled:true,route:'/v1/images/generations',ratios:['9:16'],resolutions:['2K'],maxCount:1,maxConcurrency:1};
+ const run=createToolRunner({mediaModels:[custom,{...custom,id:'disabled-image',enabled:false}],references:[ref]});
+ const plan=await run('preview_image_suite',{...args,modelId:custom.id});
+ assert.equal(plan.ok,true);
+ assert.equal(plan.drafts.length,args.items.length);
+ assert(plan.drafts.every(draft=>draft.modelId===custom.id));
+ const denied=await run('preview_image_suite',{...args,modelId:'disabled-image'});
+ assert.equal(denied.ok,false);
+});
 async function submitSuite(failAt=-1){
  const calls=[],receipts=[];
  const run=createToolRunner({references:[ref],generationTasks:receipts,callApi:async call=>{

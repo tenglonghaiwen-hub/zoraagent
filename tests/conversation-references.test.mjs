@@ -16,6 +16,7 @@ test('explicit current selection replaces old references and historical @ works 
 });
 test('disabled inheritance and a new conversation send no old or unselected assets',()=>{
  assert.deepEqual(select({messages:[initial],inherit:false}).references,[]);
+ assert.deepEqual(select({messages:[initial],text:'直接发送本轮文字'}).references,[]);
  assert.deepEqual(select({messages:[],inherit:true}).references,[]);
  assert.deepEqual(select({messages:[{kind:'image',references:[image]}],inherit:true}).references,[]);
 });

@@ -57,3 +57,13 @@ test('list and literal search use approved Docker operations with bounded output
  const workflow=AGENT_TOOL_DEFS.find(t=>t.name==='plan_local_workflow').parameters.properties.steps.items.properties.request.properties;
  for(const schema of [direct,workflow]){assert.ok(schema.kind.enum.includes('list'));assert.ok(schema.kind.enum.includes('search'));assert.equal(schema.query.type,'string');}
 });
+
+
+test('identical pending requests reuse approval within the same conversation only',()=>{
+ const runtime=createLocalRuntime(fixture(async()=>({})));
+ const a=runtime.propose({kind:'list',conversationId:'c1',messageId:'m1'});
+ const b=runtime.propose({kind:'list',conversationId:'c1',messageId:'m2'});
+ assert.equal(a.id,b.id);assert.equal(b.status,'pending');
+ assert.notEqual(runtime.propose({kind:'list',conversationId:'c2'}).id,a.id);
+ assert.notEqual(runtime.propose({kind:'read',path:'other.txt',conversationId:'c1'}).id,a.id);
+});

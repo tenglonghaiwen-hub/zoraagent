@@ -2,10 +2,11 @@ import http from 'node:http';
 import {randomBytes} from 'node:crypto';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
+import {normalizeCallIds} from '../../../packages/agent/call-ids.mjs';
 
 export const CLOUD_ORIGIN='https://zora-api.tenglonghaiwen.workers.dev';
 // Fixed destination, per-launch secret path; never an arbitrary URL proxy.
-export async function startCloudRelay(fetchImpl) {
+export async function startCloudRelay(fetchImpl, resolveModelProxy) {
  const secret=randomBytes(32).toString('hex'), active=new Set();
  const server=http.createServer(async(req,res)=>{
   if(req.headers.origin || !req.url.startsWith('/'+secret+'/api/')) {res.writeHead(403).end();return;}
@@ -14,10 +15,19 @@ export async function startCloudRelay(fetchImpl) {
   const controller=new AbortController();active.add(controller);
   const abort=()=>controller.abort();res.once('close',abort);
   try {
+   if(target.pathname==='/api/_local/model-proxy'){
+    if(req.method!=='GET'||!resolveModelProxy){res.writeHead(404).end();return;}
+    const proxy=await resolveModelProxy('https://huggingface.co');
+    res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({proxy}));return;
+   }
    let size=0;const chunks=[];
    for await(const chunk of req){size+=chunk.length;if(size>64*1024*1024)throw Error('请求素材超过 64 MiB');chunks.push(chunk);}
    const headers={};for(const key of ['authorization','content-type','accept','x-request-id','idempotency-key'])if(req.headers[key])headers[key]=req.headers[key];
-   const response=await fetchImpl(target.href,{method:req.method,headers,body:['GET','HEAD'].includes(req.method)?undefined:Buffer.concat(chunks),signal:controller.signal,redirect:'manual',credentials:'omit'});
+   let body=Buffer.concat(chunks);
+   if(req.method==='POST'&&target.pathname.endsWith('/responses')){
+    body=Buffer.from(JSON.stringify(normalizeCallIds(JSON.parse(body.toString('utf8')))));
+   }
+   const response=await fetchImpl(target.href,{method:req.method,headers,body:['GET','HEAD'].includes(req.method)?undefined:body,signal:controller.signal,redirect:'manual',credentials:'omit'});
    if(response.status>=300&&response.status<400)throw Error('云服务返回重定向，未转发账号凭据');
    res.writeHead(response.status,{'Content-Type':response.headers.get('content-type')||'application/json','Cache-Control':'no-store'});
    if(response.body)await pipeline(Readable.fromWeb(response.body),res);else res.end();

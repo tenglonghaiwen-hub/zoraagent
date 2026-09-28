@@ -42,3 +42,10 @@ test('chat returns actual receipt even when model fails after submission and exc
  assert.equal(result.generationTasks.length,1);assert.match(result.agentError,/mock/);assert.ok(result.conversationId);assert.equal(seen.includes(ref.contentUrl),false);
  await assert.rejects(chat({message:'edit',references:[{name:'missing.png'}]}),/参考素材未读取成功/);
 });
+
+test('local OM failures remain tool records and never become generation drafts',async()=>{
+ const trace={name:'om_execute_tool',args:{projectId:'test-project',tool:'piper_tts'},result:{ok:false,error:'missing text'}};
+ const chat=createChatService({run:async()=>({reply:'配音失败：缺少 text',tasks:[{provider:'openmontage',tool:'piper_tts',status:'error'},{modelId:'openmontage-local-audio',prompt:'failed',count:1}],toolTrace:[trace]})});
+ const result=await chat({message:'本地配音'});
+ assert.deepEqual(result.tasks,[]);assert.deepEqual(result.toolTrace,[trace]);assert.match(result.reply,/text/);
+});

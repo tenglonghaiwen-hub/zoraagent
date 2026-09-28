@@ -4586,3 +4586,37 @@ html.low-memory-mode[data-theme="day"] .conversation-latest{background:#eaf0f2;c
 .conversation-reply.has-error>.agent-response-text{color:#ffb9ad}
 html.low-memory-mode[data-theme="day"] .conversation-reply.has-error>.agent-response-text{color:#a33025}
 .thinking-execution>.agent-execution-process{margin:12px 0 0;background:transparent;border:0;padding:0}
+
+/* Keep conversation controls reachable as desktop windows shrink. */
+.studio-centered:has(#create.conversation-active) .workspace{height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.studio-centered #create.conversation-active{flex:1 1 0;min-height:0;height:auto}
+.studio-centered .conversation-active .creation{height:auto;flex:1 1 0;min-height:0}
+.studio-centered .conversation-active #agent-workspace{min-height:0;flex:1 1 0}
+.studio-centered .conversation-active .prompt-card.compact-composer:not(.composer-collapsed){max-height:min(52dvh,400px);flex:0 1 auto;min-height:0;display:flex;flex-direction:column}
+.studio-centered .conversation-active .compact-composer .composer-input-row{min-height:0;flex:1 1 auto}
+.studio-centered .conversation-active .compact-composer #prompt{max-height:clamp(40px,16dvh,130px);overflow-y:auto;resize:none}
+.studio-centered .conversation-active .compact-composer .composer-controls{flex-shrink:0}
+@media(max-height:700px){
+ .studio-centered #create.conversation-active{padding:0 16px 8px}
+ .studio-centered .conversation-active .creation{gap:8px}
+ .studio-centered .conversation-active .prompt-card.compact-composer:not(.composer-collapsed){padding:10px 12px}
+ .studio-centered .conversation-active .compact-composer #add-attachment.reference-tile{width:44px;height:48px;margin-bottom:2px}
+ .studio-centered .conversation-active .compact-composer #prompt{min-height:40px}
+ .studio-centered .conversation-active .compact-composer .composer-controls{padding-top:4px;gap:4px}
+ .studio-centered .conversation-active .compact-composer .reference-tray{max-height:64px;overflow:auto}
+}
+@media(max-width:720px){
+ .studio-centered .conversation-active .compact-composer .composer-controls{flex-wrap:wrap}
+ .studio-centered .conversation-active .compact-composer .control-pill{max-width:100%;min-width:0}
+}
+
+/* Preserve the original trailing send/voice position during responsive sizing. */
+.studio-centered .conversation-active .compact-composer .composer-controls{width:100%;align-self:stretch}
+.studio-centered .conversation-active .compact-composer .composer-send{margin-left:auto;flex-shrink:0;justify-content:flex-end}
+
+.wan-source{display:flex;gap:8px;align-items:center;max-width:100%;width:100%}
+.wan-source[hidden]{display:none}
+.wan-source select,.wan-source input{border:1px solid #ffffff33;border-radius:8px;background:#ffffff10;color:inherit;padding:7px 10px;font:inherit;min-width:0}
+.wan-source select{flex:0 0 auto}.wan-source input{flex:1 1 auto;width:100%}
+.wan-source button{flex:0 0 auto;border:1px solid #ffffff33;border-radius:8px;background:#ffffff18;color:inherit;padding:7px 10px;font:inherit;cursor:pointer}
+@media(max-width:640px){.wan-source{flex-wrap:wrap}.wan-source input{flex-basis:100%}}

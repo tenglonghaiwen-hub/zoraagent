@@ -16,7 +16,8 @@ test('local settings persist and enforce disabled tools and selected sources',()
   assert.throws(()=>configureOmInputs('direct_clip_search',{sources:['pexels']},p),/未启用/);
   assert.throws(()=>validateOmPreferences({apiKey:'no'}),/不支持/);
   assert.throws(()=>validateOmPreferences({stock:true,sources:[]}),/至少/);
-  assert.throws(()=>configureOmInputs('piper_tts',{},p),/音色/);
+  assert.throws(()=>configureOmInputs('piper_tts',{text:'测试'},p),/音色/);
+  for(const args of [{},{instruction:'朗读测试'},{text:' '},{text:42}])assert.throws(()=>configureOmInputs('piper_tts',args,p),/args.text/);
  }finally{if(old===undefined)delete process.env.OM_STATE_DIR;else process.env.OM_STATE_DIR=old;}
 });
 
@@ -39,4 +40,14 @@ test('media preferences and credential routes reject cross-origin requests befor
   let result;await handleOpenMontageRoutes({method:'PUT',socket:{remoteAddress:'127.0.0.1'},headers:{host:'127.0.0.1:4317',origin:'https://untrusted.example'}},{},new URL('http://127.0.0.1/api/om/'+endpoint),{sendJson:(_r,status,body)=>{result={status,body};},readJson:()=>{throw new Error('must not read');}});
   assert.equal(result.status,403);
  }
+});
+
+
+test('Piper output uses the user save directory and unique names instead of agent supplied paths',()=>{
+ const root=path.resolve('outputs','piper-path-test-'+Date.now());fs.mkdirSync(root,{recursive:true});
+ const model=path.join(root,'voice.onnx');fs.writeFileSync(model,'fixture');fs.writeFileSync(model+'.json','{}');
+ const p={voice:true,voiceModel:model,outputDirectory:path.join(root,'saved')};
+ const first=configureOmInputs('piper_tts',{text:'你好',output_path:path.join(root,'wrong.wav')},p);
+ const second=configureOmInputs('piper_tts',{text:'你好'},p);
+ assert.equal(path.dirname(first.output_path),fs.realpathSync(p.outputDirectory));assert.notEqual(first.output_path,second.output_path);assert.equal(first.text,'你好');
 });

@@ -1,7 +1,8 @@
 import {calculateQuotaCost,deductUserQuota} from './billing.mjs';
 import {proxyGeneration} from './proxy.mjs';
 import {imageRequest} from './image-request.mjs';
-import {assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
+import {packTtImage} from '../../../packages/duoyuanx/tt-image.mjs';
+import {publishModelCapability,assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
 export async function readImageReceipt(env,userId,requestId){
  const row=await env.DB.prepare('SELECT task_json FROM generation_receipts WHERE user_id = ? AND request_id = ?').bind(userId,requestId).first();
  if(!row)return null;
@@ -14,11 +15,16 @@ export async function readImageReceipt(env,userId,requestId){
  return task;
 }
 export async function generateImages(body,user,env,deps={}){
- const packed=imageRequest(body),requestId=body.requestId||crypto.randomUUID();
+ let packed;const requestId=body.requestId||crypto.randomUUID();
  if(!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId))throw Object.assign(Error('无效生成请求编号'),{status:400});
- const model=await env.DB.prepare('SELECT * FROM server_models WHERE id = ?').bind(packed.model).first();
+ const model=await env.DB.prepare('SELECT * FROM server_models WHERE id = ?').bind(body.model||body.modelId).first();
  if(!model||!model.enabled||model.kind!=='image')throw Object.assign(Error('图片模型未开放'),{status:403});
- assertConfiguredOperation({id:packed.model,...model},body);
+ const modelId=body.model||body.modelId;
+ const info=publishModelCapability({id:modelId,...model});
+ const tt=info.family==='tt-image';
+ if(tt){packTtImage(body,info);if(!env.IMAGE_JOBS)throw Object.assign(Error('TT Image 需要启用持久图片任务服务'),{status:503});}
+ packed=tt?{...body,model:modelId,n:1,count:1}:imageRequest(body);
+ assertConfiguredOperation({id:modelId,...model},body);
  if(model.vip_only&&(!user.isVip||user.vipExpiresAt&&Number(user.vipExpiresAt)<Date.now()))throw Object.assign(Error('此模型需要 VIP'),{status:403});
  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(packed))));
  const fingerprint=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
@@ -28,19 +34,19 @@ export async function generateImages(body,user,env,deps={}){
   if(existing.fingerprint!==fingerprint)throw Object.assign(Error('请求编号已用于其他参数'),{status:409});
   const prior=JSON.parse(existing.task_json);
   // Only new durable jobs can be scheduled on retry. Legacy unknown jobs are never replayed.
-  if(prior.executor==='durable-object'&&prior.status==='running'&&env.IMAGE_JOBS)await env.IMAGE_JOBS.getByName(user.id+'/'+requestId).enqueue({input:packed,task:prior,userId:user.id,fingerprint,provider:model.provider||'duoyuanx',route:model.route||'/v1/images/generations'});
+  if(prior.executor==='durable-object'&&prior.status==='running'&&env.IMAGE_JOBS)await env.IMAGE_JOBS.getByName(user.id+'/'+requestId).enqueue({...(tt?{modelInfo:info}:{}),input:packed,task:prior,userId:user.id,fingerprint,provider:model.provider||'duoyuanx',route:model.route||'/v1/images/generations'});
   return {ok:true,task:await readImageReceipt(env,user.id,requestId)};
  }
  const cost=await price(env.DB,{modelId:packed.model,kind:'image',count:packed.n});
  if(user.quotaBalance<cost)throw Object.assign(Error('积分不足'),{status:402});
- const task={id:requestId,modelId:packed.model,status:'running',count:packed.n,revision:1,createdAt:Date.now(),upstreams:[],requests:[{method:'POST',path:model.route||'/v1/images/generations',body:{...packed,...packed.image?{image:'[参考图片已省略]'}:{}}}]};
+ const task={id:requestId,modelId:packed.model,status:'running',count:packed.n,revision:1,createdAt:Date.now(),upstreams:[],requests:[{method:'POST',path:model.route||'/v1/images/generations',body:{...packed,...packed.references?{references:'[参考图片已省略]'}:{},...packed.image?{image:'[参考图片已省略]'}:{}}}]};
  const insert=await env.DB.prepare('INSERT OR IGNORE INTO generation_receipts (user_id,request_id,fingerprint,task_json,updated_at) VALUES (?,?,?,?,?)').bind(user.id,requestId,fingerprint,JSON.stringify(task),Date.now()).run();
  if(!insert.meta?.changes)return {ok:true,task:await readImageReceipt(env,user.id,requestId)};
  const save=()=>env.DB.prepare('UPDATE generation_receipts SET task_json = ?, updated_at = ? WHERE user_id = ? AND request_id = ?').bind(JSON.stringify(task),Date.now(),user.id,requestId).run();
  if(env.IMAGE_JOBS){
   task.executor='durable-object';
   await save();
-  return {ok:true,task:await env.IMAGE_JOBS.getByName(user.id+'/'+requestId).enqueue({input:packed,task,userId:user.id,fingerprint,provider:model.provider||'duoyuanx',route:model.route||'/v1/images/generations'})};
+  return {ok:true,task:await env.IMAGE_JOBS.getByName(user.id+'/'+requestId).enqueue({...(tt?{modelInfo:info}:{}),input:packed,task,userId:user.id,fingerprint,provider:model.provider||'duoyuanx',route:model.route||'/v1/images/generations'})};
  }
  try{
   const upstream=await generate({body:packed,env,provider:model.provider||'duoyuanx',route:model.route||'/v1/images/generations'});

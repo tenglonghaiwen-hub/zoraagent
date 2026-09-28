@@ -11,10 +11,10 @@ test('conversation IDs isolate main and canvas multi-turn history',async()=>{
   const main=await chat({message:'MAIN_ONLY'});
   const canvas=await chat({message:'CANVAS_ONLY',channel:'canvas'});
   assert.notEqual(main.conversationId,canvas.conversationId);
-  await chat({message:'MAIN_FOLLOWUP',conversationId:main.conversationId});
+  await chat({message:'继续 MAIN_FOLLOWUP',conversationId:main.conversationId});
   assert.match(JSON.stringify(seen.at(-1).history),/MAIN_ONLY/);
   assert.doesNotMatch(JSON.stringify(seen.at(-1).history),/CANVAS_ONLY/);
-  await chat({message:'CANVAS_FOLLOWUP',conversationId:canvas.conversationId,channel:'canvas'});
+  await chat({message:'继续 CANVAS_FOLLOWUP',conversationId:canvas.conversationId,channel:'canvas'});
   assert.match(JSON.stringify(seen.at(-1).history),/CANVAS_ONLY/);
   assert.doesNotMatch(JSON.stringify(seen.at(-1).history),/MAIN_ONLY/);
 });
@@ -42,20 +42,111 @@ test('model skill and image reach the mock runner',async()=>{
   let seen,options;const chat=createChatService({run:async(p,o)=>{seen=JSON.parse(p.split('\n').at(-1));options=o;return reply();}});
   const model=getModels().find(m=>m.kind==='agent').id;
   await chat({message:'test',modelId:model,skills:[{id:'fixture',name:'验收技能',prompt:'FIXTURE_SKILL'}],references:[{name:'fixture.png',type:'image/png',contentUrl:'data:image/png;base64,AA=='}]});
-  assert.equal(options.modelId,model);assert.equal(seen.skills[0].prompt,'FIXTURE_SKILL');assert.equal(options.images.length,1);
+  assert.equal(options.modelId,model);assert.equal(seen.skills[0].prompt,'FIXTURE_SKILL');assert.equal(options.skills[0].prompt,'FIXTURE_SKILL');assert.equal(options.images.length,1);
   assert.equal(seen.history[0].references[0].contentUrl,undefined);
   assert.equal(seen.history[0].references[0].hasContent,true);
   assert.equal(options.images[0].url,'data:image/png;base64,AA==');
 });
 
-test('Agent receives default media model policy without rewriting explicit user choices',async()=>{
- let prompt;
- const chat=createChatService({run:async p=>{prompt=p;return reply();}});
- await chat({message:'用 Seedance 2.5 生成 10 秒视频'});
- assert.match(prompt,/默认使用 GPT Image 2（modelId: gpt-image-2）/);
- assert.match(prompt,/默认使用 MiniMax H3（modelId: MiniMax-H3）/);
- assert.match(prompt,/用户主动指定模型或参数时，严格遵守/);
- assert.equal(JSON.parse(prompt.split('\n').at(-1)).history.at(-1).text,'用 Seedance 2.5 生成 10 秒视频');
+test('Wan 3.0 turn drops stale H3 skills and unrelated prior task payload',async()=>{
+ const seen=[];
+ const chat=createChatService({run:async(prompt,options)=>{seen.push({prompt,options});return reply();},analyzeVideos:async()=>({summary:'',images:[],audioFiles:[]})});
+ const first=await chat({message:'OLD_UNRELATED_SELFIE_TASK '+ 'x'.repeat(4000)});
+ const second=await chat({conversationId:first.conversationId,message:'@图片1 @视频1 使用万相3.0复刻视频',skills:[
+  {id:'codex:minimax-h3-video-prompt',name:'MiniMax H3 视频提示词',prompt:'STALE_H3_PROMPT'},
+  {id:'codex:minimax-h3-action-transfer',name:'MiniMax H3 动作迁移',prompt:'STALE_TRANSFER_PROMPT'},
+ ],references:[
+  {name:'portrait.png',reference:'图片1',type:'image/png',contentUrl:'data:image/png;base64,AA=='},
+  {name:'clip.mp4',reference:'视频1',type:'video/mp4',contentUrl:'data:video/mp4;base64,AA=='},
+ ]});
+ const current=seen.at(-1);
+ assert.equal(current.options.freshThread,true);
+ const envelope=JSON.parse(current.prompt.split('\n').find(line=>line.startsWith('{"skills":')));
+ assert.deepEqual(envelope.skills,[]);
+ assert.deepEqual(current.options.skills,[]);
+ assert.equal(envelope.history.length,1);
+ assert.equal(envelope.history[0].text,'@图片1 @视频1 使用万相3.0复刻视频');
+ assert(current.prompt.length<2000,'standalone media prompt should not replay large prior context');
+ assert.match(current.prompt,/"kind":"initial"/);
+ assert.doesNotMatch(current.prompt,/"kind":"replaced"/);
+ assert.doesNotMatch(current.prompt,/OLD_UNRELATED_SELFIE_TASK|STALE_H3_PROMPT|STALE_TRANSFER_PROMPT/);
+ await chat({conversationId:second.conversationId,message:'继续规划万相视频'});
+ const continued=seen.at(-1);
+ assert.equal(continued.options.freshThread,false);
+ assert.match(continued.prompt,/使用万相3.0复刻视频/);
+ assert.doesNotMatch(continued.prompt,/OLD_UNRELATED_SELFIE_TASK|STALE_H3_PROMPT|STALE_TRANSFER_PROMPT/);
+});
+
+test('each newly named media model starts with only its own task context',async()=>{
+ const seen=[];
+ const chat=createChatService({run:async(prompt,options)=>{seen.push({prompt,options});return reply();},analyzeVideos:async()=>({summary:'',images:[],audioFiles:[]})});
+ let result=await chat({message:'OLD_UNRELATED_SCENE 生成视频'});
+ for(const message of ['@图片1 用 Veo 3.1 生成视频','@图片1 用 Grok Video 3 Pro 生成视频','@图片1 用 GPT Image 2 让她生成图片']){
+  result=await chat({conversationId:result.conversationId,message,references:[{name:'portrait.png',reference:'图片1',type:'image/png',contentUrl:'data:image/png;base64,AA=='}],skills:[{id:'codex:minimax-h3-video-prompt',name:'MiniMax H3 视频提示词',prompt:'STALE_H3_PROMPT'}]});
+  const current=seen.at(-1);
+  const envelope=JSON.parse(current.prompt.split('\n').find(line=>line.startsWith('{"skills":')));
+  assert.equal(current.options.freshThread,true);
+  assert.deepEqual(envelope.skills,[]);
+  assert.deepEqual(envelope.history.map(item=>item.text),[message]);
+  assert.doesNotMatch(current.prompt,/OLD_UNRELATED_SCENE|STALE_H3_PROMPT/);
+ }
+});
+
+test('cloud chat reconstruction keeps only the latest named media task on follow-up',async()=>{
+ const {cloudAgentContext}=await import('../apps/server/cloud-agent-context.mjs');
+ let envelope;
+ const chat=createChatService({callApi:async({path})=>path==='/api/models'?{ok:true,data:{models:getModels()}}:{ok:true,data:{}},run:async(prompt)=>{envelope=JSON.parse(prompt.split('\n').find(line=>line.startsWith('{"skills":')));return reply();}});
+ await cloudAgentContext.run({token:'mock-token',base:'https://example.com/api/agent',owner:'fixture'},()=>chat({message:'继续调整画幅',history:[
+  {role:'user',message:'OLD_UNRELATED_SCENE 生成视频'},
+  {role:'assistant',reply:'old result'},
+  {role:'user',message:'使用 Veo 3.1 生成新视频'},
+  {role:'assistant',reply:'new result'},
+ ]}));
+ assert.deepEqual(envelope.history.map(item=>item.text||item.reply),['使用 Veo 3.1 生成新视频','new result','继续调整画幅']);
+});
+
+test('task model ID survives multiple brief follow-ups without replaying the original instruction',async()=>{
+ const seen=[];
+ const chat=createChatService({run:async(prompt)=>{seen.push(JSON.parse(prompt.split('\n').find(line=>line.startsWith('{"skills":'))));return reply();}});
+ let result=await chat({message:'使用 Veo 3.1 生成视频'});
+ for(const message of ['继续调整分镜','继续调整时长','继续生成'])result=await chat({conversationId:result.conversationId,message});
+ const latest=seen.at(-1);
+ assert.equal(latest.taskModelId,'veo_3_1');
+ assert.equal(latest.history.at(-1).text,'继续生成');
+ assert(!latest.history.some(item=>item.text==='使用 Veo 3.1 生成视频'));
+});
+
+test('media generation does not open a browser unless the user requests web research',async()=>{
+ const seen=[];
+ const chat=createChatService({run:async(prompt,options)=>{seen.push(await options.toolRunner('discover_agent_tools',{group:'browser'}));return reply();}});
+ await chat({message:'使用 Veo 3.1 生成视频'});
+ await chat({message:'搜索官方文档，核对 Veo 3.1 参数'});
+ assert.equal(seen[0].ok,false);
+ assert.equal(seen[1].ok,true);
+});
+
+test('generation failure question retains the current task thread and brief history',async()=>{
+ const seen=[];
+ const chat=createChatService({run:async(prompt,options)=>{seen.push({prompt,options});return reply();}});
+ const first=await chat({message:'生成一段测试视频'});
+ await chat({message:'为什么生成失败？',conversationId:first.conversationId});
+ assert.equal(seen.at(-1).options.freshThread,false);
+ const envelope=JSON.parse(seen.at(-1).prompt.split('\n').at(-1));
+ assert(envelope.history.some(item=>item.text==='生成一段测试视频'));
+});
+
+test('Agent passes the explicit user model request while child defaults follow the enabled catalog',async()=>{
+ let mainPrompt,childPrompt,childTask;
+ const instruction='用 Seedance 2.5 生成 10 秒视频';
+ const chat=createChatService({run:async(p,o)=>{
+  if(o.roleInstructions){childPrompt=o.roleInstructions;childTask=JSON.parse(p.split('\n').at(-1)).task;return reply();}
+  mainPrompt=p;await o.toolRunner('delegate_media_task',{kind:'video',task:instruction});return reply();
+ }});
+ await chat({message:instruction});
+ assert.equal(JSON.parse(mainPrompt.split('\n').at(-1)).history.at(-1).text,instruction);
+ assert.equal(childTask,instruction);
+ assert.match(childPrompt,/modelId: doubao-seedance-2\.5/);
+ assert.doesNotMatch(childPrompt,/MiniMax-H3 按用户意图/);
 });
 test('disabled service fails without invoking the runner',async()=>{
   process.env.ZORA_AGENT_ENABLED='false';

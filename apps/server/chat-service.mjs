@@ -1,17 +1,20 @@
+import {LIGHT_AGENT_INSTRUCTIONS,LIGHT_AGENT_TOOLS,createLazyToolRunner} from '../../packages/agent/lazy-context.mjs';
+import {runtimeResultContext} from '../../packages/agent/runtime-result-context.mjs';
 import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { selectTaskSkills } from '../../packages/agent/skill-selection.mjs';
+import {resolveMediaModelMention,unmatchedExplicitModelRequest} from '../../packages/agent/media-model-choice.mjs';
 import { randomUUID } from 'node:crypto';
 import { validateDraft } from '../../packages/contracts/domain.mjs';
 import { getModels } from '../../packages/duoyuanx/catalog.mjs';
 import { runCodex, agentStatus } from './codex-agent.mjs';
 import { createToolRunner } from '../../packages/agent/tools.mjs';
 import {describeReferenceChange,REFERENCE_REVIEW_INSTRUCTION} from '../../packages/agent/reference-change.mjs';
-import { MAIN_AGENT_TOOL_DEFS, createMediaDelegator } from '../../packages/agent/media-subagents.mjs';
+import { createMediaDelegator } from '../../packages/agent/media-subagents.mjs';
 import { getRouteCapabilities } from '../../packages/duoyuanx/route-capabilities.mjs';
 import { createSessionStore } from '../../packages/agent/session-store.mjs';
 import { analyzeVideoReferences } from '../../packages/agent/video-analysis.mjs';
 import { transcribeAudioFiles } from '../../packages/agent/audio-transcription.mjs';
-import { buildMainAgentPrompt } from '../../packages/agent/prompts/main-agent.mjs';
+
 
 export const STANDARD_ZORA_AGENT_IDENTITY = '我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？';
 
@@ -36,6 +39,25 @@ export function sanitizeAgentReply(userText, reply) {
   }
   if (!reply || typeof reply !== 'string') return reply;
   return reply;
+}
+
+function isFollowUp(text,references=[],models=[]) {
+  if (/继续|接着|刚才|前面|上次|之前|上一|沿用|再生成|已生成|生成失败|提交失败|任务失败|报错/i.test(text)) return true;
+  if (references.length && (resolveMediaModelMention(text,models).explicit||unmatchedExplicitModelRequest(text,models))) return false;
+  return /改为|改成|修改|调整|再来|再做|把它|把这|把她|把他|让她|让他|给她|给他|这张|这个|该图|该视频/i.test(text);
+}
+
+function currentTaskHistory(history) {
+  const boundary = history.findLastIndex(item => item.role === 'user' && item.taskBoundary === true);
+  return boundary < 0 ? history : history.slice(boundary);
+}
+
+function promptHistory(history, currentUser, models) {
+  // Persist the full conversation separately; only task-relevant text enters upstream prompts.
+  const prior = isFollowUp(currentUser.text,currentUser.references,models) ? currentTaskHistory(history).slice(-4).map(item => item.role === 'user'
+    ? {role:'user',text:String(item.text||item.message||'').slice(0,4000)}
+    : {role:'assistant',reply:String(item.reply||'').slice(0,800)}) : [];
+  return [...prior,currentUser];
 }
 
 export function createChatService({
@@ -68,9 +90,9 @@ export function createChatService({
     if(cloudAgentContext.getStore()){
       const catalog=await callApi({method:'GET',path:'/api/models'});
       if(!catalog?.ok||!Array.isArray(catalog.data?.models))throw Object.assign(Error('云端模型能力目录读取失败，未使用过期本地配置'),{status:503});
-      models=catalog.data.models.filter(m=>m.available!==false);
+      models=catalog.data.models;
     }
-    if (!models.some((m) => m.kind === 'agent')) {
+    if (!models.some((m) => m.kind === 'agent'&&m.enabled!==false&&m.available!==false)) {
       throw Object.assign(Error('Agent 模型未开放'), { status: 400 });
     }
 
@@ -91,7 +113,12 @@ export function createChatService({
       throw Object.assign(Error('会话数量已达上限，请重启开发服务'), { status: 503 });
     }
 
-    session = session || { id: randomUUID(), history: cloudAgentContext.getStore() && Array.isArray(input.history) ? input.history.slice(-20).map(m=>({role:m.role==='assistant'?'assistant':'user',...(m.role==='assistant'?{reply:String(m.reply||'').slice(0,8000),tasks:[]}:{message:String(m.message||'').slice(0,8000)})})) : [] };
+    session = session || { id: randomUUID(), history: cloudAgentContext.getStore() && Array.isArray(input.history) ? input.history.slice(-20).map(m=>{
+      if(m.role==='assistant')return {role:'assistant',reply:String(m.reply||'').slice(0,8000),tasks:[]};
+      const text=String(m.message||'').slice(0,8000);
+      const named=resolveMediaModelMention(text,models).explicit||unmatchedExplicitModelRequest(text,models);
+      return {role:'user',text,taskBoundary:Boolean(named&&/生成|制作|复刻|编辑|创作/.test(text)&&!/继续|接着|刚才|上次|之前|沿用|再生成/.test(text))};
+    }) : [] };
 
     if (input.references != null && (!Array.isArray(input.references) || input.references.length > 6)) {
       throw Object.assign(Error('参考素材最多 6 个'), { status: 400 });
@@ -120,10 +147,18 @@ export function createChatService({
         }))
       : [];
 
-    skills = selectTaskSkills(input.message, skills);
+    skills = selectTaskSkills(input.message, skills, models);
 
     // Binary image data belongs only in the multimodal input, never in text history.
-    const referenceReview=describeReferenceChange(references,session.history);
+    const followUp=isFollowUp(input.message,references,models);
+    const currentModelChoice=resolveMediaModelMention(input.message,models);
+    const excludedModels=new Set(currentModelChoice.excludedIds);
+    const priorTaskModel=followUp&&!currentModelChoice.explicit
+      ? [...currentTaskHistory(session.history)].reverse().filter(item=>item.role==='user').map(item=>resolveMediaModelMention(item.text||item.message,models)).find(choice=>choice.model&&!excludedModels.has(choice.model.id))?.model
+      : null;
+    const taskModelId=currentModelChoice.model?.id||priorTaskModel?.id||null;
+    const independentMediaTask=!followUp && /生成|制作|复刻|编辑|创作/.test(input.message) && !/为什么|怎么|失败|错误|报错|无法|不能/.test(input.message);
+    const referenceReview=describeReferenceChange(references,followUp?currentTaskHistory(session.history):[]);
     const user = {
       role: 'user',
       text: input.message,
@@ -132,7 +167,9 @@ export function createChatService({
         hasContent: true,
       })),
       skills: skills.map((s) => s.name),
+      taskBoundary: independentMediaTask,
     };
+    const relevantHistory=promptHistory(session.history,user,models);
 
     const mediaModels = models
       .filter((m) => m.kind === 'video' || m.kind === 'image')
@@ -152,16 +189,21 @@ export function createChatService({
         maxConcurrency: m.maxConcurrency,
       }));
 
-    const promptLines = buildMainAgentPrompt();
-    promptLines.push(REFERENCE_REVIEW_INSTRUCTION,JSON.stringify({referenceChange:referenceReview.change}));
-    promptLines.push(references.length
+    const promptLines = [];
+    if(references.length||referenceReview.change.requiresPromptReview)promptLines.push(referenceReview.change.kind==='initial'
+      ? '本轮新参考素材仅服务于当前指令，先观察可见事实并明确各素材职责，不沿用其他任务的人物或场景描述。'
+      : REFERENCE_REVIEW_INSTRUCTION,JSON.stringify({referenceChange:referenceReview.change}));
+    if(references.length||relevantHistory.length>1&&session.history.some(m=>m.references?.length))promptLines.push(references.length
       ? '本轮可用参考素材已由宿主读取并附加，专业子 Agent 和生成工具共享这些原始素材。用户继续修改或确认生成时，不因本轮未重新上传就要求重传。以当前 references 清单为准，不用历史同名素材替换。'
       : '本轮没有启用参考素材。历史中的素材名称不表示文件已丢失；需要历史素材时请提示用户在当前会话重新 @ 或开启沿用参考，不应直接要求重新上传。仅在工具明确报告原文件不可读取时说明缺失。');
     promptLines.push(
       JSON.stringify({
-        skills,
-        models: mediaModels,
-        history: [...session.history, user],
+        skills: skills.map(({id,name,category,selectionReason,prompt:skillPrompt})=>({
+          id,name,category,selectionReason,
+          ...(agentStatus().backend!=='app-server'||!/^codex:[a-z0-9-]+$/.test(id)?{prompt:skillPrompt}:{}),
+        })),
+        history: relevantHistory,
+        ...(taskModelId?{taskModelId}:{}),
         references: references.map((r) => ({
           name: r.name,
           type: r.type,
@@ -179,6 +221,7 @@ export function createChatService({
 
     const generationTasks = [];
     const sharedRunner = createToolRunner({
+      userMessage: input.message,
       skills,
       callApi,
       mediaModels,
@@ -224,7 +267,8 @@ export function createChatService({
         images: imageInputs,
         context: {
           referenceChange:referenceReview.change,
-          history: [...session.history, user],
+          history: relevantHistory,
+          preferredModelId:taskModelId,
           videoAnalysis: videoAnalysis.summary,
           references: references.map(({ contentUrl, ...r }) => ({
             ...r,
@@ -234,13 +278,22 @@ export function createChatService({
         generationTasks,
       });
 
+      const allowExternalBrowser=/(?:搜索|查找|查询|浏览|打开|访问|核验|调查|采集).{0,20}(?:网页|网站|来源|数据|资料|文档|链接|互联网)|(?:搜索|上网|联网|查证|找资料|数据来源|数据核验|资料采集|公开来源|可核验|事实核查)/.test(input.message);
+      const lazyRunner=createLazyToolRunner(toolRunner,{allowExternalBrowser,loadLocalContext:async()=>{
+        if(typeof callApi!=='function')return '本地状态不可用，请依据工具实际结果工作。';
+        try{const state=await callApi({method:'GET',path:'/api/local-runtime'});if(state?.ok===false)throw Error();return runtimeResultContext(state,session.id);}
+        catch{return '本轮本地状态未取得，请使用 local_runtime_status 核对，不得沿用历史 pending。';}
+      }});
       const result = await run(prompt + visualContext, {
         modelId: input.modelId,
         conversationId: session.id,
+        freshThread: independentMediaTask,
         messageId: input.messageId,
         skills,
-        tools: MAIN_AGENT_TOOL_DEFS,
-        toolRunner,
+        tools: LIGHT_AGENT_TOOLS,
+        contextInstructions: LIGHT_AGENT_INSTRUCTIONS.join('\n'),
+        maxRounds: 8,
+        toolRunner:lazyRunner,
         images: imageInputs,
       });
 
@@ -253,26 +306,10 @@ export function createChatService({
       }
 
       const tasks = [];
-      const pushOm = (raw = {}) => {
-        const prompt = String(raw.prompt || raw.instruction || raw.title || 'OpenMontage 任务').trim() || 'OpenMontage 任务';
-        tasks.push({
-          provider: 'openmontage',
-          kind: 'om',
-          prompt,
-          projectId: raw.projectId || raw.project_id || null,
-          tool: raw.tool || raw.tool_name || null,
-          status: raw.status || 'planned',
-          count: 1,
-          ratio: 'OM',
-          fromAgent: true,
-          createdAt: Date.now(),
-        });
-      };
-
       for (const raw of result.tasks) {
         const provider = String(raw?.provider || raw?.kind || '').toLowerCase();
         if (provider === 'openmontage' || provider === 'om') {
-          pushOm(raw);
+          // Local tool execution is represented by toolTrace, not media drafts.
           continue;
         }
         const checked = validateDraft({
@@ -291,25 +328,6 @@ export function createChatService({
       }
 
       const toolTrace = Array.isArray(result.toolTrace) ? result.toolTrace.slice(0, 20) : [];
-      for (const tr of toolTrace) {
-        if (tr?.name !== 'om_execute_tool') continue;
-        const args = tr.args || {};
-        const already = tasks.some(
-          (t) =>
-            t.provider === 'openmontage'
-            && t.projectId === (args.projectId || null)
-            && t.tool === (args.tool || null),
-        );
-        if (already) continue;
-        const ok = tr.result?.ok !== false && tr.result?.status !== 501;
-        pushOm({
-          prompt: args.instruction || args.prompt || (args.tool ? `OM · ${args.tool}` : 'OpenMontage 工具调用'),
-          projectId: args.projectId,
-          tool: args.tool,
-          status: ok ? 'running' : 'error',
-        });
-      }
-
       const answer = {
         reply: result.reply,
         tasks,

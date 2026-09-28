@@ -20,7 +20,7 @@ export function createWorkflowStore({directory,runtime}){
    if(dependencies.some(d=>d.status!=='completed'))continue;
    // Save the intent first: interrupted issuance is never replayed automatically.
    s.status='issuing';save(r);
-   try{const q=runtime.propose({...s.request,conversationId:r.conversationId,messageId:r.messageId});s.requestId=q.id;s.status=q.status;}catch(e){s.status='failed';s.error=e.message;}
+   try{let q=runtime.propose({...s.request,conversationId:r.conversationId,messageId:r.messageId});s.requestId=q.id;if(['read','list','search'].includes(s.request.kind))q=await runtime.approve(q.id);s.status=q.status;}catch(e){s.status='failed';s.error=e.message;}
   }save(r);
  }}finally{busy=false;}}
  return {create,tick,list:()=>[...records.values()]};

@@ -1,3 +1,4 @@
+import {queryTtImageTask} from './tt-image-query.mjs';
 import {proxyGeneration} from './proxy.mjs';
 import {calculateQuotaCost,deductUserQuota} from './billing.mjs';
 
@@ -17,7 +18,7 @@ export async function getLarge(storage,key){
  });
 }
 export class ImageJobCore {
- constructor(ctx,env,deps={}){this.ctx=ctx;this.env=env;this.generate=deps.generate||proxyGeneration;this.price=deps.price||calculateQuotaCost;this.deduct=deps.deduct||deductUserQuota;}
+ constructor(ctx,env,deps={}){this.ctx=ctx;this.env=env;this.generate=deps.generate||proxyGeneration;this.query=deps.query||queryTtImageTask;this.price=deps.price||calculateQuotaCost;this.deduct=deps.deduct||deductUserQuota;}
  async enqueue(job){
   if(this.enqueuing)return this.enqueuing;
   this.enqueuing=this.initialize(job);
@@ -45,7 +46,7 @@ export class ImageJobCore {
   const storage=this.ctx.storage,job=await storage.get('job');if(!job||job.state==='done')return;
   const task=await this.receipt();
   if(['completed','partial','failed','unknown'].includes(task.status)){await storage.put('job',{...job,state:'done'});return;}
-  if(job.state==='submitting'){
+  if(job.state==='submitting'&&!job.upstreamTaskId){
    task.status='unknown';task.submissionUnknown=true;task.pollError='上次提交后执行中断，未自动重发，已保留现有结果';task.revision++;
    await this.save(task,job);await storage.put('job',{...job,state:'done'});return;
   }
@@ -56,13 +57,27 @@ export class ImageJobCore {
   await storage.setAlarm(Date.now()+12*60*1000);
   let items;
   try{
-   const output=await this.generate({body:batch,env:this.env,provider:job.provider,route:job.route});
+   let output;
+   if(job.upstreamTaskId){
+    output=await this.query({env:this.env,provider:job.provider,taskId:job.upstreamTaskId});
+    if(!output.final){
+     if(Date.now()-(job.pollStartedAt||0)>20*60*1000)throw Error('上游任务仍未完成，结果待确认；未重复提交');
+     job.state='polling';await storage.put('job',job);await storage.setAlarm(Date.now()+10000);return;
+    }
+   }else output=await this.generate({body:batch,env:this.env,provider:job.provider,route:job.route,modelInfo:job.modelInfo});
    items=Array.isArray(output.data)?output.data.filter(item=>item?.url||item?.b64_json):[];
   }catch(error){
+   if(job.modelInfo?.family==='tt-image'&&error.upstreamTaskId&&!job.upstreamTaskId){
+    job.upstreamTaskId=error.upstreamTaskId;job.pollStartedAt=Date.now();job.state='polling';task.pollError='上游同步响应超时，正在查询原任务';task.revision++;
+    await this.save(task,job);await storage.put('job',job);await storage.setAlarm(Date.now()+10000);return;
+   }
+   if(job.upstreamTaskId&&!error.terminal&&Date.now()-job.pollStartedAt<20*60*1000){job.state='polling';await storage.put('job',job);await storage.setAlarm(Date.now()+10000);return;}
+
    task.status=error.status>=400&&error.status<500?(task.upstreams.length?'partial':'failed'):'unknown';task.submissionUnknown=task.status==='unknown';task.pollError=error.message;task.revision++;
    if(!task.upstreams.length&&task.status==='failed')task.upstreams.push({ok:false,error:error.message});
    await this.save(task,job);await storage.put('job',{...job,state:'done'});return;
   }
+  delete task.pollError;delete task.submissionUnknown;
   task.upstreams.push(...items.map(item=>({ok:true,upstream:item})));task.revision++;
   const received=task.upstreams.length;
   task.status=items.length===n?'completed':received?'partial':'unknown';

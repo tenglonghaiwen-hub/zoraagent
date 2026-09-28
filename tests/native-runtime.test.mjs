@@ -15,6 +15,35 @@ const fixture = (backend = 'native', execFileImpl = async () => { throw Error('E
   };
 };
 
+test('mkdir preserves conflicting files and reads explicitly identify empty files', async () => {
+  const config=fixture(); const runtime=createLocalRuntime(config);
+  const write=runtime.propose({kind:'write',path:'old-project',content:''});
+  await runtime.approve(write.id);
+  const conflict=runtime.propose({kind:'mkdir',path:'old-project'});
+  assert.equal((await runtime.approve(conflict.id)).status,'failed');
+  assert.ok(fs.statSync(path.join(config.workspaceRoot,'old-project')).isFile());
+  const dir=runtime.propose({kind:'mkdir',path:'new-project/src'});
+  assert.equal((await runtime.approve(dir.id)).status,'completed');
+  assert.ok(fs.statSync(path.join(config.workspaceRoot,'new-project/src')).isDirectory());
+  const read=runtime.propose({kind:'read',path:'old-project'});
+  const result=await runtime.approve(read.id);
+  assert.equal(result.metadata.empty,true);
+  assert.equal(result.metadata.size,0);
+  assert.equal(result.metadata.type,'file');
+});
+
+test('render dependency cache survives runtime restart while sensitive contents remain blocked', async () => {
+  const config=fixture();
+  const cache=path.join(config.workspaceRoot,'animation/node_modules/.cache');
+  fs.mkdirSync(cache,{recursive:true});
+  fs.writeFileSync(path.join(cache,'bundle.bin'),'render cache');
+  const runtime=createLocalRuntime(config);
+  assert.equal((await runtime.status()).available,true);
+  assert.throws(()=>runtime.propose({kind:'read',path:'animation/node_modules/.cache/bundle.bin'}),/受限/);
+  fs.writeFileSync(path.join(cache,'.env'),'test-only');
+  assert.throws(()=>createLocalRuntime(config),/node_modules.*\.env/);
+});
+
 test('native runtime status is available without docker and requires no docker CLI calls', async () => {
   let dockerCalled = false;
   const config = fixture('native', async () => {

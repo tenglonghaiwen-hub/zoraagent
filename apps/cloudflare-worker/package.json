@@ -6,6 +6,9 @@
   "main": "src/index.mjs",
   "type": "module",
   "scripts": {
+    "check": "npm run check:types && npm run check:bundle",
+    "check:types": "wrangler types --check && tsc -p tsconfig.json",
+    "check:bundle": "wrangler deploy --dry-run --outdir .wrangler/typecheck && tsc --ignoreConfig --noEmit --allowJs --checkJs --skipLibCheck --strict false --noImplicitAny false --target es2022 --module nodenext --moduleResolution nodenext worker-configuration.d.ts .wrangler/typecheck/worker.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
@@ -19,6 +22,7 @@
     "secret:openai": "wrangler secret put OPENAI_API_KEY"
   },
   "devDependencies": {
-    "wrangler": "^3.114.0"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.137.0"
   }
 }

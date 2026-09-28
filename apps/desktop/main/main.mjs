@@ -268,7 +268,7 @@ async function boot() {
   }else loadEnvFile(path.join(REPO_ROOT, '.env'));
   const port = Number(process.env.PORT || 4317);
 
-  if(network.mode!=='environment'){cloudRelay=await startCloudRelay((url,options)=>session.defaultSession.fetch(url,options));process.env.ZORA_CLOUD_RELAY=cloudRelay.url;}
+  if(network.mode!=='environment'){cloudRelay=await startCloudRelay((url,options)=>session.defaultSession.fetch(url,options),url=>session.defaultSession.resolveProxy(url));process.env.ZORA_CLOUD_RELAY=cloudRelay.url;}
   const server = await ensureAppServer(port);
   createWindow(originPort||port);
   if(process.env.ZORA_OM_INIT_ERROR)mediaStartup={ok:false,message:process.env.ZORA_OM_INIT_ERROR};
@@ -304,6 +304,11 @@ app.whenReady().then(() => {
       if(!Array.isArray(data.models))throw Error('模型目录格式无效');
       return {ok:true,message:'当前后台云服务连接正常。若刚修改设置，请重启后再检测。'};
     }catch(error){return {ok:false,message:'后台网络检测失败：'+String(error.message).slice(0,300)};}
+  });
+  ipcMain.handle('zora:choose-output-directory',async event=>{
+    if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('来源无效');
+    const result=await dialog.showOpenDialog(mainWindow,{title:'选择本地配音保存目录',properties:['openDirectory','createDirectory']});
+    return result.canceled?null:result.filePaths[0];
   });
   ipcMain.handle('zora:choose-voice',async event=>{
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('来源无效');

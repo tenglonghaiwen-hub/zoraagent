@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {createWorkflowStore} from '../packages/agent/workflow-store.mjs';
-function fixture(){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'zora-workflow-'));const requests=[];const runtime={list:()=>requests,propose:request=>{const r={id:String(requests.length+1),status:'pending',request};requests.push(r);return r;}};return {directory,requests,runtime};}
+function fixture(){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'zora-workflow-'));const requests=[];const runtime={list:()=>requests,approve:async id=>{const r=requests.find(r=>r.id===id);r.status='completed';return r;},propose:request=>{const r={id:String(requests.length+1),status:'pending',request};requests.push(r);return r;}};return {directory,requests,runtime};}
 test('dependencies wait for approved completion and restart does not repropose',async()=>{
  const f=fixture();let store=createWorkflowStore(f);
  store.create({steps:[{id:'a',request:{kind:'write',path:'a.txt',content:'a'}},{id:'b',dependsOn:['a'],request:{kind:'read',path:'a.txt'}}]});
@@ -16,7 +16,7 @@ test('dependencies wait for approved completion and restart does not repropose',
 test('cycles are rejected and denied dependencies block later steps',async()=>{
  const f=fixture(),s=createWorkflowStore(f);
  assert.throws(()=>s.create({steps:[{id:'a',dependsOn:['a']}]}),/循环/);
- s.create({steps:[{id:'a',request:{kind:'read',path:'a'}},{id:'b',dependsOn:['a'],request:{kind:'read',path:'b'}}]});
+ s.create({steps:[{id:'a',request:{kind:'write',path:'a',content:'a'}},{id:'b',dependsOn:['a'],request:{kind:'read',path:'b'}}]});
  await s.tick();f.requests[0].status='denied';await s.tick();assert.equal(f.requests.length,1);assert.equal(s.list()[0].steps[1].status,'blocked');
 });
 test('interrupted issuance becomes unknown without a duplicate action',async()=>{

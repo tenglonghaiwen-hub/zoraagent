@@ -592,15 +592,15 @@ export function renderAdminHtml() {
             <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; padding: 1.25rem;">
               <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
                 <span style="font-size: 1.1rem;">🔌</span>
-                <strong style="color: #c084fc;">自定义 / OneAPI 中转</strong>
+                <strong style="color: #c084fc;">自定义 / New API 中转</strong>
               </div>
               <div class="form-group">
                 <label for="cfg_custom_key">自定义 API 密钥 (CUSTOM_API_KEY)</label>
                 <input type="password" id="cfg_custom_key" placeholder="sk-...">
               </div>
               <div class="form-group" style="margin-bottom: 0;">
-                <label for="cfg_custom_base">自定义 Base 地址</label>
-                <input type="text" id="cfg_custom_base" placeholder="https://your-oneapi-domain.com">
+                <label for="cfg_custom_base">New API 服务地址（域名根地址，不含接口路径）</label>
+                <input type="text" id="cfg_custom_base" placeholder="https://your-newapi-domain.com">
               </div>
               <div style="margin-top: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="testProvider('custom')">测试自定义上游</button>
@@ -816,7 +816,7 @@ export function renderAdminHtml() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
             <label for="m_template">协议模板</label>
-            <select id="m_template"><option value="">按已有模型识别</option><option value="responses">responses</option><option value="claude-messages">claude-messages</option><option value="chat-completions">chat-completions</option><option value="openai-image">openai-image</option><option value="gpt-image">gpt-image</option><option value="grok-image">grok-image</option><option value="seedream">seedream</option><option value="qwen-image">qwen-image</option><option value="gemini-image">gemini-image</option><option value="grok-video">grok-video</option><option value="veo">veo</option><option value="minimax">minimax（官方格式 v2）</option><option value="minimax-openai">minimax-openai（多元 OpenAI 格式 v1）</option><option value="omni">omni</option><option value="seedance">seedance</option></select>
+            <select id="m_template"><option value="">按已有模型识别</option><option value="responses">responses</option><option value="claude-messages">claude-messages</option><option value="chat-completions">chat-completions</option><option value="openai-image">openai-image</option><option value="tt-image">tt-image（TT Image 专用）</option><option value="gpt-image">gpt-image</option><option value="grok-image">grok-image</option><option value="seedream">seedream</option><option value="qwen-image">qwen-image</option><option value="gemini-image">gemini-image</option><option value="grok-video">grok-video</option><option value="veo">veo</option><option value="minimax">minimax（官方格式 v2）</option><option value="lk-wan3">lk-wan3（强哥AI 万相 3.0）</option><option value="lk-minimax-h3">lk-minimax-h3（强哥AI 媒体协议）</option><option value="lk-seedance-media">lk-seedance-media（强哥AI 本站媒体）</option><option value="lk-seedance-ark">lk-seedance-ark（强哥AI 火山方舟格式）</option><option value="minimax-openai">minimax-openai（多元 OpenAI 格式 v1）</option><option value="omni">omni</option><option value="seedance">seedance</option></select>
             <div id="m_h3_prices">
               <label for="m_h3_enhance_cost">H3 提示词增强 · 每次积分</label>
               <input id="m_h3_enhance_cost" type="number" min="0" step="1" placeholder="留空不开放">
@@ -1012,6 +1012,10 @@ export function renderAdminHtml() {
       const queryInput = document.getElementById('m_query_route');
 
       const template=document.getElementById('m_template').value;
+      if(template==='lk-wan3'){routeInput.value='/v1/media/generate';queryInput.value='/v1/media/status?task_id={task_id}';return;}
+      if(template==='lk-minimax-h3'){routeInput.value='/v1/media/generate';queryInput.value='/v1/media/status?task_id={task_id}';return;}
+      if(template==='lk-seedance-media'){routeInput.value='/v1/media/generate';queryInput.value='/v1/media/status?task_id={task_id}';return;}
+      if(template==='lk-seedance-ark'){routeInput.value='/api/v3/contents/generations/tasks';queryInput.value='/api/v3/contents/generations/tasks/{task_id}';return;}
       if(template==='minimax-openai'){
         routeInput.value='/v1/videos';queryInput.value='/v1/videos/{task_id}';return;
       }
@@ -1179,7 +1183,7 @@ export function renderAdminHtml() {
       }
     };
 
-    document.getElementById('m_template').onchange=()=>{document.getElementById('m_h3_prices').hidden=document.getElementById('m_template').value!=='minimax';document.getElementById('m_h3_enhance_cost').value='';document.getElementById('m_h3_remix_cost').value='';document.getElementById('m_capability').value='';const route={'minimax-openai':'/v1/videos',minimax:'/v2/video_generation',responses:'/v1/responses','claude-messages':'/v1/messages','chat-completions':'/v1/chat/completions'}[document.getElementById('m_template').value];if(route)document.getElementById('m_route').value=route;const template=document.getElementById('m_template').value;if(template==='minimax-openai'||template==='minimax'){document.getElementById('m_query_route').value=template==='minimax-openai'?'/v1/videos/{task_id}':'/v2/query/video_generation/{task_id}';document.getElementById('m_asset_workflow').checked=false;}};
+    document.getElementById('m_template').onchange=()=>{document.getElementById('m_h3_prices').hidden=document.getElementById('m_template').value!=='minimax';document.getElementById('m_h3_enhance_cost').value='';document.getElementById('m_h3_remix_cost').value='';document.getElementById('m_capability').value='';const route={'lk-wan3':'/v1/media/generate','lk-minimax-h3':'/v1/media/generate','lk-seedance-media':'/v1/media/generate','lk-seedance-ark':'/api/v3/contents/generations/tasks','tt-image':'/v1/images/generations','minimax-openai':'/v1/videos',minimax:'/v2/video_generation',responses:'/v1/responses','claude-messages':'/v1/messages','chat-completions':'/v1/chat/completions'}[document.getElementById('m_template').value];if(route)document.getElementById('m_route').value=route;const template=document.getElementById('m_template').value;if(['lk-minimax-h3','lk-wan3','lk-seedance-media'].includes(template)){document.getElementById('m_query_route').value='/v1/media/status?task_id={task_id}';document.getElementById('m_provider').value='custom';document.getElementById('m_asset_workflow').checked=false;}if(template==='lk-seedance-ark'){document.getElementById('m_query_route').value='/api/v3/contents/generations/tasks/{task_id}';document.getElementById('m_provider').value='custom';document.getElementById('m_asset_workflow').checked=false;}if(template==='tt-image'){document.getElementById('m_query_route').value='';document.getElementById('m_asset_workflow').checked=false;}if(template==='minimax-openai'||template==='minimax'){document.getElementById('m_query_route').value=template==='minimax-openai'?'/v1/videos/{task_id}':'/v2/query/video_generation/{task_id}';document.getElementById('m_asset_workflow').checked=false;}};
     let capabilityHistory=[];
     document.getElementById('m_history_load').onclick=async()=>{
       try{const response=await adminFetch('/api/admin/models/history?id='+encodeURIComponent(document.getElementById('m_id').value));const data=await response.json();if(!response.ok)throw Error(data.error||'历史读取失败');capabilityHistory=data.history||[];const select=document.getElementById('m_history');select.replaceChildren(new Option('选择要恢复到表单的版本',''),...capabilityHistory.map((h,i)=>new Option('版本 '+h.revision,i)));select.hidden=false;if(!capabilityHistory.length)showToast('暂无配置历史');}catch(e){showToast(e.message,'error');}

@@ -250,8 +250,8 @@ export async function upsertServerModel(db, model) {
   let queryRoute = (model.queryRoute || model.query_route || '').trim();
 
   const defaults=resolveModelCapability({id,kind,provider,capability:model.capability});
-  if(!route)route=defaults.route||'';
-  if(!queryRoute&&kind==='video')queryRoute=defaults.queryRoute||'';
+  if(!route&&'route' in defaults)route=defaults.route||'';
+  if(!queryRoute&&kind==='video'&&'queryRoute' in defaults)queryRoute=defaults.queryRoute||'';
 
   const previous=await db.prepare('SELECT * FROM server_models WHERE id = ?').bind(id).first();
   const previousConfig=previous?.config?JSON.parse(previous.config):null;
@@ -421,8 +421,8 @@ export async function setUserVip(db, userId, arg3 = {}, arg4) {
     isVip = Boolean(arg3);
     if (arg4 !== undefined) days = Number(arg4);
   } else if (arg3 && typeof arg3 === 'object') {
-    isVip = Boolean(arg3.isVip);
-    if (arg3.days !== undefined) days = Number(arg3.days);
+    isVip = 'isVip' in arg3 && Boolean(arg3.isVip);
+    if ('days' in arg3 && arg3.days !== undefined) days = Number(arg3.days);
   } else {
     isVip = Boolean(arg3);
   }
@@ -484,7 +484,7 @@ export async function upgradeUserMembership(db, userId, { days = 30, giftQuota =
   const newConcurrency = Math.max(Number(existing.concurrencyLimit) || 1, targetConcurrency);
 
   // Calculate new quota
-  const addPoints = Math.max(0, parseInt(giftQuota, 10) || 0);
+  const addPoints = Math.max(0, parseInt(String(giftQuota), 10) || 0);
   const newBalance = (Number(existing.quotaBalance) || 0) + addPoints;
 
   // Update DB
@@ -552,7 +552,7 @@ export async function getNotifications(db, { limit = 50 } = {}) {
   return results || [];
 }
 
-export async function createNotification(db, { title, content, kind = 'official', userId = '*' } = {}) {
+export async function createNotification(db, { title = '', content = '', kind = 'official', userId = '*' } = {}) {
   if (!title || !content) throw new Error('通知标题与内容不能为空');
   const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = Date.now();

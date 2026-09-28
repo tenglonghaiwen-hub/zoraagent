@@ -28,7 +28,7 @@ export function validateDraft(input = {}, resolveModel = getModel) {
   const prompt = String(input.prompt || '').trim();
   if (!prompt) return { ok: false, error: '请填写创作需求' };
   const references=input.references??[];
-  if(!Array.isArray(references)||references.length>(['minimax','minimax-openai'].includes(model.family)?15:6))return {ok:false,error:'参考素材数量超出模型限制'};
+  if(!Array.isArray(references)||references.length>(['minimax','minimax-openai','lk-minimax-h3','lk-wan3','lk-seedance-media','lk-seedance-ark'].includes(model.family)?21:6))return {ok:false,error:'参考素材数量超出模型限制'};
   const assetReference=r=>model.family==='seedance'&&/^asset:\/\/[A-Za-z0-9_-]+$/.test(r.contentUrl)&&/^(image|video|audio)\//.test(r.type||'');
   if(references.some(r=>!r||typeof r.contentUrl!=='string'||!(/^(https?:\/\/|data:(image\/(png|jpeg|webp)|video\/mp4|audio\/(mpeg|wav));base64,)/.test(r.contentUrl)||assetReference(r))))return {ok:false,error:'参考素材格式无效'};
 
@@ -89,6 +89,8 @@ export function validateDraft(input = {}, resolveModel = getModel) {
     contentType: model.contentType,
     prompt,
     references,
+    ...(input.fileUrl?{fileUrl:input.fileUrl}:{}),
+    ...(input.linkUrl?{linkUrl:input.linkUrl}:{}),
     count,
     concurrency,
     ratio,

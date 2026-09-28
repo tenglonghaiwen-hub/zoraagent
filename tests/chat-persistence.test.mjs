@@ -8,6 +8,17 @@ import {createSessionStore} from '../packages/agent/session-store.mjs';
 process.env.ZORA_AGENT_API_KEY='unit-test-dummy';process.env.ZORA_AGENT_ENABLED='true';
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'zora-chat-persistence-'));
 const run=async()=>({reply:'本地测试回复',tasks:[]});
+
+test('resumed chat loads fresh local results on capability discovery',async()=>{
+ let id,seen;
+ const chat=createChatService({run:async (p,o)=>{seen=JSON.stringify(await o.toolRunner('discover_agent_tools',{group:'local'}));return run();},callApi:async req=>{
+   if(req.path==='/api/local-runtime')return {ok:true,data:{requests:[{id:'fresh-read',conversationId:id,status:'completed',request:{kind:'read',path:'src/config.ts'},stdout:'actual-file-content'}]}};
+   return {ok:true,data:{models:[]}};
+ }});
+ id=(await chat({message:'读取工程'})).conversationId;
+ await chat({message:'继续',conversationId:id});
+ assert.match(seen,/fresh-read/);assert.match(seen,/actual-file-content/);assert.match(seen,/completed/);
+});
 test('a restarted chat service restores ID and prior text, without storing media or configuration',async()=>{
  const directory=temp();const ref={name:'original.png',type:'image/png',contentUrl:'data:image/png;base64,aGVsbG8='};
  const first=await createChatService({run,storageDirectory:directory})({message:'原始要求',references:[ref]});
@@ -15,6 +26,12 @@ test('a restarted chat service restores ID and prior text, without storing media
  const next=await restarted({message:'继续',conversationId:first.conversationId});
  assert.equal(next.conversationId,first.conversationId);assert.match(seen,/原始要求/);
  const record=fs.readFileSync(path.join(directory,first.conversationId+'.json'),'utf8');assert.doesNotMatch(record,/aGVsbG8|unit-test-dummy|contentUrl/);assert.match(record,/original.png/);
+});
+test('task boundary survives session persistence for later follow-ups',async()=>{
+ const directory=temp();const store=createSessionStore({directory}),id='task-boundary-123456789';
+ store.save({id,history:[{role:'user',text:'old task',references:[]},{role:'user',text:'new media task',taskBoundary:true,references:[]}]});
+ const restored=createSessionStore({directory}).sessions.get(id);
+ assert.equal(restored.history[1].taskBoundary,true);
 });
 test('failed atomic replacement preserves old valid session on disk and latest in memory',()=>{
  const directory=temp(),id='test-session-123456789';

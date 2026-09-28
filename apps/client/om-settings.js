@@ -23,7 +23,7 @@ if(host){
  function apply(data){
   const p=data.preferences,d=data.dependencies;
   for(const key of Object.keys(labels))form.elements[key].checked=p[key];
-  form.elements.transcriptModel.value=p.transcriptModel;form.elements.voiceModel.value=p.voiceModel;
+  form.elements.outputDirectory.value=p.outputDirectory||'';form.elements.transcriptModel.value=p.transcriptModel;form.elements.voiceModel.value=p.voiceModel;
   syncPicker();
   for(const input of form.querySelectorAll('[name="sources"]'))input.checked=p.sources.includes(input.value);
   const messages={editing:d.ffmpeg&&d.ffprobe?'FFmpeg 已检测到':'缺少 FFmpeg / FFprobe',transcription:d.fasterWhisper?'转录运行库已检测到；模型缓存尚未校验':'缺少 faster-whisper 运行库',voice:!d.piper?'缺少 Piper 程序':d.voiceModel?'程序与音色文件已检测到；尚未试听':'请选择已有音色文件',stock:d.requests?'检索运行库已检测到；来源连通性未检测':'缺少 requests 运行库'};
@@ -35,11 +35,12 @@ if(host){
   report(data.diagnosticError||'已读取此设备设置。开关控制后续工具调用，不会中断正在执行的任务。');
  }
  async function load(){if(busy)return;busy=true;refresh.disabled=true;save.disabled=true;report('正在检查本地运行环境…');try{apply(await request('/api/om/capabilities',{cache:'no-store'}));}catch(error){report(error.message);if(!loaded)for(const node of host.querySelectorAll('[data-state]'))node.textContent='未能读取状态，请查看上方提示';}finally{busy=false;refresh.disabled=false;save.disabled=!loaded;}}
+ form.querySelector('[data-output-directory]').addEventListener('click',async()=>{try{if(!window.zoraDesktop?.chooseOutputDirectory){report('请填写保存目录的绝对路径；文件夹选择需要更新桌面客户端。');return;}const selected=await window.zoraDesktop.chooseOutputDirectory();if(selected){form.elements.outputDirectory.value=selected;report('已选择文件夹，请保存设置。');}}catch(error){report(error.message);}});
  refresh.addEventListener('click',load);
  form.addEventListener('submit',async event=>{
   event.preventDefault();if(busy||!loaded)return;
   const preferences=Object.fromEntries(Object.keys(labels).map(k=>[k,form.elements[k].checked]));
-  preferences.transcriptModel=form.elements.transcriptModel.value;preferences.voiceModel=form.elements.voiceModel.value.trim();preferences.sources=[...form.querySelectorAll('[name="sources"]:checked')].map(el=>el.value);
+  preferences.outputDirectory=form.elements.outputDirectory.value.trim();preferences.transcriptModel=form.elements.transcriptModel.value;preferences.voiceModel=form.elements.voiceModel.value.trim();preferences.sources=[...form.querySelectorAll('[name="sources"]:checked')].map(el=>el.value);
   busy=true;save.disabled=true;refresh.disabled=true;report('正在保存…');
   try{
    const keys={};for(const provider of ['pexels','unsplash']){const input=form.elements[provider+'Key'];if(form.elements[provider+'Clear'].checked)keys[provider]=null;else if(input.value.trim())keys[provider]=input.value.trim();}

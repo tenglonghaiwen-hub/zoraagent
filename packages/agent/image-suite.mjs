@@ -21,7 +21,7 @@ export const IMAGE_SUITE_TOOLS = ['preview_image_suite', 'submit_image_suite'].m
     : '提交已获用户生成授权的整套图片（每张会计费）。每张独立提示词、相同原始参考图、数量1，结果合并展示；不自动补图或重试。',
 }));
 
-export function planImageSuite(args, references = []) {
+export function planImageSuite(args, references = [], resolveModel) {
   const text = (value, max) => typeof value === 'string' && value.trim() && value.length <= max;
   if (!text(args.title, 160) || !text(args.sharedStyle, 8000) || !Array.isArray(args.items) || args.items.length < 2 || args.items.length > 12)
     return { ok: false, error: '整套图片需要标题、共同风格及 2–12 条独立页面描述' };
@@ -32,7 +32,7 @@ export function planImageSuite(args, references = []) {
   const drafts = [];
   for (const item of args.items) {
     const prompt = `共同风格与主体约束：\n${args.sharedStyle.trim()}\n\n当前页面：${item.title.trim()}\n${item.prompt.trim()}\n\n只生成当前页面的一张独立成图，不包含其他页面，不把整套作品拼成四格、多页缩略图或联系表。保留当前页面明确要求的设计元素。`;
-    const checked = validateDraft({ ...args, prompt, count: 1, concurrency: 1, references });
+    const checked = validateDraft({ ...args, prompt, count: 1, concurrency: 1, references },resolveModel);
     if (!checked.ok) return checked;
     if (checked.draft.kind !== 'image') return { ok: false, error: '整套图片工具仅支持图片模型' };
     const { id, createdAt, ...draft } = checked.draft;

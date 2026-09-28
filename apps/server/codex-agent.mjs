@@ -1,4 +1,5 @@
 import {dataPath} from '../../packages/runtime-paths.mjs';
+import {normalizeCallIds} from '../../packages/agent/call-ids.mjs';
 import {cloudAgentContext} from './cloud-agent-context.mjs';
 import { getKernel, peekKernel, findCodex } from '../../packages/agent/codex-kernel.mjs';
 import { spawn } from 'node:child_process';
@@ -97,6 +98,7 @@ async function runViaResponses({
   maxRounds = 4,
   images = [],
   roleInstructions,
+  contextInstructions,
 }) {
   const status = agentStatus();
   if (!status.configured || !status.enabled) {
@@ -138,7 +140,7 @@ async function runViaResponses({
     const body = {
       model,
       instructions:
-        roleInstructions ||
+        roleInstructions || contextInstructions ||
         '你是造境 Zora 的主创作 Agent。用中文协作。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片内容。回复中不要提及具体模型名或协议/底层实现。最终必须给出符合 JSON schema 的 reply 与 tasks。',
       input,
       max_output_tokens: AGENT_OUTPUT_TOKEN_LIMIT,
@@ -173,7 +175,7 @@ async function runViaResponses({
           Authorization: `Bearer ${key}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(normalizeCallIds(body)),
       });
       data = await res.json().catch(() => ({}));
       if (res.ok) break;
@@ -277,6 +279,7 @@ async function runViaChatCompletions({
   maxRounds = 4,
   images = [],
   roleInstructions,
+  contextInstructions,
 }) {
   const status = agentStatus();
   if (!status.configured || !status.enabled) {
@@ -297,7 +300,7 @@ async function runViaChatCompletions({
   }
 
   const instructions =
-    roleInstructions ||
+    roleInstructions || contextInstructions ||
     '你是造境 Zora 的主创作 Agent。用中文协作。当用户问及模型身份等相关问题时，只回答：“我是zora agent，我可以帮你回答问题、解释概念、写作、翻译、编程、制作图片和视频以及一起分析和解决问题。你想进行什么工作？”，严禁提及任何第三方模型名称或底层提供方。可调用工具与技能，可调用图片/视频生成相关 API，并可阅读用户附带的参考图片。最终必须只输出 JSON 对象，包含 reply(string) 与 tasks(array)。';
 
   const userContent = images?.length
@@ -524,6 +527,7 @@ export async function runCodex(prompt, opts = {}) {
     maxRounds: opts.maxRounds ?? defaults.maxToolRounds ?? 4,
     images: opts.images || [],
     roleInstructions: opts.roleInstructions,
+    contextInstructions: opts.contextInstructions,
   };
 
   if (preferChatCompletions(opts.modelId)) {

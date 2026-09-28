@@ -111,12 +111,14 @@ test('media subagent uses refactored prompt module', async () => {
   assert.match(capturedPrompt, /preview_task/, 'should mention preview tool');
 });
 
-test('chat service uses refactored prompt builder', async () => {
+test('chat service exposes the current media model rule through tool discovery', async () => {
   const { createChatService } = await import('../apps/server/chat-service.mjs');
 
   let capturedPrompt = null;
+  let discovered = null;
   const mockRun = async (prompt, options) => {
     capturedPrompt = prompt;
+    discovered = await options.toolRunner('discover_agent_tools', {group:'media'});
     return { reply: 'test', tasks: [] };
   };
 
@@ -125,7 +127,8 @@ test('chat service uses refactored prompt builder', async () => {
   await chat({ message: '你好' });
 
   assert.ok(capturedPrompt, 'prompt should be captured');
-  assert.match(capturedPrompt, /造境 Zora/, 'should use main agent prompt');
-  assert.match(capturedPrompt, /delegate_media_task/, 'should mention delegation');
+  assert.equal(discovered.ok,true);
+  assert.match(discovered.instructions.join('\n'), /启用目录中对应媒体类型的第一项/);
+  assert.match(discovered.instructions.join('\n'), /用户明确指定的模型优先/);
   assert.doesNotMatch(capturedPrompt, /RunningHub/, 'should not mention removed features');
 });

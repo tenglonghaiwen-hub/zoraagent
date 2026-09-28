@@ -74,3 +74,60 @@ test('Agent sends configured Chat route and rejects unsupported route before ups
  assert.equal((await (await agentResponses(request(),env,deps)).json()).output[0].content[0].text,'ok');
  route='/unsupported';await assert.rejects(agentResponses(request(),env,deps),/模板/);assert.equal(calls,1);
 });
+
+
+test('hosted web search history survives switching to Chat and Messages without replay',()=>{
+ for(const convert of [toChat,toClaude])for(const status of ['completed','failed','in_progress',undefined]){
+  const input=[{role:'user',content:'查找说明'},
+   {type:'web_search_call',id:'ws_1',status,action:{type:'search',queries:['Piper 文档'],sources:[{type:'url',url:'https://example.com/docs'}]}},
+   {type:'web_search_call',id:'ws_2',status:'completed',action:{type:'open_page',url:'https://example.com/docs'}},
+   {type:'web_search_call',id:'ws_3',status:'completed',action:{type:'find_in_page',url:'https://example.com/docs',pattern:'text'}},
+   {role:'assistant',content:[{type:'output_text',text:'历史回答和引用 https://example.com/docs',annotations:[]}]},
+   {role:'user',content:'现在用本地 Piper 配音'}];
+  const before=structuredClone(input);
+  const {request}=convert({model:'test',input,tools:[{type:'web_search'}]});
+  const history=JSON.stringify(request.messages);
+  assert.match(history,/Piper 文档/);assert.match(history,/open_page/);assert.match(history,/find_in_page/);
+  assert.match(history,/历史回答和引用/);assert.match(history,/现在用本地 Piper 配音/);
+  assert.match(history,/没有正文时不能推断搜索结果/);
+  assert.equal(request.tools,undefined);assert(!history.includes('tool_use'));assert(!history.includes('tool_calls'));
+  assert.deepEqual(input,before);
+ }
+ for(const convert of [toChat,toClaude]){
+  assert.doesNotThrow(()=>convert({input:[{type:'web_search_call'},{role:'user',content:'继续'}]}));
+  assert.throws(()=>convert({input:[{type:'unknown_call'}]}),/不支持此会话项/);
+ }
+});
+
+
+test('gateway forwards a resumed web-search conversation through either configured protocol',async()=>{
+ for(const route of ['/v1/chat/completions','/v1/messages']){
+  let calls=0;
+  const env={DB:{prepare:()=>({bind:()=>({first:async()=>({id:'m',kind:'agent',enabled:1,route})})})}};
+  const deps={authenticate:async()=>({user:{id:'u',quotaBalance:10}}),price:async()=>1,deduct:async()=>{},config:async()=>({apiKey:'fixture',baseUrl:'https://example.com/v1'}),fetch:async(url,options)=>{
+   calls++;assert.equal(url,'https://example.com'+route);
+   const body=JSON.parse(options.body);assert.match(JSON.stringify(body.messages),/历史网页搜索记录/);
+   assert.match(JSON.stringify(body.messages),/继续配音/);
+   return Response.json(route==='/v1/messages'?{type:'message',id:'r',content:[{type:'text',text:'继续处理'}],stop_reason:'end_turn'}:{id:'r',choices:[{finish_reason:'stop',message:{content:'继续处理'}}]});
+  }};
+  const request=new Request('https://local/',{method:'POST',body:JSON.stringify({model:'m',input:[{role:'user',content:'查文档'},{type:'web_search_call',status:'completed',action:{type:'search',query:'Piper'}},{role:'user',content:'继续配音'}]})});
+  const result=await (await agentResponses(request,env,deps)).json();
+  assert.equal(calls,1);assert.equal(result.output[0].content[0].text,'继续处理');
+ }
+});
+
+
+test('removed history tools and missing outputs remain context without executable calls',()=>{
+ for(const convert of [toChat,toClaude]){
+  const input=[{role:'user',content:'继续'}, {type:'function_call',name:'local_runtime_status',call_id:'old',arguments:'{}'},{type:'function_call_output',call_id:'old',output:'{"status":"pending"}'},{type:'custom_tool_call',name:'removed',call_id:'missing',input:'data'},{type:'function_call_output',call_id:'orphan',output:'old output'}];
+  const before=structuredClone(input);const {request,names}=convert({input,tools:[]});const text=JSON.stringify(request.messages);
+  assert.match(text,/local_runtime_status/);assert.match(text,/pending/);assert.match(text,/未取得结果/);assert.match(text,/old output/);assert.doesNotMatch(text,/tool_use|tool_result|tool_calls/);assert.equal(names.size,0);assert.deepEqual(input,before);
+  assert.throws(()=>convert({input:'new',tools:[],tool_choice:{type:'function',name:'removed'}}),/不可用/);
+ }
+});
+test('removed history coexists with currently callable tools and namespace stays exact',()=>{
+ for(const convert of [toChat,toClaude]){
+  const {request,names}=convert({tools:[{type:'function',name:'lookup',parameters:{type:'object'}}],input:[{type:'function_call',name:'lookup',namespace:'old_namespace',call_id:'old',arguments:'{}'},{type:'function_call_output',call_id:'old',output:'old result'},{type:'function_call',name:'lookup',call_id:'new',arguments:'{}'},{type:'function_call_output',call_id:'new',output:'new result'},{role:'user',content:'继续'}]});
+  assert.equal(names.size,1);const text=JSON.stringify(request.messages);assert.match(text,/历史工具调用/);assert.match(text,/old result/);assert.match(text,/tool_use|tool_calls/);assert.match(text,/new result/);
+ }
+});

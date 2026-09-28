@@ -49,7 +49,7 @@ const PROVIDER_DEFAULTS = {
     keyName: 'CUSTOM_API_KEY',
     baseName: 'CUSTOM_BASE_URL',
     defaultBase: '',
-    title: '自定义上游'
+    title: '自定义 / New API'
   }
 };
 
@@ -75,7 +75,7 @@ export async function resolveProviderConfig(env, provider = 'duoyuanx') {
   baseUrl = (baseUrl && baseUrl.trim()) || env[meta.baseName] || meta.defaultBase || '';
 
   // Secondary fallback for general models: if specific key missing, try DUOYUANX_API_KEY if applicable
-  if (!apiKey && normProvider !== 'minimax' && env.DUOYUANX_API_KEY) {
+  if (!apiKey && normProvider !== 'minimax' && normProvider !== 'custom' && env.DUOYUANX_API_KEY) {
     apiKey = env.DUOYUANX_API_KEY;
     baseUrl = (baseUrl !== meta.defaultBase && baseUrl) ? baseUrl : (env.DUOYUANX_BASE_URL || 'https://duoyuanx.com');
   }
@@ -97,7 +97,8 @@ function buildMiniMaxContent(body) {
   }
 
   const prompt = body.prompt || '';
-  const content = [{ type: 'text', text: prompt }];
+  const content = [];
+  content.push({ type: 'text', text: prompt });
 
   if (Array.isArray(body.references)) {
     for (const ref of body.references) {
@@ -213,24 +214,27 @@ export async function proxyGeneration({ body, env, provider = null, route = null
   }
 
   // 2. Duoyuanx / OpenAI / SiliconFlow / Custom Protocol
-  let requestBody=JSON.stringify(packed?.body||body);
   const requestHeaders={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  let form;
   if(packed?.contentType==='multipart'){
-    const form=new FormData();
+    form=new FormData();
     for(const [key,value] of Object.entries(packed.fields))for(const item of Array.isArray(value)?value:[value]){
       if(key===packed.fileField){const match=/^data:([^;]+);base64,(.+)$/.exec(item);if(!match)throw Object.assign(Error('此模板的文件参考需要内嵌素材'),{status:400});form.append(key,new Blob([Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0))],{type:match[1]}),'reference');}
       else form.append(key,String(item));
     }
-    requestBody=form;delete requestHeaders['Content-Type'];
+    delete requestHeaders['Content-Type'];
   }
+  const requestBody=form||JSON.stringify(packed?.body||body);
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: requestHeaders,
-    body: requestBody
+    body: requestBody,
+    ...(modelInfo?.family==='tt-image'?{redirect:'manual',signal:AbortSignal.timeout(600000)}:{})
   });
 
   const data = await upstreamRes.json().catch(() => ({}));
   if (!upstreamRes.ok) {
+    if(modelInfo?.family==='tt-image'&&data.error?.task_id!==undefined)throw Object.assign(Error(data.error?.message||'上游生成待查询'),{status:upstreamRes.status,upstreamTaskId:String(data.error.task_id)});
     throw Object.assign(
       new Error(data.error?.message || data.error || data.message || `上游生成接口错误 (${upstreamRes.status})`),
       { status: upstreamRes.status }
@@ -392,15 +396,18 @@ export async function proxyChat({ body, env, provider = null, route = null }) {
     messages.unshift({ role: 'system', content: systemIdentityRule });
   }
 
-  let payload = {
+  const chatPayload = {
     model: modelId,
     messages,
     stream: false,
     ...(body.temperature !== undefined ? { temperature: body.temperature } : {})
   };
 
-  if(targetRoute==='/v1/responses')payload={model:modelId,input:messages,stream:false,...(body.temperature!==undefined?{temperature:body.temperature}:{})};
-  if(targetRoute==='/v1/messages')payload=toClaude({model:modelId,input:messages,stream:false}).request;
+  const payload=targetRoute==='/v1/responses'
+    ? {model:modelId,input:messages,stream:false,...(body.temperature!==undefined?{temperature:body.temperature}:{})}
+    : targetRoute==='/v1/messages'
+      ? toClaude({model:modelId,input:messages,stream:false}).request
+      : chatPayload;
   const upstreamRes = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -453,7 +460,7 @@ export async function testProviderConnectivity({ provider, apiKey = null, baseUr
     };
   }
 
-  let probeUrl = `${effectiveBase}/v1/models`;
+  let probeUrl = `${effectiveBase.replace(/\/v1$/, '')}/v1/models`;
   if (normProvider === 'deepseek') {
     probeUrl = `${effectiveBase}/models`;
   } else if (normProvider === 'minimax') {

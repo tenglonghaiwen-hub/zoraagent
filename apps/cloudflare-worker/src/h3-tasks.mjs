@@ -1,3 +1,9 @@
+import {fetchWithoutRedirect} from './upstream-fetch.mjs';
+import {packLkWan3} from '../../../packages/duoyuanx/lk-wan3.mjs';
+import {previewWanReferences} from '../../../packages/duoyuanx/wan-reference.mjs';
+import {stageWanVideoReferences} from './wan-reference-media.mjs';
+import {packLkH3,normalizeLkH3Result} from '../../../packages/duoyuanx/lk-minimax-h3.mjs';
+import {packLkSeedance,lkSeedanceTaskId,normalizeLkSeedanceResult} from '../../../packages/duoyuanx/lk-seedance.mjs';
 import {resolveProviderConfig} from './proxy.mjs';
 import {publishModelCapability,assertConfiguredOperation} from '../../../packages/contracts/model-capability.mjs';
 import {packH3Operation,normalizeH3Result} from '../../../packages/duoyuanx/h3-operations.mjs';
@@ -5,23 +11,27 @@ import {packH3Operation,normalizeH3Result} from '../../../packages/duoyuanx/h3-o
 const fail=(message,status=400)=>Object.assign(Error(message),{status});
 const validId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{16,100}$/.test(id);
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
+const lkVideoFamilies=new Set(['lk-minimax-h3','lk-wan3','lk-seedance-media','lk-seedance-ark']);
+const lkExecutors=new Set(['lk-h3','lk-wan3','lk-seedance-media','lk-seedance-ark']);
 async function rowFor(env,userId,id){return env.DB.prepare('SELECT * FROM generation_receipts WHERE user_id = ? AND request_id = ?').bind(userId,id).first();}
 async function modelFor(env,user,modelId){
  const row=await env.DB.prepare('SELECT * FROM server_models WHERE id = ?').bind(modelId).first();
  if(!row?.enabled)throw fail('模型未开放',403);
  if(row.vip_only&&(!user.isVip||user.vipExpiresAt&&new Date(user.vipExpiresAt).getTime()<Date.now()))throw fail('此模型需要 VIP',403);
  const model=publishModelCapability(row);
+ if(model.available&&lkVideoFamilies.has(model.family)&&model.provider==='custom')return model;
  if(!model.available||model.provider!=='duoyuanx'||model.family!=='minimax'||model.id!=='MiniMax-H3'||model.route!=='/v2/video_generation'||model.queryRoute!=='/v2/query/video_generation/{task_id}')throw fail('请配置多元 MiniMax 官方格式及 v2 生成/查询路由',403);
  return model;
 }
-async function configuration(env,deps){
- const config=await (deps.config||resolveProviderConfig)(env,'duoyuanx');
- if(!config.apiKey)throw fail('服务端未配置多元密钥',503);
+async function configuration(env,deps,provider='duoyuanx'){
+ const config=await (deps.config||resolveProviderConfig)(env,provider);
+ if(!config.apiKey)throw fail('服务端未配置供应商密钥',503);
  return {...config,baseUrl:config.baseUrl.replace(/\/+$/,'').replace(/\/v[12]$/,'')};
 }
 async function prepare(body,user,env,deps){
  const model=await modelFor(env,user,body.modelId||body.model);
- const config=await configuration(env,deps);
+ const config=await configuration(env,deps,model.provider);
+ if(lkVideoFamilies.has(model.family)&&((body.h3Operation&&body.h3Operation!=='generate')||body.sourceReceiptId))throw fail('此 LK 媒体模板只支持视频生成，不支持提示词增强或 Remix');
  let sourceTaskId;
  if(body.sourceReceiptId){
   if(!validId(body.sourceReceiptId))throw fail('源任务回执编号无效');
@@ -33,12 +43,13 @@ async function prepare(body,user,env,deps){
  if(operation!=='remix'&&body.sourceReceiptId)throw fail('只有再生成可以使用源任务');
  if(operation==='generate'||operation==='enhance')assertConfiguredOperation(model,body);
  if(operation==='remix'&&!model.resolutions.includes('2K'))throw fail('后台未开放 2K 输出',403);
- const input={...body};
+ const input={...body,...(model.family==='lk-wan3'?{references:previewWanReferences(body.references||[])}:{})};
  // Existing generate drafts already contain validated canonical routing fields.
  if(operation==='generate')for(const key of ['route','apiRoute','queryRoute','provider'])delete input[key];
- const packed=packH3Operation(input,model,sourceTaskId);
+ const packed=model.family==='lk-wan3'?packLkWan3(input,model):model.family==='lk-minimax-h3'?packLkH3(input,model):model.family.startsWith('lk-seedance-')?packLkSeedance(input,model):packH3Operation(input,model,sourceTaskId);
  const cost=operation==='generate'?Number(model.quota_cost_per_unit):model.capability.h3OperationCosts?.[operation];
  if(!Number.isInteger(cost)||cost<0)throw fail('后台尚未配置此操作的积分价格，请管理员配置 h3OperationCosts.'+operation,409);
+ if(model.family.startsWith('lk-seedance-')&&cost===0)throw fail('Seedance 尚未配置按次积分价格，不能提交上游',409);
  return {model,config,packed,cost};
 }
 export async function previewH3Task(body,user,env,deps={}){
@@ -65,7 +76,7 @@ export async function submitH3Task(body,user,env,deps={}){
  if(existing){if(existing.fingerprint!==fingerprint)throw fail('请求编号已用于其他参数',409);return {ok:true,task:publicTask(JSON.parse(existing.task_json))};}
  const {model,config,packed,cost}=await prepare(body,user,env,deps);
  if(packed.operation!=='generate'&&body.expectedCost!==cost)throw fail('请先预览报价并确认本次费用；价格变化后需重新确认',409);
- const task={id:requestId,executor:'h3-v2',modelId:model.id,operation:packed.operation,outputKind:packed.operation==='enhance'?'text':'video',status:'running',revision:1,createdAt:Date.now(),upstreams:[],provider:'duoyuanx',baseUrl:config.baseUrl,route:packed.path,queryRoute:packed.queryRoute,cost,billing:'pending',resolution:packed.body.resolution,sourceReceiptId:body.sourceReceiptId};
+ const task={id:requestId,executor:model.family==='lk-wan3'?'lk-wan3':model.family==='lk-minimax-h3'?'lk-h3':model.family.startsWith('lk-seedance-')?model.family:'h3-v2',modelId:model.id,operation:packed.operation,outputKind:packed.operation==='enhance'?'text':'video',status:'running',revision:1,createdAt:Date.now(),upstreams:[],provider:model.provider,baseUrl:config.baseUrl,route:packed.path,queryRoute:packed.queryRoute,cost,billing:'pending',resolution:packed.body.params?.resolution||packed.body.resolution,sourceReceiptId:body.sourceReceiptId};
  const inserted=await env.DB.prepare('INSERT OR IGNORE INTO generation_receipts (user_id,request_id,fingerprint,task_json,updated_at) VALUES (?,?,?,?,?)').bind(user.id,requestId,fingerprint,JSON.stringify(task),Date.now()).run();
  if(!inserted.meta?.changes)return submitH3Task(body,user,env,deps);
  const reserved={...task,billing:'reserved'};
@@ -80,14 +91,22 @@ export async function submitH3Task(body,user,env,deps={}){
  Object.assign(task,JSON.parse((await rowFor(env,user.id,requestId)).task_json));
  if(task.billing!=='reserved'){task.status='failed';task.pollError='积分不足或模型并发已满；未请求上游';task.upstreams=[{ok:false,error:task.pollError}];await save(env,user.id,task);return {ok:true,task:publicTask(task)};}
  try{
-  const response=await (deps.fetch||fetch)(config.baseUrl+packed.path,{method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify(packed.body),signal:AbortSignal.timeout(30000),redirect:'error'});
+  let upstreamPacked=packed;
+  if(model.family==='lk-wan3'){
+   try{
+    const staged=await stageWanVideoReferences(body,user,env,deps.publicOrigin);
+    if(staged!==body){const input={...staged};for(const key of ['route','apiRoute','queryRoute','provider'])delete input[key];upstreamPacked=packLkWan3(input,model);}
+   }catch(error){error.preSubmission=true;throw error;}
+  }
+  const response=await fetchWithoutRedirect(deps.fetch||fetch,config.baseUrl+upstreamPacked.path,{method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:JSON.stringify(upstreamPacked.body),signal:AbortSignal.timeout(30000)});
   const data=await response.json();
   if(!response.ok)throw fail(String(data.error?.message||data.message||'上游请求失败'),response.status);
-  if(typeof data.task_id!=='string'||!data.task_id)throw fail('未返回 task_id，提交结果未知',502);
-  task.upstreamTaskId=data.task_id;task.status='running';task.upstreams=[{ok:true,taskId:data.task_id}];
+  const upstreamId=task.executor.startsWith('lk-seedance-')?lkSeedanceTaskId(data,{ark:task.executor==='lk-seedance-ark'}):Number.isSafeInteger(data.task_id)&&data.task_id>0&&lkExecutors.has(task.executor)?String(data.task_id):data.task_id;
+  if(typeof upstreamId!=='string'||!upstreamId)throw fail('未返回 task_id，提交结果未知',502);
+  task.upstreamTaskId=upstreamId;task.status='running';task.upstreams=[{ok:true,taskId:upstreamId}];
   await save(env,user.id,task);
  }catch(error){
-  if(!task.upstreamTaskId){task.status=error.status>=400&&error.status<500?'failed':'unknown';task.submissionUnknown=task.status==='unknown';task.pollError=error.message;if(task.status==='failed'){await refund(env,user.id,task);task.upstreams=[{ok:false,error:error.message}];}await save(env,user.id,task);}
+  if(!task.upstreamTaskId){task.status=error.preSubmission||error.status>=400&&error.status<500?'failed':'unknown';task.submissionUnknown=task.status==='unknown';task.pollError=error.message;if(task.status==='failed'){await refund(env,user.id,task);task.upstreams=[{ok:false,error:error.message}];}await save(env,user.id,task);}
   else throw error; // Never hide receipt persistence failure or replay the POST.
  }
  return {ok:true,task:publicTask(task)};
@@ -95,17 +114,18 @@ export async function submitH3Task(body,user,env,deps={}){
 export async function queryH3Task(requestId,user,env,deps={}){
  if(!validId(requestId))throw fail('任务编号无效');
  const row=await rowFor(env,user.id,requestId);if(!row)return null;
- const task=JSON.parse(row.task_json);if(task.executor!=='h3-v2')return null;
+ const task=JSON.parse(row.task_json);if(task.executor!=='h3-v2'&&!lkExecutors.has(task.executor))return null;
  if(['completed','failed'].includes(task.status))return publicTask(task);
  if(!task.upstreamTaskId){return publicTask({...task,...Date.now()-task.createdAt>60000?{status:'unknown',submissionUnknown:true,pollError:'提交结果待核对，未重复提交'}:{}});}
- const config=await configuration(env,deps);
+ const config=await configuration(env,deps,task.provider);
  if(config.baseUrl!==task.baseUrl)return publicTask({...task,pollError:'供应商地址已变更，不能将原任务发往新地址'});
  try{
-  const response=await (deps.fetch||fetch)(task.baseUrl+task.queryRoute.replace('{task_id}',encodeURIComponent(task.upstreamTaskId)),{headers:{Authorization:'Bearer '+config.apiKey},signal:AbortSignal.timeout(10000),redirect:'error'});
+  const response=await fetchWithoutRedirect(deps.fetch||fetch,task.baseUrl+task.queryRoute.replace('{task_id}',encodeURIComponent(task.upstreamTaskId)),{headers:{Authorization:'Bearer '+config.apiKey},signal:AbortSignal.timeout(10000)});
   const data=await response.json();if(!response.ok)throw fail(data.error?.message||data.message||'查询失败',response.status);
-  if(data.task?.id!==task.upstreamTaskId)throw fail('查询返回了其他任务，拒绝覆盖原任务',502);
-  const result=normalizeH3Result(data,task.operation);
+  if(!lkExecutors.has(task.executor)&&data.task?.id!==task.upstreamTaskId)throw fail('查询返回了其他任务，拒绝覆盖原任务',502);
+  const result=task.executor.startsWith('lk-seedance-')?normalizeLkSeedanceResult(data,task.upstreamTaskId,{ark:task.executor==='lk-seedance-ark'}):lkExecutors.has(task.executor)?normalizeLkH3Result(data,task.upstreamTaskId):normalizeH3Result(data,task.operation);
   task.status=result.status==='processing'?'running':result.status;task.pollError=result.error;task.enhancedPrompt=result.prompt;
+  if(result.usageTokens!==undefined)task.usageTokens=result.usageTokens;
   task.upstreams=[result.url?{ok:true,taskId:task.upstreamTaskId,url:result.url}:result.status==='failed'?{ok:false,taskId:task.upstreamTaskId,error:result.error}:{ok:true,taskId:task.upstreamTaskId}];
   if(task.status==='failed')await refund(env,user.id,task);
   if(task.status==='completed')task.billing='charged';

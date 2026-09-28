@@ -1,3 +1,4 @@
+import {validateAnimationInvocation} from '../adapters/om-animation-validation.mjs';
 /** Zora Agent tool registry: skills + preview/generate control + APIs. */
 import { importedSkills } from './imported-skills.mjs';
 import { createHash, randomUUID } from 'node:crypto';
@@ -7,10 +8,13 @@ import { handleBrowserTool } from './tool-handlers/browser-tools.mjs';
 import { handleSkillTool } from './tool-handlers/skill-tools.mjs';
 import { handleOMTool } from './tool-handlers/om-tools.mjs';
 import { handleRuntimeTool } from './tool-handlers/runtime-tools.mjs';
+import {scopeRuntimeState} from './runtime-scope.mjs';
+import {createResearch, RESEARCH_TOOLS} from './research.mjs';
 import { IMAGE_SUITE_TOOLS, planImageSuite } from './image-suite.mjs';
 import {H3_TOOLS,runH3Tool} from './h3-tools.mjs';
 
 export const AGENT_TOOL_DEFS = [
+  ...RESEARCH_TOOLS,
   {type:'function',name:'om_import_media',description:'把已完成的生成结果 URL 或会话原素材复制到所选 OM 项目，返回后期工具可用的真实本地路径；保留原素材。先 query_generation_task 确认生成完成，禁止猜测 URL。url 与 referenceIndex 二选一。',parameters:{type:'object',properties:{projectId:{type:'string'},url:{type:'string'},referenceIndex:{type:'integer',minimum:1}},required:['projectId'],additionalProperties:false}},
   {type:'function',name:'query_generation_task',description:'查询原图片/视频生成回执，获取真实完成结果供后续 OM 管线使用。不会创建任务或重复扣费。使用生成工具返回的回执 id，不猜上游编号。',parameters:{type:'object',properties:{requestId:{type:'string'}},required:['requestId'],additionalProperties:false}},
   {type:'function',name:'om_list_pipelines',description:'列出 Zora 可用的 OM 本地媒体管线。先理解用户指令，自主判断是否需要 OM；需要时选择管线。管线内生成图片/视频统一调用 Zora 已配置 API，OM 只负责本地后期。',parameters:{type:'object',properties:{},additionalProperties:false}},
@@ -28,8 +32,8 @@ export const AGENT_TOOL_DEFS = [
   {type:'function',name:'browser_search',description:'在独立浏览器搜索公开互联网信息，返回当前结果页面文字与链接。',parameters:{type:'object',properties:{query:{type:'string'}},required:['query'],additionalProperties:false}},
   {type:'function',name:'browser_read',description:'读取独立浏览器当前页面的可见文字与链接，动态页面可稍后再次读取。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {type:'function',name:'local_runtime_status',description:'查看本机隔离执行环境、审批和工作流结果。',parameters:{type:'object',properties:{},additionalProperties:false}},
-  {type:'function',name:'propose_local_action',description:'申请授权工作区内列目录、搜索文本、读文件、写文件或脚本。无 Docker 时 exec 必须指定 runtime=node/python，command 为脚本正文；不指定 runtime 的旧命令仅用于 Docker。必须等待用户审批，不代表已执行。路径仅工作区相对路径；list/search 可省略路径表示工作区根目录。search.query 是纯文本匹配。',parameters:{type:'object',properties:{kind:{type:'string',enum:['read','write','exec','list','search']},path:{type:'string'},query:{type:'string'},content:{type:'string'},command:{type:'string'},runtime:{type:'string',enum:['node','python'],description:'显式选择包内本机脚本环境；command 为完整脚本，不是 shell 命令。需要逐次用户授权，无 Docker 隔离。'}},required:['kind'],additionalProperties:false}},
-  {type:'function',name:'plan_local_workflow',description:'规划本机任务依赖，依赖完成后产生下一步审批，不自动批准。不能用于付费生成或任意远程操作。',parameters:{type:'object',properties:{steps:{type:'array',items:{type:'object',properties:{id:{type:'string'},dependsOn:{type:'array',items:{type:'string'}},request:{type:'object',properties:{kind:{type:'string',enum:['read','write','exec','list','search']},path:{type:'string'},query:{type:'string'},content:{type:'string'},command:{type:'string'},runtime:{type:'string',enum:['node','python'],description:'显式选择包内本机脚本环境；command 为完整脚本，不是 shell 命令。需要逐次用户授权，无 Docker 隔离。'}},required:['kind'],additionalProperties:false}},required:['id','request'],additionalProperties:false}}},required:['steps'],additionalProperties:false}},
+  {type:'function',name:'propose_local_action',description:'申请授权工作区内建目录(mkdir)、列目录(list)、搜索文本、读文件、写文件或脚本。write 只创建文件，不能用于建目录；先 list 检查路径类型。无 Docker 时 exec 必须指定 runtime=node/python，command 为脚本正文；不指定 runtime 的旧命令仅用于 Docker。写入与脚本必须等待用户审批，不代表已执行；read/list/search 直接返回执行结果，无需逐项审批。路径仅工作区相对路径；list/search 可省略路径表示工作区根目录。search.query 是纯文本匹配。',parameters:{type:'object',properties:{kind:{type:'string',enum:['read','write','mkdir','exec','list','search']},path:{type:'string'},query:{type:'string'},content:{type:'string'},command:{type:'string'},runtime:{type:'string',enum:['node','python'],description:'显式选择包内本机脚本环境；command 为完整脚本，不是 shell 命令。需要逐次用户授权，无 Docker 隔离。'}},required:['kind'],additionalProperties:false}},
+  {type:'function',name:'plan_local_workflow',description:'规划本机任务依赖，依赖完成后产生下一步审批，不自动批准。不能用于付费生成或任意远程操作。',parameters:{type:'object',properties:{steps:{type:'array',items:{type:'object',properties:{id:{type:'string'},dependsOn:{type:'array',items:{type:'string'}},request:{type:'object',properties:{kind:{type:'string',enum:['read','write','mkdir','exec','list','search']},path:{type:'string'},query:{type:'string'},content:{type:'string'},command:{type:'string'},runtime:{type:'string',enum:['node','python'],description:'显式选择包内本机脚本环境；command 为完整脚本，不是 shell 命令。需要逐次用户授权，无 Docker 隔离。'}},required:['kind'],additionalProperties:false}},required:['id','request'],additionalProperties:false}}},required:['steps'],additionalProperties:false}},
   {
     type: 'function',
     name: 'list_skills',
@@ -131,10 +135,10 @@ export const AGENT_TOOL_DEFS = [
       properties: {
         projectId: { type: 'string' },
         tool: { type: 'string', description: '工具名：本地五件套或 om_list_tools 返回的 name' },
-        args: { type: 'object', description: '可含 instruction / attachments；instruction 为工具自然语言指令' },
+        args: { type: 'object', description: '严格按 om_describe_tool 的 inputSchema 传入参数。Piper 必须传 text（仅需朗读的正文），不能用 instruction 或 prompt 替代。', properties: { text: {type:'string', description:'Piper 需要朗读的原文'}, output_path: {type:'string'}, instruction: {type:'string'} }, additionalProperties:true },
         idempotencyKey: { type: 'string' },
       },
-      required: ['projectId', 'tool'],
+      required: ['projectId', 'tool', 'args'],
     },
   },
   {
@@ -236,13 +240,21 @@ function draftBody(args = {}) {
   return body;
 }
 
-export function createToolRunner({ skills = [], callApi, mediaModels = [], references = [], generationTasks = [], conversationId, messageId } = {}) {
+export function createToolRunner({ skills = [], callApi, mediaModels = [], references = [], generationTasks = [], conversationId, messageId, userMessage = '' } = {}) {
+  const research = createResearch({conversationId});
+  const availableMediaModels = Array.isArray(mediaModels) ? mediaModels.filter(m=>m.enabled!==false&&m.available!==false) : [];
+  const originalCallApi = callApi;
+  if (typeof originalCallApi === 'function') callApi = async request => {
+    const response = await originalCallApi(request);
+    return request.method === 'GET' && request.path === '/api/local-runtime'
+      ? scopeRuntimeState(response, conversationId) : response;
+  };
   const withReferences=body=>({...body,references: references.filter(r=>r.contentUrl).map(r=>({name:r.name,type:r.type,contentUrl:r.contentUrl}))});
   const submissions=new Map();
   const suites=new Map();
   async function submit(body,suite){
     if(references.some(r=>!r||typeof r.contentUrl!=='string'||!r.contentUrl))return {ok:false,status:400,error:'参考素材未读取成功，请重新添加原始素材'};
-    const checked=validateDraft(withReferences(body),mediaModels.length?id=>mediaModels.find(m=>m.id===id):undefined);
+    const checked=validateDraft(withReferences(body),availableMediaModels.length?id=>availableMediaModels.find(m=>m.id===id):undefined);
     if(!checked.ok)return {ok:false,status:400,error:checked.error};
     const {id,createdAt,...draft}=checked.draft;
     if(body.assetReceiptId)draft.assetReceiptId=body.assetReceiptId;
@@ -273,9 +285,10 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
     return pending;
   }
   const catalog = [...importedSkills,...(Array.isArray(skills)?skills.filter(s=>!importedSkills.some(i=>i.id===s.id)):[])];
-  const media = Array.isArray(mediaModels) ? mediaModels.map(m=>({...m,routes:m.routes||getRouteCapabilities(m)})) : [];
+  const media = availableMediaModels.map(m=>({...m,routes:m.routes||getRouteCapabilities(m)}));
 
   return async function runTool(name, args = {}) {
+    if (RESEARCH_TOOLS.some(tool=>tool.name===name)) return research(name,args);
     if(name==='om_import_media'){
       if(Boolean(args.url)===Boolean(args.referenceIndex))return {ok:false,error:'url 与 referenceIndex 必须二选一'};
       const url=args.url||(Number.isInteger(args.referenceIndex)&&references[args.referenceIndex-1]?.contentUrl);
@@ -288,7 +301,7 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
     }
     if(name==='om_prepare_pipeline'){
       const requestId=args.requestId||createHash('sha256').update(JSON.stringify([conversationId,messageId,args.pipelineId,args.instruction])).digest('hex');
-      return callApi({method:'POST',path:'/api/om/pipelines/prepare',body:{...args,requestId}});
+      return callApi({method:'POST',path:'/api/om/pipelines/prepare',body:{...args,requestId,originalInstruction:userMessage}});
     }
     if(H3_TOOLS.some(tool=>tool.name===name))return runH3Tool(name,args,{callApi,references,conversationId,messageId,generationTasks});
     if(name==='prepare_seedance_assets'){
@@ -303,7 +316,7 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
     }
     if(name==='preview_image_suite'||name==='submit_image_suite'){
       if(references.some(r=>!r?.contentUrl))return {ok:false,error:'参考素材未读取成功，请重新添加原始素材'};
-      const plan=planImageSuite(args,withReferences({}).references);
+      const plan=planImageSuite(args,withReferences({}).references,availableMediaModels.length?id=>availableMediaModels.find(m=>m.id===id):undefined);
       if(!plan.ok)return plan;
       if(name==='preview_image_suite')return {...plan,drafts:plan.drafts.map(({references,...draft})=>draft)};
       if(typeof callApi!=='function')return {ok:false,error:'API 层未就绪'};
@@ -351,6 +364,8 @@ export function createToolRunner({ skills = [], callApi, mediaModels = [], refer
     // OpenMontage tools
     const omTools = ['om_list_pipelines','om_get_pipeline','om_describe_tool','om_status', 'om_list_projects', 'om_execute_tool', 'om_start_sidecar', 'om_stop_sidecar', 'om_get_project', 'om_list_tools', 'om_list_skills', 'om_get_skill'];
     if (omTools.includes(name)) {
+      if(name==='om_execute_tool'&&['hyperframes_compose','video_compose'].includes(args.tool)&&/先[\s\S]*(?:确认|核验)[\s\S]*再[\s\S]*(?:代码|动画|渲染)/.test(userMessage))return {ok:false,error:'用户要求先确认方案或数据；本轮不能执行动画渲染，请先输出方案等待确认。'};
+      if(name==='om_execute_tool'){try{validateAnimationInvocation(args.tool,args.args||{},userMessage);}catch(error){return {ok:false,error:error.message};}}
       return handleOMTool(name, args, callApi);
     }
     if (name === 'call_api') {

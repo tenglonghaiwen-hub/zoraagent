@@ -35,7 +35,7 @@ function base64UrlDecode(str) {
  * Hash password using PBKDF2 + SHA-256
  */
 export async function hashPassword(password, saltHex = null) {
-  const cryptoObj = globalThis.crypto;
+  const cryptoObj = Reflect.get(globalThis, 'crypto');
   const salt = saltHex
     ? base64UrlDecode(saltHex)
     : cryptoObj.getRandomValues(new Uint8Array(16));
@@ -88,11 +88,12 @@ export async function verifyPassword(password, storedHash) {
  * Sign JWT token using HS256
  */
 export async function signJwt(payload, secret = 'zora-default-secret-change-in-production', expiresInSeconds = 7 * 86400) {
-  const cryptoObj = globalThis.crypto;
+  const cryptoObj = Reflect.get(globalThis, 'crypto');
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = {
     ...payload,
+    jti: cryptoObj.randomUUID(),
     iat: now,
     exp: now + expiresInSeconds,
   };
@@ -126,7 +127,7 @@ export async function verifyJwt(token, secret = 'zora-default-secret-change-in-p
   const [headerB64, payloadB64, signatureB64] = parts;
   const data = `${headerB64}.${payloadB64}`;
 
-  const cryptoObj = globalThis.crypto;
+  const cryptoObj = Reflect.get(globalThis, 'crypto');
   try {
     const key = await cryptoObj.subtle.importKey(
       'raw',
